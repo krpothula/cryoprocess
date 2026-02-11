@@ -1,0 +1,355 @@
+/**
+ * Auth Controller
+ *
+ * Handles user authentication.
+ */
+
+const jwt = require('jsonwebtoken');
+const logger = require('../utils/logger');
+const User = require('../models/User');
+const settings = require('../config/settings');
+const { validatePassword, isValidEmail } = require('../utils/security');
+const response = require('../utils/responseHelper');
+const { TIMING } = require('../config/constants');
+
+const AUTH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  maxAge: TIMING.SESSION_COOKIE_MAX_AGE,
+  path: '/'
+};
+
+const setAuthCookie = (res, token) => {
+  res.cookie('atoken', token, AUTH_COOKIE_OPTIONS);
+};
+
+/**
+ * Register new user
+ * POST /api/auth/register
+ */
+exports.register = async (req, res) => {
+  try {
+    const { username, email, password, first_name = '', last_name = '' } = req.body;
+
+    if (!username || !email || !password) {
+      return response.badRequest(res, 'Username, email, and password are required');
+    }
+
+    // Validate email format
+    if (!isValidEmail(email)) {
+      return response.badRequest(res, 'Invalid email format');
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return response.badRequest(res, passwordValidation.errors.join(', '));
+    }
+
+    // Check if user exists
+    const existingUser = await User.findOne({
+      $or: [{ username: username.toLowerCase() }, { email: email.toLowerCase() }]
+    });
+
+    if (existingUser) {
+      return response.conflict(res, 'User with this username or email already exists');
+    }
+
+    // Get next user ID
+    const userId = await User.getNextId();
+
+    // Create user
+    const user = await User.create({
+      id: userId,
+      username: username.toLowerCase(),
+      email: email.toLowerCase(),
+      password,
+      first_name,
+      last_name
+    });
+
+    // Generate token and set HttpOnly cookie
+    const token = user.generateAuthToken();
+    setAuthCookie(res, token);
+
+    logger.info(`[Auth] User registered: ${username}`);
+
+    return response.created(res, {
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('[Auth] Register error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Login
+ * POST /api/auth/login
+ */
+exports.login = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return response.badRequest(res, 'Username and password are required');
+    }
+
+    // Find user (include password for comparison)
+    const user = await User.findOne({
+      $or: [
+        { username: username.toLowerCase() },
+        { email: username.toLowerCase() }
+      ]
+    }).select('+password');
+
+    if (!user) {
+      return response.unauthorized(res, 'Invalid credentials');
+    }
+
+    // Check password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return response.unauthorized(res, 'Invalid credentials');
+    }
+
+    if (!user.is_active) {
+      return response.unauthorized(res, 'Account is disabled');
+    }
+
+    // Update last login
+    user.last_login = new Date();
+    await user.save();
+
+    // Generate token and set HttpOnly cookie
+    const token = user.generateAuthToken();
+    setAuthCookie(res, token);
+
+    logger.info(`[Auth] User logged in: ${username}`);
+
+    return response.successData(res, {
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        is_staff: user.is_staff,
+        is_superuser: user.is_superuser
+      }
+    });
+  } catch (error) {
+    logger.error('[Auth] Login error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Get current user
+ * GET /api/auth/me
+ */
+exports.getCurrentUser = async (req, res) => {
+  try {
+    // User already attached by auth middleware
+    const user = await User.findOne({ id: req.user.id }).lean();
+
+    if (!user) {
+      return response.notFound(res, 'User not found');
+    }
+
+    return response.successData(res, {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      is_staff: user.is_staff,
+      is_superuser: user.is_superuser,
+      date_joined: user.date_joined,
+      last_login: user.last_login
+    });
+  } catch (error) {
+    logger.error('[Auth] getCurrentUser error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Get password status (check if user must change password)
+ * GET /api/auth/password-status
+ */
+exports.getPasswordStatus = async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id }).lean();
+
+    if (!user) {
+      return response.notFound(res, 'User not found');
+    }
+
+    return response.success(res, {
+      must_change_password: user.must_change_password || false
+    });
+  } catch (error) {
+    logger.error('[Auth] getPasswordStatus error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Change password
+ * POST /api/auth/change-password
+ */
+exports.changePassword = async (req, res) => {
+  try {
+    const { current_password, new_password, confirm_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return response.badRequest(res, 'Current password and new password are required');
+    }
+
+    if (new_password !== confirm_password) {
+      return response.badRequest(res, 'New password and confirmation do not match');
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(new_password);
+    if (!passwordValidation.valid) {
+      return response.badRequest(res, passwordValidation.errors.join(', '));
+    }
+
+    // Get user with password
+    const user = await User.findOne({ id: req.user.id }).select('+password');
+
+    if (!user) {
+      return response.notFound(res, 'User not found');
+    }
+
+    // Verify current password
+    const isMatch = await user.comparePassword(current_password);
+    if (!isMatch) {
+      return response.unauthorized(res, 'Current password is incorrect');
+    }
+
+    // Update password
+    user.password = new_password;
+    user.must_change_password = false;
+    await user.save();
+
+    logger.info(`[Auth] Password changed for user: ${user.username}`);
+
+    return response.success(res, { message: 'Password changed successfully' });
+  } catch (error) {
+    logger.error('[Auth] changePassword error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Update user profile
+ * PUT /api/auth/profile
+ */
+exports.updateProfile = async (req, res) => {
+  try {
+    const { first_name, last_name, email } = req.body;
+
+    const user = await User.findOne({ id: req.user.id });
+    if (!user) {
+      return response.notFound(res, 'User not found');
+    }
+
+    // If email is being changed, validate and check uniqueness
+    if (email && email.toLowerCase() !== user.email) {
+      if (!isValidEmail(email)) {
+        return response.badRequest(res, 'Invalid email format');
+      }
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        return response.conflict(res, 'Email already in use');
+      }
+      user.email = email.toLowerCase();
+    }
+
+    // Update fields if provided
+    if (first_name !== undefined) user.first_name = first_name;
+    if (last_name !== undefined) user.last_name = last_name;
+
+    await user.save();
+
+    logger.info(`[Auth] Profile updated for user: ${user.username}`);
+
+    return response.successData(res, {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      is_staff: user.is_staff,
+      is_superuser: user.is_superuser
+    });
+  } catch (error) {
+    logger.error('[Auth] updateProfile error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Refresh token
+ * POST /api/auth/refresh
+ */
+exports.refreshToken = async (req, res) => {
+  try {
+    // Get token from header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return response.unauthorized(res, 'Token required');
+    }
+
+    const token = authHeader.substring(7);
+
+    // Verify token (allow expired for refresh)
+    let decoded;
+    try {
+      decoded = jwt.verify(token, settings.JWT_SECRET, { ignoreExpiration: true });
+    } catch (err) {
+      return response.unauthorized(res, 'Invalid token');
+    }
+
+    // Get user
+    const user = await User.findOne({ id: decoded.id });
+    if (!user || !user.is_active) {
+      return response.unauthorized(res, 'User not found or inactive');
+    }
+
+    // Generate new token and set HttpOnly cookie
+    const newToken = user.generateAuthToken();
+    setAuthCookie(res, newToken);
+
+    return response.success(res, { message: 'Token refreshed' });
+  } catch (error) {
+    logger.error('[Auth] refreshToken error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Logout - clear auth cookie
+ * POST /api/auth/logout
+ */
+exports.logout = (req, res) => {
+  res.clearCookie('atoken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
+  });
+  return response.success(res, { message: 'Logged out' });
+};

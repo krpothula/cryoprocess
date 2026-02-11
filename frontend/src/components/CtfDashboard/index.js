@@ -1,0 +1,685 @@
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { useBuilder } from "../../context/BuilderContext";
+import {
+  getCTFResultsApi,
+  getCTFImageWithCacheApi,
+  exportCTFSelectionApi,
+  getMicrographImageApi,
+} from "../../services/builders/ctf/ctf";
+import { getJobProgress } from "../../services/jobs";
+import { BiLoader } from "react-icons/bi";
+import {
+  FiActivity,
+  FiCheckCircle,
+  FiAlertCircle,
+  FiClock,
+  FiTerminal,
+  FiCopy,
+  FiChevronDown,
+  FiChevronUp,
+  FiList,
+  FiFilter,
+  FiSave,
+  FiImage,
+  FiZoomIn,
+  FiZoomOut,
+} from "react-icons/fi";
+import MicrographList from "./MicrographList";
+import MicrographViewer from "./MicrographViewer";
+import CTFParameterHistogram from "./CTFParameterHistogram";
+
+const CtfDashboard = () => {
+  const { selectedJob } = useBuilder();
+  const [loading, setLoading] = useState(true);
+  const [liveStats, setLiveStats] = useState(null);
+  const [results, setResults] = useState(null);
+  const [selectedMicrograph, setSelectedMicrograph] = useState(null);
+  const [powerSpectrumImage, setPowerSpectrumImage] = useState(null);
+  const [micrographImage, setMicrographImage] = useState(null);
+  const [error, setError] = useState(null);
+  const [showCommand, setShowCommand] = useState(false);
+  const [commandCopied, setCommandCopied] = useState(false);
+  const [viewerZoom, setViewerZoom] = useState(1);
+  const [activeImageTab, setActiveImageTab] = useState("micrograph");
+
+  // Zoom controls
+  const handleZoomIn = () => setViewerZoom((z) => Math.min(z + 0.25, 3));
+  const handleZoomOut = () => setViewerZoom((z) => Math.max(z - 0.25, 0.5));
+
+  // Selection and filtering state
+  const [selectedMicrographs, setSelectedMicrographs] = useState(new Set());
+
+  // Initialize filters from localStorage if available
+  const getInitialFilters = () => {
+    try {
+      if (selectedJob?.id) {
+        const saved = localStorage.getItem(`ctf_filters_${selectedJob.id}`);
+        if (saved) return JSON.parse(saved);
+      }
+    } catch (e) { /* private browsing or corrupt data */ }
+    return {
+      maxResolution: null,
+      minFOM: null,
+      maxAstigmatism: null,
+      minDefocus: null,
+      maxDefocus: null,
+    };
+  };
+
+  const [filters, setFilters] = useState(getInitialFilters);
+
+  // Export state
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(null);
+
+  // Load filters from localStorage when job changes
+  useEffect(() => {
+    if (selectedJob?.id) {
+      try {
+        const saved = localStorage.getItem(`ctf_filters_${selectedJob.id}`);
+        if (saved) {
+          setFilters(JSON.parse(saved));
+          return;
+        }
+      } catch (e) { /* private browsing or corrupt data */ }
+      // Reset filters for new job with no saved filters
+      setFilters({
+        maxResolution: null,
+        minFOM: null,
+        maxAstigmatism: null,
+        minDefocus: null,
+        maxDefocus: null,
+      });
+    }
+  }, [selectedJob?.id]);
+
+  // Auto-save filters to localStorage when they change
+  useEffect(() => {
+    if (selectedJob?.id) {
+      // Check if any filter is set (not all null)
+      const hasFilters = Object.values(filters).some(v => v !== null);
+      if (hasFilters) {
+        try { localStorage.setItem(`ctf_filters_${selectedJob.id}`, JSON.stringify(filters)); } catch (e) { /* private browsing */ }
+      }
+    }
+  }, [filters, selectedJob?.id]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    const emptyFilters = {
+      maxResolution: null,
+      minFOM: null,
+      maxAstigmatism: null,
+      minDefocus: null,
+      maxDefocus: null,
+    };
+    setFilters(emptyFilters);
+    try { if (selectedJob?.id) localStorage.removeItem(`ctf_filters_${selectedJob.id}`); } catch (e) { /* ignore */ }
+  };
+
+  // Copy command to clipboard
+  const copyCommand = () => {
+    if (selectedJob?.command) {
+      navigator.clipboard.writeText(selectedJob.command);
+      setCommandCopied(true);
+      setTimeout(() => setCommandCopied(false), 2000);
+    }
+  };
+
+  const fetchResults = useCallback(async () => {
+    if (!selectedJob?.id) return;
+
+    try {
+      setLoading(true);
+      const response = await getCTFResultsApi(selectedJob.id);
+      if (response?.data?.status === "success") {
+        setResults(response.data.data);
+        setError(null);
+      }
+    } catch (err) {
+      setError("Failed to load CTF estimation results");
+      console.error("Error fetching results:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedJob?.id]);
+
+  // Fetch progress stats (for running jobs)
+  const fetchLiveStats = useCallback(async () => {
+    if (!selectedJob?.id) return;
+
+    try {
+      const response = await getJobProgress(selectedJob.id);
+      if (response?.data?.success && response?.data?.data) {
+        const progressData = response.data.data;
+        setLiveStats(progressData);
+        setError(null);
+
+        // If job just completed, refresh results
+        if (progressData.status === "success" && selectedJob?.status === "running") {
+          fetchResults();
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching progress:", err);
+    }
+  }, [selectedJob?.id, selectedJob?.status, fetchResults]);
+
+  // Fetch power spectrum image for selected micrograph
+  const fetchPowerSpectrum = useCallback(async (micrographName) => {
+    if (!selectedJob?.id || !micrographName) return;
+
+    try {
+      const response = await getCTFImageWithCacheApi(selectedJob.id, micrographName);
+      if (response?.data?.status === "success") {
+        setPowerSpectrumImage(response.data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching power spectrum:", err);
+      setPowerSpectrumImage(null);
+    }
+  }, [selectedJob?.id]);
+
+  // Fetch micrograph image for selected micrograph
+  const fetchMicrographImage = useCallback(async (micrographName) => {
+    if (!selectedJob?.id || !micrographName) return;
+
+    try {
+      const response = await getMicrographImageApi(selectedJob.id, micrographName);
+      if (response?.data?.status === "success") {
+        setMicrographImage(response.data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching micrograph image:", err);
+      setMicrographImage(null);
+    }
+  }, [selectedJob?.id]);
+
+  useEffect(() => {
+    if (selectedJob?.id) {
+      fetchResults();
+      fetchLiveStats();
+
+      // Poll for live stats if job is running
+      const interval = setInterval(() => {
+        if (selectedJob?.status === "running") {
+          fetchLiveStats();
+        }
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
+  }, [selectedJob?.id, selectedJob?.status, fetchResults, fetchLiveStats]);
+
+  // Fetch power spectrum and micrograph image when micrograph is selected
+  useEffect(() => {
+    if (selectedMicrograph) {
+      fetchPowerSpectrum(selectedMicrograph);
+      fetchMicrographImage(selectedMicrograph);
+    }
+  }, [selectedMicrograph, fetchPowerSpectrum, fetchMicrographImage]);
+
+  // Reset zoom when micrograph changes
+  useEffect(() => {
+    setViewerZoom(1);
+  }, [selectedMicrograph]);
+
+  // Auto-select first micrograph when data loads
+  useEffect(() => {
+    if (results?.micrographs?.length > 0 && !selectedMicrograph) {
+      const firstMic = results.micrographs[0];
+      if (firstMic?.micrograph_name) {
+        setSelectedMicrograph(firstMic.micrograph_name);
+      }
+    }
+  }, [results?.micrographs, selectedMicrograph]);
+
+  // Apply filters to ALL micrographs (for accurate filter counts)
+  const filteredMicrographs = useMemo(() => {
+    const micrographs = results?.micrographs || [];
+
+    // If no micrographs, return empty
+    if (micrographs.length === 0) {
+      return [];
+    }
+
+    return micrographs.filter((m) => {
+      if (filters.maxResolution !== null && m.max_resolution > filters.maxResolution) {
+        return false;
+      }
+
+      if (filters.minFOM !== null && m.figure_of_merit < filters.minFOM) {
+        return false;
+      }
+
+      if (filters.maxAstigmatism !== null) {
+        const astigmatism = Math.abs((m.defocus_u || 0) - (m.defocus_v || 0));
+        if (astigmatism > filters.maxAstigmatism) {
+          return false;
+        }
+      }
+
+      const defocusAvg = (m.defocus_u != null && m.defocus_v != null) ? (m.defocus_u + m.defocus_v) / 2 : null;
+      if (filters.minDefocus != null && defocusAvg != null && defocusAvg < filters.minDefocus) {
+        return false;
+      }
+      if (filters.maxDefocus != null && defocusAvg != null && defocusAvg > filters.maxDefocus) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [results?.micrographs, filters]);
+
+  // Toggle micrograph selection
+  const toggleSelection = (micName) => {
+    const newSet = new Set(selectedMicrographs);
+    if (newSet.has(micName)) {
+      newSet.delete(micName);
+    } else {
+      newSet.add(micName);
+    }
+    setSelectedMicrographs(newSet);
+  };
+
+  // Reset filters (use clearFilters which also clears localStorage)
+  const resetFilters = () => {
+    clearFilters();
+  };
+
+  // Direct save filtered micrographs (without modal)
+  const handleSaveFiltered = async () => {
+    if (!selectedJob?.id || filteredMicrographs.length === 0) return;
+
+    setIsSaving(true);
+    setSaveSuccess(null);
+
+    try {
+      const micrographNames = filteredMicrographs.map((m) => m.micrograph_name);
+      const filename = `filtered_micrographs_ctf_${filteredMicrographs.length}.star`;
+      const response = await exportCTFSelectionApi(
+        selectedJob.id,
+        micrographNames,
+        filename
+      );
+
+      if (response.data?.status === "success") {
+        setSaveSuccess({
+          status: "success",
+          message: `Saved ${response.data.data?.selected_count} micrographs to ${response.data.data?.filename}`,
+          data: response.data.data
+        });
+        // Auto-hide success message after 5 seconds
+        setTimeout(() => setSaveSuccess(null), 5000);
+      }
+    } catch (err) {
+      console.error("Save failed:", err);
+      setSaveSuccess({
+        status: "error",
+        message: err.response?.data?.message || "Save failed",
+      });
+      setTimeout(() => setSaveSuccess(null), 5000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "success":
+        return <FiCheckCircle className="text-green-500 text-xl" />;
+      case "running":
+        return <FiActivity className="text-amber-500 text-xl animate-pulse" />;
+      case "error":
+        return <FiAlertCircle className="text-red-500 text-xl" />;
+      default:
+        return <FiClock className="text-yellow-500 text-xl" />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh]">
+        <BiLoader className="animate-spin text-primary text-4xl" />
+        <p className="text-lg text-black font-medium mt-4">
+          Loading CTF estimation results...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+        <FiAlertCircle className="text-red-500 text-4xl" />
+        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+      </div>
+    );
+  }
+
+  // All micrographs — react-window virtualizes the list so 20K items scrolls fine
+  const allMicrographs = results?.micrographs || [];
+  const totalMicrographs = allMicrographs.length;
+
+  return (
+    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+      {/* Header */}
+      <div className="bg-white rounded-lg p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {getStatusIcon(selectedJob?.status)}
+            <div>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+                CtfEstimation/{selectedJob?.job_name || "Job"}
+              </h2>
+              <p style={{
+                fontSize: "12px",
+                fontWeight: 500,
+                color: selectedJob?.status === "success"
+                  ? "#16a34a"
+                  : selectedJob?.status === "error"
+                  ? "#dc2626"
+                  : selectedJob?.status === "running"
+                  ? "#f59e0b"
+                  : "#ca8a04"
+              }}>
+                {selectedJob?.status === "success"
+                  ? "Success"
+                  : selectedJob?.status === "running"
+                  ? "Running..."
+                  : selectedJob?.status === "pending"
+                  ? "Pending"
+                  : selectedJob?.status === "error"
+                  ? "Error"
+                  : selectedJob?.status}
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        {/* RELION Command Section */}
+        {selectedJob?.command && (
+          <div className="mt-3 pt-3 border-t">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setShowCommand(!showCommand)}
+                className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+              >
+                <FiTerminal className="text-gray-400" size={12} />
+                <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>RELION Command</span>
+                {showCommand ? (
+                  <FiChevronUp className="text-gray-400" size={12} />
+                ) : (
+                  <FiChevronDown className="text-gray-400" size={12} />
+                )}
+              </button>
+              {showCommand && (
+                <button
+                  onClick={copyCommand}
+                  className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                  title="Copy command"
+                >
+                  <FiCopy className="text-gray-400" size={12} />
+                  {commandCopied && (
+                    <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                  )}
+                </button>
+              )}
+            </div>
+            {showCommand && (
+              <div
+                className="mt-2 overflow-x-auto font-mono"
+                style={{
+                  fontSize: '9px',
+                  color: '#475569',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  lineHeight: '1.4'
+                }}
+              >
+                {selectedJob.command}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Stats Card */}
+      <div className="bg-white rounded-lg p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FiImage className="text-gray-400" size={14} />
+            <span style={{ fontSize: "12px", color: "#64748b" }}>Micrographs:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+              {liveStats?.processed ?? results?.summary?.processed ?? 0}/{liveStats?.total ?? results?.summary?.total ?? 0}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: "12px", color: "#64748b" }}>Dose-Weight:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+              {selectedJob?.parameters?.useMicrographWithoutDoseWeighting === "Yes" ? "No" : "Yes"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: "12px", color: "#64748b" }}>Exhaustive Search:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+              {selectedJob?.parameters?.useExhaustiveSearch || "No"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: "12px", color: "#64748b" }}>FFT Box Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+              {selectedJob?.parameters?.fftBoxSize || 512}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - Two Column Layout */}
+      <div className="flex border border-gray-200 rounded-lg overflow-hidden" style={{ height: "411px" }}>
+          {/* Micrograph List */}
+          <div className="flex-1 min-w-0 border-r border-gray-200 flex flex-col">
+            <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
+              <FiList className="text-gray-400" size={13} />
+              <span className="text-xs font-bold text-gray-600">Processed Micrographs</span>
+            </div>
+            <div className="flex-1 min-h-0">
+              <MicrographList
+                micrographs={allMicrographs}
+                latestMicrographs={liveStats?.latest_micrographs}
+                selectedMicrograph={selectedMicrograph}
+                onSelect={setSelectedMicrograph}
+                selectedMicrographs={selectedMicrographs}
+                onToggleSelection={toggleSelection}
+                selectionMode={false}
+              />
+            </div>
+          </div>
+
+          {/* Micrograph and Power Spectrum Viewer - Square */}
+          <div className="bg-white flex flex-col" style={{ width: "411px", flexShrink: 0 }}>
+            <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
+              <FiImage className="text-gray-400" size={13} />
+              <span className="text-xs font-bold text-gray-600">Viewer</span>
+              <button onClick={handleZoomOut} className="p-0.5 hover:bg-gray-100 rounded ml-1" title="Zoom Out">
+                <FiZoomOut className="text-gray-600" size={12} />
+              </button>
+              <span className="text-[9px] text-gray-500">{Math.round(viewerZoom * 100)}%</span>
+              <button onClick={handleZoomIn} className="p-0.5 hover:bg-gray-100 rounded" title="Zoom In">
+                <FiZoomIn className="text-gray-600" size={12} />
+              </button>
+              {/* Image type tabs */}
+              <div className="flex bg-gray-100 rounded p-0.5 ml-auto">
+                <button
+                  onClick={() => setActiveImageTab("micrograph")}
+                  className={`px-2 py-0.5 text-[10px] rounded transition-all ${
+                    activeImageTab === "micrograph"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Micrograph
+                </button>
+                <button
+                  onClick={() => setActiveImageTab("spectrum")}
+                  className={`px-2 py-0.5 text-[10px] rounded transition-all ${
+                    activeImageTab === "spectrum"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Power Spectrum
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 relative">
+              <MicrographViewer
+                micrographImage={micrographImage}
+                powerSpectrumImage={powerSpectrumImage}
+                selectedMicrograph={selectedMicrograph}
+                micrographData={allMicrographs.find(m => m.micrograph_name === selectedMicrograph)}
+                zoom={viewerZoom}
+                activeTab={activeImageTab}
+              />
+            </div>
+          </div>
+      </div>
+
+      {/* Select Best Micrographs Section */}
+      <div className="bg-white rounded-lg p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-gray-700 flex items-center gap-2" style={{ fontSize: "12px" }}>
+            <FiFilter className="text-green-500" size={13} />
+            Select Best Micrographs
+          </h3>
+          <button
+            onClick={resetFilters}
+            className="text-blue-500 hover:text-blue-700"
+            style={{ fontSize: "12px" }}
+          >
+            Reset Filters
+          </button>
+        </div>
+        <div className="flex items-center justify-between">
+          {/* Defocus Range Inputs */}
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>Defocus (Å)</span>
+            <input
+              type="number"
+              placeholder="Min"
+              value={filters.minDefocus != null ? Math.round(filters.minDefocus) : ""}
+              onChange={(e) => setFilters({ ...filters, minDefocus: e.target.value ? parseFloat(e.target.value) : null })}
+              className="w-20 px-2 py-1 border border-gray-200 rounded focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+              style={{ fontSize: '12px' }}
+            />
+            <span style={{ fontSize: "11px", color: "#cbd5e1" }}>—</span>
+            <input
+              type="number"
+              placeholder="Max"
+              value={filters.maxDefocus != null ? Math.round(filters.maxDefocus) : ""}
+              onChange={(e) => setFilters({ ...filters, maxDefocus: e.target.value ? parseFloat(e.target.value) : null })}
+              className="w-20 px-2 py-1 border border-gray-200 rounded focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+              style={{ fontSize: '12px' }}
+            />
+          </div>
+
+          {/* Micrograph Count */}
+          <div className="flex items-center gap-1.5">
+            <span style={{ fontSize: "20px", fontWeight: 700, color: "#2563eb", lineHeight: 1 }}>{filteredMicrographs.length}</span>
+            <span style={{ fontSize: "13px", color: "#94a3b8", fontWeight: 500 }}>/</span>
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "#64748b", lineHeight: 1 }}>{totalMicrographs}</span>
+            <span style={{ fontSize: "11px", color: "#94a3b8", marginLeft: "2px" }}>micrographs</span>
+          </div>
+
+          {/* Save Button + Message */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSaveFiltered}
+              disabled={filteredMicrographs.length === 0 || isSaving}
+              className={`flex items-center gap-2 px-5 py-1.5 font-semibold rounded-lg transition-all ${
+                filteredMicrographs.length > 0 && !isSaving
+                  ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              }`}
+              style={{ fontSize: "12px" }}
+              title="Save filtered micrographs to STAR file"
+            >
+              {isSaving ? (
+                <>
+                  <BiLoader className="animate-spin" size={13} />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <FiSave size={13} />
+                  <span>Save Selection</span>
+                </>
+              )}
+            </button>
+            {saveSuccess && (
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                saveSuccess.status === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+              }`}>
+                {saveSuccess.status === "success" ? (
+                  <FiCheckCircle size={13} />
+                ) : (
+                  <FiAlertCircle size={13} />
+                )}
+                <span style={{ fontSize: "12px" }}>{saveSuccess.message}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Parameter Distribution Histograms - 4 side by side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <CTFParameterHistogram
+          micrographs={allMicrographs}
+          paramKey="defocus_avg"
+          title="Defocus Range"
+          unit="Å"
+          color="blue"
+          rangeFilter
+          filterMinValue={filters.minDefocus}
+          filterMaxValue={filters.maxDefocus}
+          onFilterMinChange={(val) => setFilters(f => ({ ...f, minDefocus: val != null ? Math.round(val) : null }))}
+          onFilterMaxChange={(val) => setFilters(f => ({ ...f, maxDefocus: val != null ? Math.round(val) : null }))}
+        />
+        <CTFParameterHistogram
+          micrographs={allMicrographs}
+          paramKey="max_resolution"
+          title="Resolution (lower is better)"
+          unit="Å"
+          color="green"
+          filterValue={filters.maxResolution}
+          filterType="max"
+          onFilterChange={(val) => setFilters(f => ({ ...f, maxResolution: val }))}
+        />
+        <CTFParameterHistogram
+          micrographs={allMicrographs}
+          paramKey="figure_of_merit"
+          title="Figure of Merit (higher is better)"
+          unit=""
+          color="purple"
+          filterValue={filters.minFOM}
+          filterType="min"
+          onFilterChange={(val) => setFilters(f => ({ ...f, minFOM: val }))}
+        />
+        <CTFParameterHistogram
+          micrographs={allMicrographs}
+          paramKey="astigmatism"
+          title="Astigmatism (lower is better)"
+          unit="Å"
+          color="orange"
+          filterValue={filters.maxAstigmatism}
+          filterType="max"
+          onFilterChange={(val) => setFilters(f => ({ ...f, maxAstigmatism: val }))}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default CtfDashboard;

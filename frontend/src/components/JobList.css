@@ -1,0 +1,107 @@
+/* ============================================
+   MODERN JOB LIST STYLES
+   Clean, Professional Pipeline Sidebar
+   ============================================ */
+
+.joblist {
+  background: #ffffff;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+/* Job List Items Container */
+.joblist-items {
+  list-style-type: none;
+  padding: 4px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+}
+
+.joblist-items li {
+  margin: 0;
+}
+
+/* Individual Job Item */
+.joblist-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  transition: all 150ms ease;
+  text-align: left;
+}
+
+.joblist-item:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-left-color: #cbd5e1;
+}
+
+/* Active State - Blue border + subtle background */
+.joblist-item-active {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+  border-left-color: #3b82f6;
+}
+
+.joblist-item-active:hover {
+  background: #dbeafe;
+  color: #2563eb;
+  border-left-color: #3b82f6;
+}
+
+/* Label */
+.joblist-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Scrollbar */
+.joblist::-webkit-scrollbar {
+  width: 6px;
+}
+
+.joblist::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.joblist::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.joblist::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Focus States for Accessibility */
+.joblist-item:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.joblist-item-active:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}

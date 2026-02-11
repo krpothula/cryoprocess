@@ -1,0 +1,146 @@
+import axiosInstance from "../config";
+
+const getJobsApi = (projectId = "", skip = 0, limit = 10) => {
+  return axiosInstance.get(
+    `/jobs?project_id=${projectId}&skip=${skip}&limit=${limit}`
+  );
+};
+
+const getFilesApi = (projectId = "", jobId = "") => {
+  return axiosInstance.get(
+    `/api/download/?project_id=${projectId}&job_id=${jobId}`
+  );
+};
+
+const getLogsApi = (projectId = "", jobId = "") => {
+  return axiosInstance.get(
+    `/api/import/logs?project_id=${projectId}&job_id=${jobId}`
+  );
+};
+
+const getGroupedFilesApi = (projectId = "", type = "") => {
+  return axiosInstance.get(
+    `/grouping/files/?project_id=${projectId}&type=${type}`
+  );
+};
+const getGroupedMrcFilesApi = (projectId = "", type = "") => {
+  return axiosInstance.get(
+    `/listing/mrcfiles/?project_id=${projectId}&type=${type}`
+  );
+};
+
+const getMrcMapsApi = (projectId = "", type = "") => {
+  return axiosInstance.get(
+    `/listing/mrcmaps/?project_id=${projectId}&type=${type}`
+  );
+};
+
+const getJobsTreeApi = (projectId = "") => {
+  return axiosInstance.get(`/api/jobs/tree?project_id=${projectId}`);
+};
+
+/**
+ * Get star files from any pipeline stage with job metadata.
+ * Generic API for all job types to select input files from previous stages.
+ * @param {string} projectId - Project ID
+ * @param {string} stage - Stage name (Import, Motion, CTF, etc.)
+ */
+const getStageStarFilesApi = (projectId = "", stage = "") => {
+  return axiosInstance.get(`/api/stage-files/?project_id=${projectId}&stage=${stage}`);
+};
+
+/**
+ * Get MRC files from any pipeline stage with job metadata.
+ * Generic API for all job types to select reference maps from previous stages.
+ * @param {string} projectId - Project ID
+ * @param {string} stage - Stage name (InitialModel, Class3D, AutoRefine, etc.)
+ */
+const getStageMrcFilesApi = (projectId = "", stage = "") => {
+  return axiosInstance.get(`/api/stage-mrc-files/?project_id=${projectId}&stage=${stage}`);
+};
+
+/**
+ * Get optimiser files from any pipeline stage for continuing stalled jobs.
+ * Returns _optimiser.star files with latest iteration from each job.
+ * @param {string} projectId - Project ID
+ * @param {string} stage - Stage name (Class2D, Class3D, AutoRefine, InitialModel)
+ */
+const getStageOptimiserFilesApi = (projectId = "", stage = "") => {
+  return axiosInstance.get(`/api/stage-optimiser-files/?project_id=${projectId}&stage=${stage}`);
+};
+
+/**
+ * Get particle metadata from a STAR file.
+ * Returns box size, pixel size, and suggested mask diameter.
+ * @param {string} projectId - Project ID
+ * @param {string} starFile - Path to particles.star file
+ */
+const getParticleMetadataApi = (projectId = "", starFile = "") => {
+  return axiosInstance.get(`/api/particle-metadata/?project_id=${projectId}&star_file=${encodeURIComponent(starFile)}`);
+};
+
+/**
+ * Browse project folder directly on the filesystem.
+ * Returns list of files and folders in the specified path.
+ * @param {string} projectId - Project ID
+ * @param {string} path - Relative path within project (empty for root)
+ * @param {string} extensions - Comma-separated file extensions to filter (e.g., ".mrc,.map")
+ */
+const browseFolderApi = (projectId = "", path = "", extensions = "") => {
+  let url = `/api/browse-folder/?project_id=${projectId}&path=${encodeURIComponent(path)}`;
+  if (extensions) {
+    url += `&extensions=${encodeURIComponent(extensions)}`;
+  }
+  return axiosInstance.get(url);
+};
+
+/**
+ * Get job details including parameters.
+ * Used for copying job parameters to a new job.
+ * @param {string} jobId - Job ID
+ */
+const getJobDetailsApi = (jobId = "") => {
+  return axiosInstance.get(`/api/jobs/${jobId}`);
+};
+
+/**
+ * Get output files and downstream suggestions for a completed job.
+ * Used when user clicks a job in the tree to auto-populate downstream builder inputs.
+ * @param {string} jobId - Job ID
+ */
+const getJobOutputsApi = (jobId = "") => {
+  return axiosInstance.get(`/api/jobs/${jobId}/outputs`);
+};
+
+/**
+ * Get output files from completed jobs of specified stages (database-backed).
+ * Replaces filesystem-scanning getStageStarFilesApi/getStageMrcFilesApi.
+ * @param {string} projectId - Project ID
+ * @param {string} stages - Comma-separated stage names (e.g., "Extract,Subset,ManualSelect")
+ * @param {string} fileType - Filter by file type: 'star', 'mrc', 'cif', 'pdb' (optional)
+ * @param {string} role - Filter by semantic role: 'particlesStar', 'referenceMrc', etc. (optional)
+ */
+const getStageOutputFilesApi = (projectId = "", stages = "", fileType = "", role = "") => {
+  let url = `/api/jobs/stage-outputs?project_id=${projectId}&stages=${encodeURIComponent(stages)}`;
+  if (fileType) url += `&file_type=${fileType}`;
+  if (role) url += `&role=${role}`;
+  return axiosInstance.get(url);
+};
+
+export {
+  getJobsApi,
+  getFilesApi,
+  getLogsApi,
+  getGroupedFilesApi,
+  getGroupedMrcFilesApi,
+  getMrcMapsApi,
+  getJobsTreeApi,
+  getStageStarFilesApi,
+  getStageMrcFilesApi,
+  getStageOptimiserFilesApi,
+  getParticleMetadataApi,
+  browseFolderApi,
+  getJobDetailsApi,
+  getJobOutputsApi,
+  getStageOutputFilesApi,
+};

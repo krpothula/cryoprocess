@@ -1,0 +1,22 @@
+If you use CryoProcess in your research, please cite:
+
+Pothula, K. (2025). CryoProcess: A Web-Based Interface for CryoEM
+Data Processing with RELION.
+
+BibTeX:
+@software{cryoprocess2025,
+  author = {Pothula, Karunakar},
+  title = {CryoProcess: A Web-Based Interface for CryoEM Data Processing},
+  year = {2025},
+  url = {https://github.com/kpothula/cryoprocess}
+}
+
+Additionally, please cite RELION:
+
+Scheres, S.H.W. (2012). RELION: Implementation of a Bayesian approach to
+cryo-EM structure determination. Journal of Structural Biology, 180(3), 519-530.
+https://doi.org/10.1016/j.jsb.2012.09.006
+
+Zivanov, J., et al. (2018). New tools for automated high-resolution cryo-EM
+structure determination in RELION-3. eLife 7:e42166.
+https://doi.org/10.7554/eLife.42166

@@ -1,0 +1,119 @@
+/**
+ * Bayesian Polishing Job Builder
+ *
+ * Builds RELION relion_motion_refine commands for per-particle motion correction.
+ */
+
+const path = require('path');
+const logger = require('../utils/logger');
+const BaseJobBuilder = require('./baseBuilder');
+const {
+  getMpiProcs,
+  getThreads,
+  getIntParam,
+  getFloatParam,
+  getBoolParam,
+  getParam
+} = require('../utils/paramHelper');
+
+class PolishBuilder extends BaseJobBuilder {
+  constructor(data, project, user) {
+    super(data, project, user);
+    this.stageName = 'Polish';
+  }
+
+  // Bayesian polishing is CPU-only (no GPU support)
+  get supportsGpu() {
+    return false;
+  }
+
+  validate() {
+    // Accept both frontend names (particlesFile) and backend names (inputParticles)
+    const inputParticles = getParam(this.data, ['particlesFile', 'inputParticles', 'input_particles'], null);
+    let result = this.validateFileExists(inputParticles, 'Input particles STAR file');
+    if (!result.valid) {
+      return result;
+    }
+
+    // Accept both frontend names (micrographsFile) and backend names (inputMovies)
+    const inputMovies = getParam(this.data, ['micrographsFile', 'inputMovies', 'input_movies'], null);
+    result = this.validateFileExists(inputMovies, 'Input movies STAR file');
+    if (!result.valid) {
+      return result;
+    }
+
+    logger.info(`[Polish] Validation passed | input: ${inputParticles}`);
+    return { valid: true, error: null };
+  }
+
+  buildCommand(outputDir, jobName) {
+    const relOutputDir = this.makeRelative(outputDir);
+    const data = this.data;
+
+    // Get MPI and thread settings using paramHelper
+    const mpiProcs = getMpiProcs(data);
+    const threads = getThreads(data);
+
+    // Bayesian polishing is CPU-only (no GPU support)
+    const gpuEnabled = false;
+
+    // Build command with MPI if requested (using configurable launcher)
+    const cmd = this.buildMpiCommand('relion_motion_refine', mpiProcs, gpuEnabled);
+
+    // Core arguments - accept both frontend and backend parameter names
+    const inputParticles = getParam(data, ['particlesFile', 'inputParticles', 'input_particles'], null);
+    cmd.push('--i', this.makeRelative(this.resolveInputPath(inputParticles)));
+    cmd.push('--o', relOutputDir + path.sep);
+
+    // Corrected micrographs - accept both frontend and backend parameter names
+    const inputMovies = getParam(data, ['micrographsFile', 'inputMovies', 'input_movies'], null);
+    if (inputMovies) {
+      cmd.push('--corr_mic', this.makeRelative(this.resolveInputPath(inputMovies)));
+    }
+
+    // PostProcess FSC file - accept both frontend and backend parameter names
+    const postprocessStar = getParam(data, ['postProcessStarFile', 'postprocessStar', 'postprocess_star'], null);
+    if (postprocessStar) {
+      cmd.push('--f', this.makeRelative(this.resolveInputPath(postprocessStar)));
+    }
+
+    // Frame range - accept both frontend and backend parameter names
+    cmd.push('--first_frame', String(getIntParam(data, ['firstMovieFrame', 'firstFrame', 'first_frame'], 1)));
+    cmd.push('--last_frame', String(getIntParam(data, ['lastMovieFrame', 'lastFrame', 'last_frame'], -1)));
+
+    // Motion sigma parameters
+    if (getBoolParam(data, ['trainOptimalBfactors'], false)) {
+      cmd.push('--params3');
+      cmd.push('--align_frac', '0.5');
+      cmd.push('--eval_frac', '0.5');
+    } else {
+      cmd.push('--s_vel', String(getFloatParam(data, ['sigmaVelocity'], 0.2)));
+      cmd.push('--s_div', String(getFloatParam(data, ['sigmaDivergence'], 5000)));
+      cmd.push('--s_acc', String(getFloatParam(data, ['sigmaAcceleration'], 2)));
+    }
+
+    // Combine frames for polished particles
+    if (getBoolParam(data, ['performBfactorWeighting'], true)) {
+      cmd.push('--combine_frames');
+      cmd.push('--bfac_minfreq', String(getFloatParam(data, ['minResolutionBfac'], 20)));
+      const maxRes = getFloatParam(data, ['maxResolutionBfac'], -1);
+      if (maxRes > 0) {
+        cmd.push('--bfac_maxfreq', String(maxRes));
+      }
+    }
+
+    // Threads
+    cmd.push('--j', String(threads));
+
+    // Pipeline control
+    cmd.push('--pipeline_control', path.resolve(outputDir) + path.sep);
+
+    // Additional arguments
+    this.addAdditionalArguments(cmd);
+
+    logger.info(`[Polish] Command built | ${cmd.join(' ')}`);
+    return cmd;
+  }
+}
+
+module.exports = PolishBuilder;

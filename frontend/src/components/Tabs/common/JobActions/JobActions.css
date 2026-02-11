@@ -1,0 +1,335 @@
+.job-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.job-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #ffffff;
+  color: #64748b;
+}
+
+.job-action-btn svg {
+  flex-shrink: 0;
+}
+
+.job-action-btn.logs-btn {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #3b82f6;
+}
+
+.job-action-btn.logs-btn:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.job-action-btn.more-btn {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+}
+
+.job-action-btn.more-btn:hover {
+  background: #f1f5f9;
+  color: #475569;
+  border-radius: 3px;
+}
+
+/* Menu Container */
+.job-actions-menu-container {
+  position: relative;
+}
+
+/* Overlay to close menu when clicking outside */
+.job-actions-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+}
+
+/* Dropdown Menu */
+.job-actions-dropdown {
+  position: fixed;
+  margin-top: 4px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  z-index: 9999;
+  min-width: 180px;
+  overflow: visible;
+}
+
+/* Menu List */
+.job-actions-menu-list {
+  padding: 4px 0;
+}
+
+.job-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: #374151;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.job-menu-item:hover {
+  background: #f3f4f6;
+}
+
+.job-menu-item svg {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.job-menu-cancel {
+  color: #f59e0b;
+}
+
+.job-menu-cancel:hover {
+  background: #fffbeb;
+}
+
+.job-menu-finished {
+  color: #10b981;
+}
+
+.job-menu-finished:hover {
+  background: #ecfdf5;
+}
+
+.job-menu-error {
+  color: #ef4444;
+}
+
+.job-menu-error:hover {
+  background: #fef2f2;
+}
+
+.job-menu-delete {
+  color: #dc2626;
+}
+
+.job-menu-delete:hover {
+  background: #fef2f2;
+}
+
+.job-menu-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 4px 0;
+}
+
+/* Confirmation Dialog */
+.job-confirm-dialog {
+  min-width: 280px;
+}
+
+.job-confirm-header {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.job-confirm-delete {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.job-confirm-finished {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.job-confirm-error {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.job-confirm-cancel {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.job-confirm-body {
+  padding: 12px 16px;
+}
+
+.job-confirm-instruction {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.job-confirm-code {
+  display: block;
+  padding: 8px 10px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Monaco', monospace;
+  font-size: 12px;
+  color: #374151;
+  margin-bottom: 12px;
+  word-break: break-all;
+}
+
+.job-confirm-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', 'Monaco', monospace;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.job-confirm-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.job-confirm-error {
+  margin: 8px 0 0 0;
+  padding: 6px 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.job-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.job-confirm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 70px;
+}
+
+.job-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.job-confirm-btn-cancel {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+
+.job-confirm-btn-cancel:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.job-confirm-btn-delete {
+  background: #dc2626;
+  border: 1px solid #dc2626;
+  color: #ffffff;
+}
+
+.job-confirm-btn-delete:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.job-confirm-btn-finished {
+  background: #059669;
+  border: 1px solid #059669;
+  color: #ffffff;
+}
+
+.job-confirm-btn-finished:hover:not(:disabled) {
+  background: #047857;
+}
+
+.job-confirm-btn-error {
+  background: #ef4444;
+  border: 1px solid #ef4444;
+  color: #ffffff;
+}
+
+.job-confirm-btn-error:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+/* Spin animation */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Modal Content */
+.modal-content {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+/* Logs Modal */
+.logs-modal {
+  width: 90%;
+  max-width: 900px;
+}

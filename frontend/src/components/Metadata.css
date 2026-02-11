@@ -1,0 +1,19 @@
+/* Metadata.css */
+.metadata {
+  padding: 10px;
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.metadata h4 {
+  margin-bottom: 5px;
+  font-size: 1.2em;
+}
+
+.metadata p {
+  font-size: 1em;
+  color: #333;
+}
+

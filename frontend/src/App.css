@@ -1,0 +1,408 @@
+/* ============================================
+   MODERN APP LAYOUT
+   Clean, Professional Grid Layout - White Theme
+   ============================================ */
+
+/* Navigation */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+}
+
+/* Main Layout Grid - Job Tree overlays on dashboard */
+.App {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: calc(100vh - 48px);
+  gap: 0;
+  padding: 0;
+  background-color: #ffffff;
+  grid-template-areas: "left-panel right-panel";
+  position: relative;
+}
+
+.App1 {
+  display: grid;
+  height: calc(100vh - 48px);
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 0;
+  padding: 0;
+  background-color: #ffffff;
+  grid-template-areas: "right-panel left-panel";
+  position: relative;
+}
+
+/* Layout when Job Tree is hidden - same as above */
+.App.no-tree {
+  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-areas: "left-panel right-panel";
+}
+
+.App1.no-tree {
+  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-areas: "right-panel left-panel";
+}
+
+/* Panel Styles - White with Border Separation */
+.left-panel {
+  grid-area: left-panel;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+  height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.left-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.left-panel::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.left-panel::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.left-panel::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.right-panel {
+  grid-area: right-panel;
+  background: #ffffff;
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+  height: calc(100vh - 48px);
+}
+
+.right-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.right-panel::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.right-panel::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.right-panel::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Job Tree Panel - Overlays on dashboard (25% width) */
+.third-panel {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: 25%;
+  min-width: 300px;
+  max-width: 450px;
+  height: calc(100vh - 48px);
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  overflow: visible;
+  z-index: 40;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.08);
+}
+
+/* For App1 layout (reversed), position on left */
+.App1 .third-panel {
+  right: auto;
+  left: 220px;
+  border-left: none;
+  border-right: 1px solid #e2e8f0;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Expand button for tree panel */
+.expand-btn {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 100 !important;
+  padding: 0 !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 50% !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.third-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.third-panel::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.third-panel::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 4px;
+}
+
+.third-panel::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Section Styles */
+.top-section,
+.bottom-section {
+  padding: 16px;
+}
+
+/* Custom Scrollbar - Hidden */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Thin Scrollbar */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ReactFlow Attribution Hidden */
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* Modern Card Component */
+.panel-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  overflow: hidden;
+}
+
+.panel-card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.panel-card-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.panel-card-body {
+  padding: 16px 20px;
+}
+
+/* Panel Header */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.panel-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* List Items */
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.list-item:hover {
+  background: #f8fafc;
+}
+
+.list-item:last-child {
+  border-bottom: none;
+}
+
+.list-item.active {
+  background: #eff6ff;
+  border-left: 3px solid #166088;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: #64748b;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.empty-state-text {
+  font-size: 14px;
+  color: #64748b;
+  max-width: 280px;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Status Indicators */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.success { background: #10b981; }
+.status-dot.warning { background: #f59e0b; }
+.status-dot.error { background: #ef4444; }
+.status-dot.pending { background: #64748b; }
+.status-dot.running {
+  background: #3b82f6;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Dividers */
+.divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 16px 0;
+}
+
+/* Action Buttons in Panels */
+.panel-actions {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1200px) {
+  .App {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  .third-panel {
+    width: 30%;
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 992px) {
+  .App {
+    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-areas: "left-panel right-panel";
+    padding: 0;
+    gap: 0;
+  }
+
+  .App1 {
+    grid-template-columns: minmax(0, 1fr) 180px;
+    grid-template-areas: "right-panel left-panel";
+  }
+
+  .left-panel {
+    border-right: 1px solid #e2e8f0;
+    height: calc(100vh - 48px);
+    max-height: none;
+  }
+
+  .right-panel {
+    height: calc(100vh - 48px);
+    min-height: auto;
+  }
+
+  .third-panel {
+    width: 40%;
+    min-width: 250px;
+    max-width: 350px;
+  }
+
+  .App1 .third-panel {
+    left: 180px;
+  }
+}

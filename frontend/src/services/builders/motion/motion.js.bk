@@ -1,0 +1,30 @@
+import axiosInstance from "../../config";
+
+const getPrevFilesApi = (projectId = "", jobId = "", type = 1) => {
+  return axiosInstance.get(
+    `/api/files/?project_id=${projectId}&job_id=${jobId}&type=${type}`
+  );
+};
+
+const getMCFilesApi = (projectId = "", jobId = "") => {
+  return axiosInstance.get(
+    `/api/download?project_id=${projectId}&job_id=${jobId}`
+  );
+};
+
+const motionCorrectionAPI = (payload = {}) => {
+  return axiosInstance.post(`/api/motion-correction/`, payload);
+};
+
+const getMotionLogsApi = (projectId = "", jobId = "") => {
+  return axiosInstance.get(
+    `/motion/logs?project_id=${projectId}&job_id=${jobId}`
+  );
+};
+
+export {
+  getPrevFilesApi,
+  motionCorrectionAPI,
+  getMCFilesApi,
+  getMotionLogsApi,
+};
