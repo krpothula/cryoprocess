@@ -149,7 +149,11 @@ const liveSessionSchema = new mongoose.Schema({
     enabled: { type: Boolean, default: false },
     num_classes: { type: Number, default: 50 },
     particle_threshold: { type: Number, default: 5000 },
-    batch_interval_ms: { type: Number, default: 3600000 } // 1 hour
+    batch_interval_ms: { type: Number, default: 3600000 }, // 1 hour
+    particle_diameter: { type: Number, default: 200 },
+    iterations: { type: Number, default: 200 },
+    use_vdam: { type: Boolean, default: true },
+    vdam_mini_batches: { type: Number, default: 200 }
   },
 
   // Quality filtering thresholds

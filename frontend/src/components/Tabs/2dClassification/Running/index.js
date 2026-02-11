@@ -15,6 +15,7 @@ const Running = ({
         handleRangeChange={handleRangeChange}
         dropdownOptions={dropdownOptions}
         computeProfile={JOB_COMPUTE_PROFILES.class_2d}
+        disableMpi={formData.useVDAM === "Yes"}
       />
     </div>
   );

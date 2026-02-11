@@ -93,6 +93,14 @@ const Autopicking = ({
         onChange={handleInputChange}
         disabled={isLoG}
       />
+      <SimpleInput
+        label="Which GPUs to use:"
+        placeholder=""
+        name="gpuToUse"
+        onChange={handleInputChange}
+        value={formData.gpuToUse}
+        disabled={!isEnable3}
+      />
       {isLoG && (
         <div className="flex flex-wrap items-start">
           <p className="min-w-[30%]"></p>
@@ -120,14 +128,6 @@ const Autopicking = ({
           </div>
         </div>
       )}
-      <SimpleInput
-        label="Which GPUs to use:"
-        placeholder=""
-        name="gpuToUse"
-        onChange={handleInputChange}
-        value={formData.gpuToUse}
-        disabled={!isEnable3}
-      />
     </div>
   );
 };

@@ -156,6 +156,13 @@ const DClassification = () => {
       });
   };
 
+  // Force MPI to 1 when VDAM is enabled (VDAM does not support multiple MPI processes)
+  useEffect(() => {
+    if (formData.useVDAM === "Yes") {
+      setFormData(prev => ({ ...prev, runningmpi: 1, numberOfMpiProcs: 1, mpiProcs: 1 }));
+    }
+  }, [formData.useVDAM]);
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     // onSelectTab(tab)
@@ -281,6 +288,34 @@ const DClassification = () => {
           formData={formData}
           activeTab={activeTab}
           isLoading={isLoading}
+          previewComponent={
+            formData.useVDAM === "Yes" ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "10px 14px",
+                  marginTop: "10px",
+                  marginLeft: "5px",
+                  backgroundColor: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  borderRadius: "8px",
+                  color: "#dc2626",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  lineHeight: 1.4,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                VDAM algorithm requires exactly 1 MPI process. Use threads and GPUs for parallelism.
+              </div>
+            ) : null
+          }
         />
       </form>
 

@@ -1462,16 +1462,22 @@ class LiveOrchestrator extends EventEmitter {
     const projectPath = getProjectPath(project);
 
     const gpuIds = session.motion_config?.gpu_ids || '0';
-    // RELION 5 VDAM (gradient) refinement does NOT support MPI > 1
-    // Force MPI=1 for Class2D when using gradient (default mode)
-    const class2dMpi = 1;
+    const useVDAM = cfg.use_vdam !== false; // default true
+
+    // VDAM (gradient) does NOT support MPI > 1; EM mode does
+    const class2dMpi = useVDAM ? 1 : (session.slurm_config?.mpi_procs || 1);
+    // VDAM uses many cheap iterations (default 200); EM uses fewer expensive ones (default 25)
+    const defaultIter = useVDAM ? 200 : 25;
 
     const jobParams = {
       project_id: session.project_id,
       submitToQueue: 'Yes',
       inputStarFile: `Extract/${extractJob.job_name}/particles.star`,
       numberOfClasses: cfg.num_classes || 50,
-      maskDiameter: session.picking_config.max_diameter || 200,
+      maskDiameter: cfg.particle_diameter || session.picking_config.max_diameter || 200,
+      numberEMIterations: cfg.iterations || defaultIter,
+      useVDAM: useVDAM ? 'Yes' : 'No',
+      vdamMiniBatches: cfg.vdam_mini_batches || 200,
       threads: session.slurm_config?.threads || 4,
       numberOfMpiProcs: class2dMpi,
       // GPU acceleration for 2D classification

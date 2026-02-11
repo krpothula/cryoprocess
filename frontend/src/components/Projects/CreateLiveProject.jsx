@@ -51,6 +51,10 @@ const INITIAL_FORM_DATA = {
   class2d_enabled: false,
   num_classes: 50,
   particle_threshold: 5000,
+  class2d_particle_diameter: 200,
+  class2d_iterations: 200,
+  class2d_use_vdam: true,
+  class2d_vdam_mini_batches: 200,
   // Quality Filters
   ctf_resolution_max: 5.0,
   total_motion_max: 30.0,
@@ -191,6 +195,10 @@ const CreateLiveProject = () => {
           enabled: formData.class2d_enabled,
           num_classes: parseInt(formData.num_classes),
           particle_threshold: parseInt(formData.particle_threshold),
+          particle_diameter: parseInt(formData.class2d_particle_diameter),
+          iterations: parseInt(formData.class2d_iterations),
+          use_vdam: formData.class2d_use_vdam,
+          vdam_mini_batches: parseInt(formData.class2d_vdam_mini_batches),
         },
         thresholds: {
           ctf_resolution_max: parseFloat(formData.ctf_resolution_max),
@@ -851,6 +859,82 @@ const CreateLiveProject = () => {
                       disabled={!formData.class2d_enabled}
                     />
                   </div>
+                </div>
+                <div className="lp-form-row">
+                  <div className="lp-form-group">
+                    <label htmlFor="class2d_particle_diameter">
+                      Particle Diameter (A)
+                    </label>
+                    <input
+                      type="number"
+                      id="class2d_particle_diameter"
+                      name="class2d_particle_diameter"
+                      value={formData.class2d_particle_diameter}
+                      onChange={handleChange}
+                      min="10"
+                      step="10"
+                      disabled={!formData.class2d_enabled}
+                    />
+                  </div>
+                  <div className="lp-form-group">
+                    <label htmlFor="class2d_iterations">
+                      Number of Iterations
+                    </label>
+                    <input
+                      type="number"
+                      id="class2d_iterations"
+                      name="class2d_iterations"
+                      value={formData.class2d_iterations}
+                      onChange={handleChange}
+                      min="1"
+                      max="999"
+                      step="1"
+                      disabled={!formData.class2d_enabled}
+                    />
+                  </div>
+                </div>
+                <div className="lp-form-row">
+                  <div className="lp-form-group">
+                    <label htmlFor="class2d_use_vdam">
+                      Use VDAM (Gradient Optimization)
+                    </label>
+                    <select
+                      id="class2d_use_vdam"
+                      name="class2d_use_vdam"
+                      value={formData.class2d_use_vdam ? "true" : "false"}
+                      onChange={(e) =>
+                        handleChange({
+                          target: {
+                            name: "class2d_use_vdam",
+                            value: e.target.value === "true",
+                            type: "select",
+                          },
+                        })
+                      }
+                      disabled={!formData.class2d_enabled}
+                    >
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                  {formData.class2d_use_vdam && (
+                    <div className="lp-form-group">
+                      <label htmlFor="class2d_vdam_mini_batches">
+                        VDAM Mini-batch Size
+                      </label>
+                      <input
+                        type="number"
+                        id="class2d_vdam_mini_batches"
+                        name="class2d_vdam_mini_batches"
+                        value={formData.class2d_vdam_mini_batches}
+                        onChange={handleChange}
+                        min="100"
+                        max="1000"
+                        step="50"
+                        disabled={!formData.class2d_enabled}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}

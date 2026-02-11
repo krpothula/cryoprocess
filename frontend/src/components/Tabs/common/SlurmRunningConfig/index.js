@@ -27,6 +27,7 @@ const SlurmRunningConfig = ({
   handleRangeChange,
   dropdownOptions,
   computeProfile,
+  disableMpi,
 }) => {
   const { setResourceError } = useBuilder();
   const [partitions, setPartitions] = useState([]);
@@ -285,6 +286,7 @@ const SlurmRunningConfig = ({
         onChange={handleNumericChange}
         handleInputChange={handleNumericChange}
         tooltipText="Number of MPI processes. Auto-Refine requires at least 2 MPI processes for gold-standard FSC (recommended: 4+). Maps to SLURM --ntasks."
+        disabled={disableMpi}
       />
 
       <PixelSizeInput

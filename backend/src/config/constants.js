@@ -455,7 +455,7 @@ const RATE_LIMITS = {
   API_WINDOW_MS: 15 * 60 * 1000,       // 15 minutes
   API_MAX_REQUESTS: 1000,
   AUTH_WINDOW_MS: 15 * 60 * 1000,       // 15 minutes
-  AUTH_MAX_REQUESTS: 20,
+  AUTH_MAX_REQUESTS: 100,
   REGISTER_WINDOW_MS: 60 * 60 * 1000,   // 1 hour
   REGISTER_MAX_REQUESTS: 5,
   SEARCH_WINDOW_MS: 1 * 60 * 1000,      // 1 minute
