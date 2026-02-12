@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
-import { getProjectListApi, deleteProjectApi } from "../../services/projects/projects";
+import { getProjectListApi, deleteProjectApi, archiveProjectApi, restoreProjectApi } from "../../services/projects/projects";
 import { formatDateString } from "../../utils/datetime";
-import { FiArrowUpRight, FiLoader, FiInbox, FiMoreVertical, FiTrash2, FiUser, FiUsers, FiZap } from "react-icons/fi";
+import { FiArrowUpRight, FiLoader, FiInbox, FiMoreVertical, FiTrash2, FiUser, FiUsers, FiZap, FiArchive, FiRefreshCw } from "react-icons/fi";
 import useToast from "../../hooks/useToast";
 import Pagination from "../Tabs/common/Pagination";
 import { Link } from "react-router-dom";
@@ -30,13 +30,14 @@ const LoadingState = () => (
   </div>
 );
 
-const ProjectsList = ({ searchTerm = "" }) => {
+const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
   const [projects, setProjects] = useState([]);
   const [isLoading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [archiveConfirm, setArchiveConfirm] = useState(null);
   const [sharingProject, setSharingProject] = useState(null);
   const dropdownRef = useRef(null);
   const showToast = useToast();
@@ -75,6 +76,48 @@ const ProjectsList = ({ searchTerm = "" }) => {
     setSharingProject(project);
   };
 
+  const handleArchive = async (project) => {
+    if (archiveConfirm !== project.id) {
+      setArchiveConfirm(project.id);
+      setOpenDropdown(null);
+      return;
+    }
+
+    try {
+      await archiveProjectApi(project.id);
+      showToast(`Project "${project.project_name}" is being archived`, { type: "success" });
+      setArchiveConfirm(null);
+      // Refresh list
+      setLoading(true);
+      getProjectListApi({ limit, skip, include_archived: showArchived ? 'true' : 'false' })
+        .then((resp) => {
+          setProjects(resp?.data?.data || []);
+          setTotalRecords(resp?.data?.count || 0);
+        })
+        .finally(() => setLoading(false));
+    } catch (error) {
+      showToast(error.response?.data?.error || "Failed to archive project", { type: "error" });
+    }
+  };
+
+  const handleRestore = async (project) => {
+    try {
+      await restoreProjectApi(project.id);
+      showToast(`Project "${project.project_name}" is being restored`, { type: "success" });
+      setOpenDropdown(null);
+      // Refresh list
+      setLoading(true);
+      getProjectListApi({ limit, skip, include_archived: showArchived ? 'true' : 'false' })
+        .then((resp) => {
+          setProjects(resp?.data?.data || []);
+          setTotalRecords(resp?.data?.count || 0);
+        })
+        .finally(() => setLoading(false));
+    } catch (error) {
+      showToast(error.response?.data?.error || "Failed to restore project", { type: "error" });
+    }
+  };
+
   const limit = PAGE_SIZE;
   const skip = (currentPage - 1) * PAGE_SIZE;
 
@@ -88,12 +131,11 @@ const ProjectsList = ({ searchTerm = "" }) => {
   };
 
   useEffect(() => {
-    getProjectListApi({ limit, skip })
+    setLoading(true);
+    getProjectListApi({ limit, skip, include_archived: showArchived ? 'true' : 'false' })
       .then((resp) => {
-        if (resp?.data?.data?.length) {
-          setProjects(resp?.data?.data);
-          setTotalRecords(resp?.data?.count);
-        }
+        setProjects(resp?.data?.data || []);
+        setTotalRecords(resp?.data?.count || 0);
       })
       .catch(() => {
         setProjects([]);
@@ -105,7 +147,7 @@ const ProjectsList = ({ searchTerm = "" }) => {
       .finally(() => {
         setLoading(false);
       });
-  }, [currentPage]);
+  }, [currentPage, showArchived]);
 
   if (isLoading) {
     return <LoadingState />;
@@ -135,17 +177,25 @@ const ProjectsList = ({ searchTerm = "" }) => {
                 <span className="project-name">{project.project_name}</span>
               </td>
               <td className="col-type">
-                {project.live_session_id ? (
-                  <span className="type-badge type-live">
-                    <FiZap size={11} />
-                    Live
-                    {project.live_session_status && (
-                      <span className={`live-status-dot live-status-${project.live_session_status}`} />
-                    )}
-                  </span>
-                ) : (
-                  <span className="type-badge type-regular">Pipeline</span>
-                )}
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {project.live_session_id ? (
+                    <span className="type-badge type-live">
+                      <FiZap size={11} />
+                      Live
+                      {project.live_session_status && (
+                        <span className={`live-status-dot live-status-${project.live_session_status}`} />
+                      )}
+                    </span>
+                  ) : (
+                    <span className="type-badge type-regular">Pipeline</span>
+                  )}
+                  {project.is_archived && (
+                    <span className="type-badge type-archived">
+                      <FiArchive size={10} />
+                      Archived
+                    </span>
+                  )}
+                </div>
               </td>
               <td className="col-desc">
                 <span className="project-desc">
@@ -192,6 +242,23 @@ const ProjectsList = ({ searchTerm = "" }) => {
                           <FiUsers />
                           Share
                         </button>
+                        {project.is_archived ? (
+                          <button
+                            className="dropdown-item"
+                            onClick={() => handleRestore(project)}
+                          >
+                            <FiRefreshCw />
+                            Restore
+                          </button>
+                        ) : (
+                          <button
+                            className="dropdown-item"
+                            onClick={() => handleArchive(project)}
+                          >
+                            <FiArchive />
+                            Archive
+                          </button>
+                        )}
                         <button
                           className="dropdown-item delete-item"
                           onClick={() => handleDelete(project)}
@@ -233,6 +300,24 @@ const ProjectsList = ({ searchTerm = "" }) => {
         );
       })()}
 
+      {/* Archive Confirmation Modal */}
+      {archiveConfirm && (() => {
+        const project = filteredProjects.find(p => p.id === archiveConfirm);
+        if (!project) return null;
+        return (
+          <div className="delete-confirm-overlay">
+            <div className="delete-confirm-modal">
+              <h4>Archive Project?</h4>
+              <p>This will move "{project.project_name}" to archive storage. You can restore it later, but no new jobs can be submitted while archived.</p>
+              <div className="delete-confirm-actions">
+                <button className="cancel-btn" onClick={() => setArchiveConfirm(null)}>Cancel</button>
+                <button className="confirm-archive-btn" onClick={() => handleArchive(project)}>Archive</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Project Members Modal */}
       {sharingProject && (
         <ProjectMembers
@@ -257,8 +342,8 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .data-table thead {
-          background: #fafbfc;
-          border-bottom: 1px solid #e2e8f0;
+          background: var(--color-bg-hover);
+          border-bottom: 1px solid var(--color-border);
         }
 
         .data-table th {
@@ -266,7 +351,7 @@ const ProjectsList = ({ searchTerm = "" }) => {
           text-align: left;
           font-size: 11px;
           font-weight: 700;
-          color: #64748b;
+          color: var(--color-text-secondary);
           text-transform: uppercase;
           letter-spacing: 0.6px;
         }
@@ -276,7 +361,7 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .data-table tbody tr {
-          border-bottom: 1px solid #f1f5f9;
+          border-bottom: 1px solid var(--color-border-light);
           transition: background 0.15s ease;
           animation: fadeIn 0.3s ease forwards;
           opacity: 0;
@@ -291,7 +376,7 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .data-table tbody tr:hover {
-          background: #f8fafc;
+          background: var(--color-bg-hover);
         }
 
         .data-table td {
@@ -308,7 +393,7 @@ const ProjectsList = ({ searchTerm = "" }) => {
         .project-name {
           font-size: 10px;
           font-weight: 600;
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .role-tag {
@@ -323,28 +408,28 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .role-tag.owner {
-          background: #fef3c7;
-          color: #d97706;
+          background: var(--color-warning-bg);
+          color: var(--color-warning-text);
         }
 
         .role-tag.admin {
-          background: #dbeafe;
-          color: #1d4ed8;
+          background: var(--color-info-bg);
+          color: var(--color-info-text);
         }
 
         .role-tag.editor {
-          background: #dcfce7;
-          color: #16a34a;
+          background: var(--color-success-bg);
+          color: var(--color-success-text);
         }
 
         .role-tag.viewer {
-          background: #f1f5f9;
-          color: #64748b;
+          background: var(--color-bg-hover);
+          color: var(--color-text-secondary);
         }
 
         .project-desc {
           font-size: 9px;
-          color: #64748b;
+          color: var(--color-text-secondary);
           max-width: 320px;
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -356,7 +441,7 @@ const ProjectsList = ({ searchTerm = "" }) => {
 
         .project-date {
           font-size: 10px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
         }
 
         .action-buttons {
@@ -373,16 +458,16 @@ const ProjectsList = ({ searchTerm = "" }) => {
           padding: 8px 16px;
           font-size: 10px;
           font-weight: 500;
-          color: #3b82f6;
-          background: #eff6ff;
+          color: var(--color-primary);
+          background: var(--color-primary-bg);
           text-decoration: none;
           border-radius: 8px;
           transition: all 0.2s ease;
         }
 
         .open-btn:hover {
-          background: #dbeafe;
-          color: #2563eb;
+          background: var(--color-info-bg);
+          color: var(--color-primary-hover);
         }
 
         .open-btn svg {
@@ -404,11 +489,11 @@ const ProjectsList = ({ searchTerm = "" }) => {
           justify-content: center;
           gap: 6px;
           padding: 8px 12px;
-          border: 1px solid #e2e8f0;
-          background: white;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-card);
           border-radius: 8px;
           cursor: pointer;
-          color: #64748b;
+          color: var(--color-text-secondary);
           font-size: 10px;
           font-weight: 500;
           transition: all 0.2s ease;
@@ -420,9 +505,9 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .more-btn:hover:not(:disabled) {
-          background: #f8fafc;
-          color: #334155;
-          border-color: #cbd5e1;
+          background: var(--color-bg-hover);
+          color: var(--color-text);
+          border-color: var(--color-border-hover);
         }
 
         .more-btn-disabled {
@@ -433,8 +518,8 @@ const ProjectsList = ({ searchTerm = "" }) => {
         .dropdown-menu {
           position: absolute;
           right: 0;
-          background: white;
-          border: 1px solid #e2e8f0;
+          background: var(--color-bg-card);
+          border: 1px solid var(--color-border);
           border-radius: 8px;
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
           min-width: 180px;
@@ -452,13 +537,13 @@ const ProjectsList = ({ searchTerm = "" }) => {
           background: none;
           cursor: pointer;
           font-size: 10px;
-          color: #334155;
+          color: var(--color-text);
           text-align: left;
           transition: background 0.15s ease;
         }
 
         .dropdown-item:hover {
-          background: #f8fafc;
+          background: var(--color-bg-hover);
         }
 
         .dropdown-item:disabled {
@@ -468,19 +553,19 @@ const ProjectsList = ({ searchTerm = "" }) => {
 
         .dropdown-item svg {
           font-size: 15px;
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
 
         .dropdown-item.delete-item {
-          color: #dc2626;
+          color: var(--color-danger);
         }
 
         .dropdown-item.delete-item svg {
-          color: #dc2626;
+          color: var(--color-danger);
         }
 
         .dropdown-item.delete-item:hover {
-          background: #fef2f2;
+          background: var(--color-danger-bg);
         }
 
         .delete-confirm-overlay {
@@ -497,7 +582,7 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .delete-confirm-modal {
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 12px;
           padding: 24px;
           max-width: 400px;
@@ -509,13 +594,13 @@ const ProjectsList = ({ searchTerm = "" }) => {
           margin: 0 0 12px;
           font-size: 18px;
           font-weight: 600;
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .delete-confirm-modal p {
           margin: 0 0 20px;
           font-size: 14px;
-          color: #64748b;
+          color: var(--color-text-secondary);
           line-height: 1.5;
         }
 
@@ -527,25 +612,25 @@ const ProjectsList = ({ searchTerm = "" }) => {
 
         .cancel-btn {
           padding: 10px 20px;
-          border: 1px solid #e2e8f0;
-          background: white;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-card);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 500;
-          color: #64748b;
+          color: var(--color-text-secondary);
           cursor: pointer;
           transition: all 0.2s ease;
         }
 
         .cancel-btn:hover {
-          background: #f8fafc;
-          border-color: #cbd5e1;
+          background: var(--color-bg-hover);
+          border-color: var(--color-border-hover);
         }
 
         .confirm-delete-btn {
           padding: 10px 20px;
           border: none;
-          background: #dc2626;
+          background: var(--color-danger);
           border-radius: 8px;
           font-size: 14px;
           font-weight: 500;
@@ -555,7 +640,23 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .confirm-delete-btn:hover {
-          background: #b91c1c;
+          background: var(--color-danger-text);
+        }
+
+        .confirm-archive-btn {
+          padding: 10px 20px;
+          border: none;
+          background: var(--color-warning-text);
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          color: white;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .confirm-archive-btn:hover {
+          opacity: 0.85;
         }
 
         .empty-state {
@@ -566,7 +667,7 @@ const ProjectsList = ({ searchTerm = "" }) => {
         .empty-icon {
           width: 64px;
           height: 64px;
-          background: #f1f5f9;
+          background: var(--color-bg-hover);
           border-radius: 16px;
           display: flex;
           align-items: center;
@@ -576,19 +677,19 @@ const ProjectsList = ({ searchTerm = "" }) => {
 
         .empty-icon svg {
           font-size: 28px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
         }
 
         .empty-state h3 {
           font-size: 16px;
           font-weight: 600;
-          color: #334155;
+          color: var(--color-text);
           margin: 0 0 8px;
         }
 
         .empty-state p {
           font-size: 14px;
-          color: #64748b;
+          color: var(--color-text-secondary);
           margin: 0;
         }
 
@@ -598,13 +699,13 @@ const ProjectsList = ({ searchTerm = "" }) => {
           justify-content: center;
           gap: 12px;
           padding: 80px 40px;
-          color: #64748b;
+          color: var(--color-text-secondary);
           font-size: 14px;
         }
 
         .spinner {
           font-size: 20px;
-          color: #3b82f6;
+          color: var(--color-primary);
           animation: spin 1s linear infinite;
         }
 
@@ -615,7 +716,7 @@ const ProjectsList = ({ searchTerm = "" }) => {
 
         .pagination-wrapper {
           padding: 20px 24px;
-          border-top: 1px solid #f1f5f9;
+          border-top: 1px solid var(--color-border-light);
           display: flex;
           justify-content: center;
         }
@@ -638,13 +739,18 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .type-regular {
-          background: #f1f5f9;
-          color: #64748b;
+          background: var(--color-bg-hover);
+          color: var(--color-text-secondary);
         }
 
         .type-live {
-          background: #ecfdf5;
-          color: #047857;
+          background: var(--color-success-bg);
+          color: var(--color-success-text);
+        }
+
+        .type-archived {
+          background: var(--color-warning-bg);
+          color: var(--color-warning-text);
         }
 
         .live-status-dot {
@@ -656,25 +762,25 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .live-status-running {
-          background: #22c55e;
+          background: var(--color-success-text);
           box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
           animation: pulse-dot 1.5s infinite;
         }
 
         .live-status-pending {
-          background: #f59e0b;
+          background: var(--color-warning-text);
         }
 
         .live-status-paused {
-          background: #3b82f6;
+          background: var(--color-primary);
         }
 
         .live-status-completed {
-          background: #94a3b8;
+          background: var(--color-text-muted);
         }
 
         .live-status-stopped {
-          background: #ef4444;
+          background: var(--color-danger);
         }
 
         @keyframes pulse-dot {
@@ -683,13 +789,13 @@ const ProjectsList = ({ searchTerm = "" }) => {
         }
 
         .open-btn-live {
-          color: #047857 !important;
-          background: #ecfdf5 !important;
+          color: var(--color-success-text) !important;
+          background: var(--color-success-bg) !important;
         }
 
         .open-btn-live:hover {
-          background: #d1fae5 !important;
-          color: #065f46 !important;
+          background: var(--color-success-bg) !important;
+          color: var(--color-success-text) !important;
         }
 
         .user-badge {
@@ -697,18 +803,18 @@ const ProjectsList = ({ searchTerm = "" }) => {
           align-items: center;
           gap: 6px;
           padding: 4px 10px;
-          background: #f1f5f9;
+          background: var(--color-bg-hover);
           border-radius: 16px;
         }
 
         .user-icon {
           font-size: 12px;
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
 
         .user-name {
           font-size: 10px;
-          color: #475569;
+          color: var(--color-text);
           font-weight: 500;
         }
 

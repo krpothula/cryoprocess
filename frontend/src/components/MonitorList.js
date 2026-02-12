@@ -9,18 +9,18 @@ import JobActions from "./Tabs/common/JobActions";
 const getStatusStyle = (status) => {
   // Error/Failed states - softer red
   if (status === "error" || status === "failed") {
-    return { color: "#ef4444" };
+    return { color: "var(--color-danger)" };
   }
   // Pending/Running states - softer orange
   if (status === "pending" || status === "running") {
-    return { color: "#f59e0b" };
+    return { color: "var(--color-warning)" };
   }
   // Success/Completed states - softer green
   if (status === "success" || status === "completed") {
-    return { color: "#10b981" };
+    return { color: "var(--color-success)" };
   }
   // Default
-  return { color: "#6b7280" };
+  return { color: "var(--color-text-muted)" };
 };
 
 const getIcon = (status) => {
@@ -111,6 +111,7 @@ const MonitorListCard = ({ jobs, setSelectedJob, selectedJob, onJobCancelled, on
                   jobName={job.job_name}
                   jobType={job.job_type}
                   jobStatus={job.status}
+                  notifyEmail={job.notify_email}
                   onJobUpdated={handleJobUpdated}
                   onJobCancelled={onJobCancelled}
                   showLogs={false}
@@ -137,21 +138,21 @@ const MonitorListCard = ({ jobs, setSelectedJob, selectedJob, onJobCancelled, on
 
         .job-card {
           padding: 12px 14px;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
+          background: var(--color-bg-card);
+          border: 1px solid var(--color-border);
           border-radius: 8px;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .job-card:hover {
-          border-color: #cbd5e1;
+          border-color: var(--color-border-hover);
         }
 
         .job-card-selected {
-          border-color: #3b82f6;
-          background: #ffffff;
-          box-shadow: 0 0 0 1px #3b82f6;
+          border-color: var(--color-primary);
+          background: var(--color-bg-card);
+          box-shadow: 0 0 0 1px var(--color-primary);
         }
 
         .job-card-header {
@@ -186,13 +187,13 @@ const MonitorListCard = ({ jobs, setSelectedJob, selectedJob, onJobCancelled, on
 
         .job-type {
           font-size: 12px;
-          color: #64748b;
+          color: var(--color-text-secondary);
           text-transform: capitalize;
         }
 
         .job-date {
           font-size: 11px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
         }
 
         .job-card {

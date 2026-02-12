@@ -144,10 +144,6 @@ const ManualSelect = () => {
 
   return (
     <div className="manual-select-container">
-      <div style={{ marginBottom: 16 }}>
-        <h3 style={{ margin: "0 0 8px 0", color: "#fff" }}>Select Classes</h3>
-      </div>
-
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 16 }}>
           <CustomInput
@@ -209,9 +205,9 @@ const ManualSelect = () => {
                       >
                         <img src={cls.image} alt={`Class ${cls.class_number}`} />
                         <div className="ms-class-info">
-                          <span style={{ color: "#333", fontWeight: "bold" }}>#{cls.class_number}</span>
-                          <span style={{ color: "#2e7d32" }}>{pct.toFixed(1)}%</span>
-                          <span style={{ color: "#1565c0" }}>
+                          <span style={{ color: "var(--color-text-heading)", fontWeight: "bold" }}>#{cls.class_number}</span>
+                          <span style={{ color: "var(--color-success-text)" }}>{pct.toFixed(1)}%</span>
+                          <span style={{ color: "var(--color-primary)" }}>
                             {res < 100 ? `${res.toFixed(1)}Å` : "-"}
                           </span>
                         </div>

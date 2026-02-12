@@ -11,7 +11,6 @@ const Ctf = ({
 }) => {
   return (
     <div className="tab-content">
-      {/* CTFFIND executable - read-only, loaded from .env */}
       <CustomInput
         name="ctfFindExecutable"
         label="CTFFIND-4.1 executable:"
@@ -36,6 +35,7 @@ const Ctf = ({
         onChange={handleInputChange}
         tooltipText="Use exhaustive 2D search instead of 1D. More accurate for data with high astigmatism or poor initial estimates, but significantly slower."
       />
+
       <PixelSizeInput
         label="Estimate CTF of window size(px):"
         placeholder=""
@@ -80,6 +80,7 @@ const Ctf = ({
         handleInputChange={handleInputChange}
         tooltipText="Highest resolution to include in CTF fitting. Should be where you still see Thon rings. Typically 3-5Å for good data. Lower for noisy/low-dose data."
       />
+
       <PixelSizeInput
         label="Minimum defocus value (A):"
         placeholder=""

@@ -29,7 +29,7 @@ const DefocusChart = ({ data = [], micrographs = [] }) => {
 
   if (chartData.length === 0) {
     return (
-      <div className="h-64 flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
+      <div className="h-64 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900 rounded-lg">
         <FiTrendingUp className="text-5xl mb-3" />
         <p className="text-center">
           No defocus data available yet.
@@ -43,8 +43,8 @@ const DefocusChart = ({ data = [], micrographs = [] }) => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
-          <p className="text-xs text-gray-500 mb-1">
+        <div className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-lg dark:shadow-2xl border border-gray-200 dark:border-slate-700">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">
             Micrograph #{label}
           </p>
           {payload.map((entry, index) => (
@@ -69,33 +69,33 @@ const DefocusChart = ({ data = [], micrographs = [] }) => {
           data={chartData}
           margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-chart-grid)" />
           <XAxis
             dataKey="index"
-            tick={{ fontSize: 11, fill: "#6b7280" }}
-            tickLine={{ stroke: "#e5e7eb" }}
+            tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
+            tickLine={{ stroke: "var(--color-chart-grid)" }}
           />
           <YAxis
             yAxisId="left"
-            tick={{ fontSize: 11, fill: "#6b7280" }}
-            tickLine={{ stroke: "#e5e7eb" }}
+            tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
+            tickLine={{ stroke: "var(--color-chart-grid)" }}
             label={{
               value: "Defocus (A)",
               angle: -90,
               position: "insideLeft",
-              style: { fontSize: 11, fill: "#6b7280" },
+              style: { fontSize: 11, fill: "var(--color-text-secondary)" },
             }}
           />
           <YAxis
             yAxisId="right"
             orientation="right"
-            tick={{ fontSize: 11, fill: "#6b7280" }}
-            tickLine={{ stroke: "#e5e7eb" }}
+            tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }}
+            tickLine={{ stroke: "var(--color-chart-grid)" }}
             label={{
               value: "Resolution (A)",
               angle: 90,
               position: "insideRight",
-              style: { fontSize: 11, fill: "#6b7280" },
+              style: { fontSize: 11, fill: "var(--color-text-secondary)" },
             }}
           />
           <Tooltip content={<CustomTooltip />} />

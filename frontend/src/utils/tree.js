@@ -115,8 +115,8 @@ export const transformApiResponseToTree = (apiResponse) => {
     label: "Pipeline",
     children: trees,
     style: {
-      backgroundColor: "#1e293b",
-      borderColor: "#0f172a",
+      backgroundColor: "var(--color-text)",
+      borderColor: "var(--color-text-heading)",
     },
   };
 };

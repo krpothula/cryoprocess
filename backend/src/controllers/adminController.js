@@ -59,21 +59,23 @@ exports.listUsers = async (req, res) => {
  */
 exports.createUser = async (req, res) => {
   try {
-    const { email, first_name, last_name, is_staff, is_superuser } = req.body;
-    // Auto-generate username from email if not provided
-    let { username } = req.body;
+    const { email, username, first_name, last_name, is_staff, is_superuser } = req.body;
 
     if (!email) {
       return response.badRequest(res, 'Email is required');
     }
 
-    // Generate username from email if not provided
     if (!username) {
-      username = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_');
+      return response.badRequest(res, 'Username is required');
+    }
+
+    // Validate username: single word, no spaces, alphanumeric + underscore/dot/hyphen
+    if (!/^[a-zA-Z0-9_.\-]+$/.test(username)) {
+      return response.badRequest(res, 'Username must be a single word with no spaces (letters, numbers, underscore, dot, or hyphen only)');
     }
 
     // Normalize to lowercase (login uses lowercase comparison)
-    username = username.toLowerCase();
+    const normalizedUsername = username.toLowerCase();
     const normalizedEmail = email.toLowerCase();
 
     // Staff cannot create staff/superuser accounts
@@ -83,7 +85,7 @@ exports.createUser = async (req, res) => {
 
     // Check if user exists
     const existingUser = await User.findOne({
-      $or: [{ email: normalizedEmail }, { username }]
+      $or: [{ email: normalizedEmail }, { username: normalizedUsername }]
     });
 
     if (existingUser) {
@@ -100,7 +102,7 @@ exports.createUser = async (req, res) => {
     // Note: Don't hash here - User model pre-save hook handles hashing
     const newUser = await User.create({
       id: nextId,
-      username,
+      username: normalizedUsername,
       email: normalizedEmail,
       password: tempPassword,
       first_name: first_name || '',
@@ -111,7 +113,7 @@ exports.createUser = async (req, res) => {
       must_change_password: true
     });
 
-    logger.info(`[Admin] User created: ${username} by admin ${req.user.username}`);
+    logger.info(`[Admin] User created: ${normalizedUsername} by admin ${req.user.username}`);
 
     res.status(201).json({
       success: true,

@@ -258,7 +258,7 @@ class BaseJobBuilder {
   /**
    * Whether this job type supports MPI parallelization.
    * Override to false for non-MPI jobs (Import, LinkMovies, etc.)
-   * Used by job submission to prevent srun usage for non-MPI jobs.
+   * Used by job submission to prevent mpirun usage for non-MPI jobs.
    * @returns {boolean}
    */
   get supportsMpi() {
@@ -269,12 +269,12 @@ class BaseJobBuilder {
    * Build MPI command prefix for RELION commands.
    *
    * When submitting to SLURM queue:
-   * - Just use the _mpi version of the command without srun/mpirun
+   * - Just use the _mpi version of the command without mpirun
    * - The job submission layer handles MPI via SLURM's --ntasks
    * - For Singularity, MPI is handled via SLURM process allocation
    *
    * For local execution:
-   * - Uses srun or mpirun based on MPI_LAUNCHER setting
+   * - Uses mpirun to launch MPI processes
    *
    * @param {string} relionCommand - The RELION command (e.g., 'relion_refine')
    * @param {number} mpiProcs - Number of MPI processes
@@ -282,7 +282,6 @@ class BaseJobBuilder {
    * @returns {string[]} Command prefix array
    */
   buildMpiCommand(relionCommand, mpiProcs, useGpu = false) {
-    const launcher = settings.MPI_LAUNCHER || 'srun';
     const submitToQueue = this.data.submitToQueue === 'Yes';
     const cmd = [];
 
@@ -294,10 +293,10 @@ class BaseJobBuilder {
 
     const mpiCommand = relionCommand + '_mpi';
 
-    // When submitting to SLURM queue, don't add srun/mpirun here.
+    // When submitting to SLURM queue, don't add mpirun here.
     // The job submission layer handles MPI:
     // - For Singularity: SLURM's --ntasks allocates processes, MPI inside container picks them up
-    // - For native MPI: jobSubmission.js adds srun to the SLURM script
+    // - For native MPI: jobSubmission.js adds mpirun to the SLURM script
     if (submitToQueue) {
       cmd.push(mpiCommand);
       logger.info(`[${this.stageName}] MPI command (SLURM): ${mpiCommand} (mpi=${mpiProcs}, gpu=${useGpu})`);
@@ -305,18 +304,9 @@ class BaseJobBuilder {
     }
 
     // Local execution - need explicit MPI launcher
-    if (launcher === 'srun') {
-      cmd.push('srun', '-n', String(mpiProcs));
-      if (!useGpu) {
-        cmd.push('--gpus=0');
-      }
-      cmd.push(mpiCommand);
-    } else {
-      // mpirun launcher
-      cmd.push('mpirun', '-np', String(mpiProcs), mpiCommand);
-    }
+    cmd.push('mpirun', '-np', String(mpiProcs), mpiCommand);
 
-    logger.info(`[${this.stageName}] MPI command (local): ${cmd.join(' ')} (launcher=${launcher}, gpu=${useGpu})`);
+    logger.info(`[${this.stageName}] MPI command (local): ${cmd.join(' ')} (gpu=${useGpu})`);
     return cmd;
   }
 }

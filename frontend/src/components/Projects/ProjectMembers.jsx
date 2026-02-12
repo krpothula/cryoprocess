@@ -403,7 +403,7 @@ const styles = `
   }
 
   .members-modal.two-column {
-    background: white;
+    background: var(--color-bg-card);
     border-radius: 12px;
     width: 100%;
     max-width: 700px;
@@ -418,21 +418,21 @@ const styles = `
     right: 12px;
     background: none;
     border: none;
-    color: #94a3b8;
+    color: var(--color-text-muted);
     cursor: pointer;
     padding: 4px;
     z-index: 10;
   }
 
   .modal-close-btn:hover {
-    color: #64748b;
+    color: var(--color-text-secondary);
   }
 
   /* Left Column */
   .left-column {
     flex: 1;
     padding: 20px;
-    border-right: 1px solid #e2e8f0;
+    border-right: 1px solid var(--color-border);
     max-height: 400px;
     display: flex;
     flex-direction: column;
@@ -443,7 +443,7 @@ const styles = `
     align-items: center;
     gap: 10px;
     margin-bottom: 16px;
-    color: #0f172a;
+    color: var(--color-text-heading);
   }
 
   .project-header h3 {
@@ -454,7 +454,7 @@ const styles = `
 
   .member-count {
     font-size: 12px;
-    color: #64748b;
+    color: var(--color-text-secondary);
   }
 
   .members-list {
@@ -467,7 +467,7 @@ const styles = `
     justify-content: space-between;
     align-items: center;
     padding: 8px 0;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--color-border-light);
   }
 
   .member-item:last-child {
@@ -492,7 +492,7 @@ const styles = `
   .member-avatar.owner { background: #fef3c7; color: #d97706; }
   .member-avatar.admin { background: #dbeafe; color: #1d4ed8; }
   .member-avatar.editor { background: #dcfce7; color: #16a34a; }
-  .member-avatar.viewer { background: #f1f5f9; color: #64748b; }
+  .member-avatar.viewer { background: var(--color-bg-hover); color: var(--color-text-secondary); }
 
   .member-details {
     display: flex;
@@ -501,13 +501,13 @@ const styles = `
 
   .member-name {
     font-weight: 500;
-    color: #0f172a;
+    color: var(--color-text-heading);
     font-size: 13px;
   }
 
   .member-email {
     font-size: 11px;
-    color: #94a3b8;
+    color: var(--color-text-muted);
   }
 
   .member-actions {
@@ -529,14 +529,16 @@ const styles = `
   .role-badge.owner { background: #fef3c7; color: #d97706; }
   .role-badge.admin { background: #dbeafe; color: #1d4ed8; }
   .role-badge.editor { background: #dcfce7; color: #16a34a; }
-  .role-badge.viewer { background: #f1f5f9; color: #64748b; }
+  .role-badge.viewer { background: var(--color-bg-hover); color: var(--color-text-secondary); }
 
   .role-select {
     padding: 3px 6px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 11px;
     outline: none;
+    background: var(--color-bg-card);
+    color: var(--color-text);
   }
 
   .btn-remove {
@@ -544,7 +546,7 @@ const styles = `
     background: none;
     border: 1px solid #fecaca;
     border-radius: 4px;
-    color: #dc2626;
+    color: var(--color-danger-text);
     cursor: pointer;
   }
 
@@ -553,7 +555,7 @@ const styles = `
   .no-members {
     text-align: center;
     padding: 20px;
-    color: #94a3b8;
+    color: var(--color-text-muted);
     font-size: 13px;
   }
 
@@ -561,7 +563,7 @@ const styles = `
   .right-column {
     width: 280px;
     padding: 20px;
-    background: #f8fafc;
+    background: var(--color-bg);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -571,7 +573,7 @@ const styles = `
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #0f172a;
+    color: var(--color-text-heading);
   }
 
   .add-header h4 {
@@ -585,17 +587,17 @@ const styles = `
     align-items: center;
     gap: 8px;
     padding: 0 10px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
-    background: white;
+    background: var(--color-bg-card);
   }
 
   .search-container:focus-within {
-    border-color: #3b82f6;
+    border-color: var(--color-primary);
   }
 
   .search-icon {
-    color: #94a3b8;
+    color: var(--color-text-muted);
     flex-shrink: 0;
     width: 15px;
     height: 15px;
@@ -611,19 +613,20 @@ const styles = `
     background: transparent;
     min-width: 0;
     appearance: none;
+    color: var(--color-text);
   }
 
   .search-spinner {
-    color: #94a3b8;
+    color: var(--color-text-muted);
     flex-shrink: 0;
     width: 14px;
     height: 14px;
   }
 
   .search-results {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
-    background: white;
+    background: var(--color-bg-card);
     max-height: 120px;
     overflow-y: auto;
   }
@@ -636,17 +639,17 @@ const styles = `
     cursor: pointer;
   }
 
-  .search-result-item:hover { background: #f8fafc; }
+  .search-result-item:hover { background: var(--color-bg); }
 
   .user-avatar {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #f1f5f9;
+    background: var(--color-bg-hover);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #64748b;
+    color: var(--color-text-secondary);
   }
 
   .user-avatar.small { width: 20px; height: 20px; }
@@ -658,22 +661,22 @@ const styles = `
 
   .user-name {
     font-weight: 500;
-    color: #0f172a;
+    color: var(--color-text-heading);
     font-size: 12px;
   }
 
   .user-email {
     font-size: 10px;
-    color: #94a3b8;
+    color: var(--color-text-muted);
   }
 
   .no-results, .search-hint {
     padding: 12px;
     text-align: center;
-    color: #94a3b8;
+    color: var(--color-text-muted);
     font-size: 12px;
-    background: white;
-    border: 1px solid #e2e8f0;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
   }
 
@@ -682,7 +685,7 @@ const styles = `
     justify-content: space-between;
     align-items: center;
     padding: 8px 10px;
-    background: #eff6ff;
+    background: var(--color-primary-bg);
     border: 1px solid #bfdbfe;
     border-radius: 8px;
   }
@@ -697,7 +700,7 @@ const styles = `
     padding: 2px;
     background: none;
     border: none;
-    color: #64748b;
+    color: var(--color-text-secondary);
     cursor: pointer;
   }
 
@@ -710,7 +713,7 @@ const styles = `
   .role-label {
     font-size: 12px;
     font-weight: 500;
-    color: #475569;
+    color: var(--color-text-label);
   }
 
   .role-chips {
@@ -725,23 +728,23 @@ const styles = `
     justify-content: center;
     gap: 4px;
     padding: 8px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
-    background: white;
+    background: var(--color-bg-card);
     font-size: 12px;
     font-weight: 500;
-    color: #64748b;
+    color: var(--color-text-secondary);
     cursor: pointer;
     transition: all 0.15s;
   }
 
   .role-chip:hover {
-    border-color: #cbd5e1;
+    border-color: var(--color-border-hover);
   }
 
   .role-chip.selected {
-    border-color: #3b82f6;
-    background: #eff6ff;
+    border-color: var(--color-primary);
+    background: var(--color-primary-bg);
     color: #1d4ed8;
   }
 
@@ -751,7 +754,7 @@ const styles = `
     justify-content: center;
     gap: 6px;
     padding: 10px;
-    background: #3b82f6;
+    background: var(--color-primary);
     color: white;
     border: none;
     border-radius: 8px;
@@ -762,7 +765,7 @@ const styles = `
     margin-top: auto;
   }
 
-  .btn-add:hover { background: #2563eb; }
+  .btn-add:hover { background: var(--color-primary-hover); }
   .btn-add:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .members-loading {
@@ -771,7 +774,7 @@ const styles = `
     justify-content: center;
     gap: 12px;
     padding: 60px;
-    color: #64748b;
+    color: var(--color-text-secondary);
     width: 100%;
   }
 
@@ -793,7 +796,7 @@ const styles = `
   }
 
   .confirm-modal {
-    background: white;
+    background: var(--color-bg-card);
     border-radius: 12px;
     width: 100%;
     max-width: 320px;
@@ -806,7 +809,7 @@ const styles = `
     height: 48px;
     border-radius: 50%;
     background: #fee2e2;
-    color: #dc2626;
+    color: var(--color-danger-text);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -816,11 +819,11 @@ const styles = `
   .confirm-modal h3 {
     margin: 0 0 8px;
     font-size: 16px;
-    color: #0f172a;
+    color: var(--color-text-heading);
   }
 
   .confirm-modal p {
-    color: #475569;
+    color: var(--color-text-label);
     margin: 0 0 16px;
     font-size: 13px;
   }
@@ -833,18 +836,18 @@ const styles = `
 
   .btn-cancel {
     padding: 8px 16px;
-    background: #f1f5f9;
+    background: var(--color-bg-hover);
     border: none;
     border-radius: 8px;
     font-size: 13px;
     font-weight: 500;
-    color: #64748b;
+    color: var(--color-text-secondary);
     cursor: pointer;
   }
 
   .btn-danger {
     padding: 8px 16px;
-    background: #dc2626;
+    background: var(--color-danger-text);
     color: white;
     border: none;
     border-radius: 8px;

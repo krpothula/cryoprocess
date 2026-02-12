@@ -239,9 +239,9 @@ const CTFParameterHistogram = ({
 
   if (histogramData.bins.length === 0) {
     return (
-      <div className="bg-white rounded-lg p-3 shadow-sm">
-        <h4 style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }} className="mb-2">{title}</h4>
-        <div className="h-28 flex items-center justify-center text-gray-400" style={{ fontSize: "11px" }}>
+      <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-gray-200 dark:border-slate-700">
+        <h4 style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-label)" }} className="mb-2">{title}</h4>
+        <div className="h-28 flex items-center justify-center text-gray-400 dark:text-slate-500" style={{ fontSize: "11px" }}>
           No data
         </div>
       </div>
@@ -283,7 +283,7 @@ const CTFParameterHistogram = ({
     if (x === null) return null;
     const labelY = position === "top" ? -2 : plotHeight - 12;
     const textY = position === "top" ? 8 : plotHeight - 2;
-    const lineColor = position === "top" ? "#2563eb" : "#1d4ed8"; // blue for min, darker blue for max
+    const lineColor = position === "top" ? "var(--color-primary)" : "#1d4ed8"; // blue for min, darker blue for max
     return (
       <>
         <line
@@ -299,10 +299,10 @@ const CTFParameterHistogram = ({
   };
 
   return (
-    <div className="bg-white rounded-lg p-3 shadow-sm">
+    <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-gray-200 dark:border-slate-700">
       {/* Header */}
       <div className="flex justify-between items-center mb-1">
-        <h4 style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>{title}</h4>
+        <h4 style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-label)" }}>{title}</h4>
         <div className="flex items-center gap-2">
           {hasAnyFilter && (
             <span className={`font-medium ${colors.text}`} style={{ fontSize: "11px" }}>
@@ -371,12 +371,12 @@ const CTFParameterHistogram = ({
               y1={0}
               x2={(hoverValue - histogramData.min) / (histogramData.max - histogramData.min) * plotWidth}
               y2={plotHeight}
-              stroke="#9ca3af" strokeWidth={1} strokeDasharray="2,2"
+              stroke="var(--color-text-muted)" strokeWidth={1} strokeDasharray="2,2"
             />
           )}
 
           {/* X-axis */}
-          <line x1={0} y1={plotHeight} x2={plotWidth} y2={plotHeight} stroke="#d1d5db" strokeWidth={1} />
+          <line x1={0} y1={plotHeight} x2={plotWidth} y2={plotHeight} stroke="var(--color-border-hover)" strokeWidth={1} />
 
           {/* X-axis labels */}
           <text x={0} y={plotHeight + 14} className="text-[9px] fill-gray-500">
@@ -392,7 +392,7 @@ const CTFParameterHistogram = ({
       </svg>
 
       {/* Instructions */}
-      <div className="text-[10px] text-gray-400 text-center mt-1">
+      <div className="text-[10px] text-gray-400 dark:text-slate-500 text-center mt-1">
         {hasAnyFilter ? (
           <span>Double-click to clear</span>
         ) : (

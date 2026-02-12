@@ -308,7 +308,7 @@ const JoinStarFiles = () => {
         setMessage(`Success: ${response.data.message}`);
       })
       .catch((error) => {
-        setMessage(`Error: ${error.response.data.message}`);
+        setMessage(`Error: ${error?.response?.data?.message || 'An error occurred'}`);
       });
   };
 

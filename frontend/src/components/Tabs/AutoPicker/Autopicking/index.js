@@ -92,6 +92,7 @@ const Autopicking = ({
         options={dropdownOptions}
         onChange={handleInputChange}
         disabled={isLoG}
+        disabledHint="Not available with LoG picking"
       />
       <SimpleInput
         label="Which GPUs to use:"
@@ -100,6 +101,7 @@ const Autopicking = ({
         onChange={handleInputChange}
         value={formData.gpuToUse}
         disabled={!isEnable3}
+        disabledHint={isLoG ? "Not available with LoG picking" : "Enable 'Use GPU acceleration' first"}
       />
       {isLoG && (
         <div className="flex flex-wrap items-start">

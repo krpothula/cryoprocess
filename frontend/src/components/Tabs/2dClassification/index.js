@@ -147,7 +147,7 @@ const DClassification = () => {
         // Handle error response from the API
         setMessage(
           `Error: ${
-            error.response.data.message || DefaultMessages.processError
+            error?.response?.data?.message || DefaultMessages.processError
           }`
         );
       })

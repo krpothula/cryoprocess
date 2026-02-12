@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import { BiLoader } from "react-icons/bi";
 import {
@@ -19,6 +19,7 @@ import {
 } from "react-icons/fi";
 import MolstarViewer from "../InitialModelDashboard/MolstarViewer";
 import axiosInstance from "../../services/config";
+import useJobNotification from "../../hooks/useJobNotification";
 
 const API_BASE_URL = process.env.REACT_APP_API_HOST || "";
 
@@ -55,12 +56,17 @@ const AutoRefineDashboard = () => {
     }
   };
 
+  // Guard against state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const fetchResults = useCallback(async () => {
     if (!selectedJob?.id) return;
 
     try {
       setLoading(true);
       const response = await getAutoRefineResultsApi(selectedJob.id);
+      if (!mountedRef.current) return;
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
@@ -69,7 +75,7 @@ const AutoRefineDashboard = () => {
       setError("Failed to load auto-refinement results");
       console.error("Error fetching results:", err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [selectedJob?.id]);
 
@@ -88,12 +94,16 @@ const AutoRefineDashboard = () => {
     }
   }, [selectedJob?.status, fetchResults]);
 
+  // Trigger immediate fetch on WebSocket job_update (supplements polling)
+  useJobNotification(selectedJob?.id, fetchResults);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "success":
         return <FiCheckCircle className="text-green-500 text-xl" />;
       case "running":
         return <FiActivity className="text-amber-500 text-xl animate-pulse" />;
+      case "failed":
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
@@ -105,7 +115,7 @@ const AutoRefineDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black font-medium mt-4">
+        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
           Loading auto-refinement results...
         </p>
       </div>
@@ -122,26 +132,26 @@ const AutoRefineDashboard = () => {
   }
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStatusIcon(selectedJob?.status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
                 Refine3D/{selectedJob?.job_name || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
-                  ? "#16a34a"
+                  ? "var(--color-success-text)"
                   : selectedJob?.status === "error"
-                  ? "#dc2626"
+                  ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "#f59e0b"
-                  : "#ca8a04"
+                  ? "var(--color-warning-text)"
+                  : "var(--color-warning-text)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -158,29 +168,29 @@ const AutoRefineDashboard = () => {
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+              className="flex items-center gap-2 hover:bg-[var(--color-bg)] rounded px-1 py-0.5 transition-colors"
             >
-              <FiTerminal className="text-gray-400" size={12} />
-              <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>RELION Command</span>
+              <FiTerminal className="text-[var(--color-text-muted)]" size={12} />
+              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>RELION Command</span>
               {showCommand ? (
-                <FiChevronUp className="text-gray-400" size={12} />
+                <FiChevronUp className="text-[var(--color-text-muted)]" size={12} />
               ) : (
-                <FiChevronDown className="text-gray-400" size={12} />
+                <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
             {showCommand && selectedJob?.command && (
               <button
                 onClick={copyCommand}
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 title="Copy command"
               >
-                <FiCopy className="text-gray-400" size={12} />
+                <FiCopy className="text-[var(--color-text-muted)]" size={12} />
                 {commandCopied && (
-                  <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                  <span style={{ fontSize: "10px", color: "var(--color-success-text)" }}>Copied!</span>
                 )}
               </button>
             )}
@@ -190,7 +200,7 @@ const AutoRefineDashboard = () => {
               className="mt-2 overflow-x-auto font-mono"
               style={{
                 fontSize: '9px',
-                color: '#475569',
+                color: 'var(--color-text-secondary)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 lineHeight: '1.4'
@@ -203,33 +213,33 @@ const AutoRefineDashboard = () => {
       </div>
 
       {/* Stats Card - Merged */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiTarget className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Resolution:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#16a34a" }}>
+            <FiTarget className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Resolution:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
               {results?.final_resolution ? `${results.final_resolution.toFixed(2)} Å` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiLayers className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Iteration:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiLayers className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Iteration:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.latest_iteration || 0}/{results?.total_iterations || 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiRotateCw className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Symmetry:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiRotateCw className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Symmetry:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.symmetry || "C1"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiBox className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Half Maps:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiBox className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Half Maps:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.has_half_maps ? "Yes" : "No"}
             </span>
           </div>
@@ -237,9 +247,9 @@ const AutoRefineDashboard = () => {
       </div>
 
       {/* 3D Visualization */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-700 flex items-center gap-2" style={{ fontSize: "12px" }}>
+          <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiBox className="text-blue-500" size={13} />
             Volume Viewer
           </h3>
@@ -249,7 +259,7 @@ const AutoRefineDashboard = () => {
               <select
                 value={selectedIteration}
                 onChange={(e) => setSelectedIteration(e.target.value)}
-                className="px-3 py-1 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-300"
+                className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-blue-300"
                 style={{ fontSize: "12px" }}
               >
                 <option value="latest">Latest (Iteration {results.latest_iteration})</option>
@@ -263,7 +273,7 @@ const AutoRefineDashboard = () => {
               <select
                 value={mapType}
                 onChange={(e) => setMapType(e.target.value)}
-                className="px-3 py-1 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-300"
+                className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-blue-300"
                 style={{ fontSize: "12px" }}
               >
                 <option value="half1">Half Map 1</option>
@@ -273,7 +283,7 @@ const AutoRefineDashboard = () => {
 
             <button
               onClick={fetchResults}
-              className="flex items-center gap-1 px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className="flex items-center gap-1 px-3 py-1 bg-[var(--color-bg-hover)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
               style={{ fontSize: "12px" }}
             >
               <FiRefreshCw size={13} />
@@ -304,7 +314,7 @@ const AutoRefineDashboard = () => {
             isoValue={1.5}
           />
         ) : (
-          <div className="h-[500px] flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
+          <div className="h-[500px] flex flex-col items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)] rounded-lg">
             <FiBox className="text-5xl mb-4" />
             <p className="text-lg font-medium">No Refined Map Yet</p>
             <p className="text-sm text-center mt-2">

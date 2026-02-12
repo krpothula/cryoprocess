@@ -138,6 +138,16 @@ class SlurmMonitor extends EventEmitter {
         }
       }
     }
+
+    // Prune stale entries from missedPollCounts for jobs no longer active
+    if (this.missedPollCounts.size > 0) {
+      const activeSlurmIds = new Set(activeJobs.map(j => j.slurm_job_id));
+      for (const slurmId of this.missedPollCounts.keys()) {
+        if (!activeSlurmIds.has(slurmId)) {
+          this.missedPollCounts.delete(slurmId);
+        }
+      }
+    }
   }
 
   async getSlurmJobStatuses(slurmIds) {

@@ -221,12 +221,15 @@ const AdminUsers = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Username</label>
+                  <label>Username *</label>
                   <input
                     type="text"
                     value={newUser.username}
-                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                    placeholder="Auto-generated from email"
+                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value.replace(/\s/g, '') })}
+                    placeholder="e.g. johndoe"
+                    pattern="^[a-zA-Z0-9_.\-]+$"
+                    title="Single word, no spaces (letters, numbers, underscore, dot, or hyphen)"
+                    required
                   />
                 </div>
                 <div className="form-group">
@@ -392,7 +395,7 @@ const AdminUsers = () => {
       <style>{`
         .admin-users-page {
           min-height: calc(100vh - 48px);
-          background: #ffffff;
+          background: var(--color-bg);
         }
 
         .admin-container {
@@ -409,13 +412,13 @@ const AdminUsers = () => {
         .header-title h1 {
           font-size: 24px;
           font-weight: 600;
-          color: #0f172a;
+          color: var(--color-text-heading);
           margin: 0 0 4px 0;
         }
 
         .header-subtitle {
           font-size: 14px;
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
 
         .btn-create {
@@ -423,7 +426,7 @@ const AdminUsers = () => {
           align-items: center;
           gap: 8px;
           padding: 10px 20px;
-          background: #3b82f6;
+          background: var(--color-primary);
           color: white;
           border: none;
           border-radius: 8px;
@@ -434,13 +437,13 @@ const AdminUsers = () => {
         }
 
         .btn-create:hover {
-          background: #2563eb;
+          background: var(--color-primary-hover);
         }
 
         .users-table-container {
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 12px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--color-border);
           overflow: hidden;
         }
 
@@ -454,15 +457,15 @@ const AdminUsers = () => {
           text-align: left;
           font-size: 12px;
           font-weight: 600;
-          color: #64748b;
+          color: var(--color-text-secondary);
           text-transform: uppercase;
-          background: #f8fafc;
-          border-bottom: 1px solid #e2e8f0;
+          background: var(--color-bg-hover);
+          border-bottom: 1px solid var(--color-border);
         }
 
         .users-table td {
           padding: 16px 20px;
-          border-bottom: 1px solid #f1f5f9;
+          border-bottom: 1px solid var(--color-border-light);
         }
 
         .users-table tr:last-child td {
@@ -479,23 +482,23 @@ const AdminUsers = () => {
           width: 40px;
           height: 40px;
           border-radius: 50%;
-          background: #f1f5f9;
+          background: var(--color-bg-hover);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
 
         .user-name {
           display: block;
           font-weight: 500;
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .user-username {
           display: block;
           font-size: 12px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
         }
 
         .role-badge {
@@ -506,18 +509,18 @@ const AdminUsers = () => {
         }
 
         .role-badge.admin {
-          background: #dbeafe;
-          color: #1d4ed8;
+          background: var(--color-info-bg);
+          color: var(--color-info-text);
         }
 
         .role-badge.staff {
-          background: #fef3c7;
-          color: #d97706;
+          background: var(--color-warning-bg);
+          color: var(--color-warning-text);
         }
 
         .role-badge.user {
-          background: #f1f5f9;
-          color: #64748b;
+          background: var(--color-bg-hover);
+          color: var(--color-text-secondary);
         }
 
         .status-badge {
@@ -528,27 +531,27 @@ const AdminUsers = () => {
         }
 
         .status-badge.active {
-          background: #dcfce7;
-          color: #16a34a;
+          background: var(--color-success-bg);
+          color: var(--color-success-text);
         }
 
         .status-badge.inactive {
-          background: #fee2e2;
-          color: #dc2626;
+          background: var(--color-danger-bg);
+          color: var(--color-danger);
         }
 
         .password-badge {
           display: inline-block;
           margin-left: 8px;
           padding: 2px 8px;
-          background: #fef3c7;
-          color: #d97706;
+          background: var(--color-warning-bg);
+          color: var(--color-warning-text);
           border-radius: 8px;
           font-size: 11px;
         }
 
         .last-login {
-          color: #64748b;
+          color: var(--color-text-secondary);
           font-size: 13px;
         }
 
@@ -562,8 +565,8 @@ const AdminUsers = () => {
           align-items: center;
           gap: 4px;
           padding: 6px 10px;
-          border: 1px solid #e2e8f0;
-          background: white;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-card);
           border-radius: 6px;
           cursor: pointer;
           font-size: 12px;
@@ -576,47 +579,47 @@ const AdminUsers = () => {
         }
 
         .action-btn.reset {
-          color: #0369a1;
-          border-color: #bae6fd;
-          background: #f0f9ff;
+          color: var(--color-info-text);
+          border-color: var(--color-border);
+          background: transparent;
         }
 
         .action-btn.reset:hover {
-          background: #e0f2fe;
-          border-color: #7dd3fc;
+          background: var(--color-bg-hover);
+          border-color: var(--color-border-hover);
         }
 
         .action-btn.role {
-          color: #7c3aed;
-          border-color: #ddd6fe;
-          background: #f5f3ff;
+          color: var(--color-warning-text);
+          border-color: var(--color-border);
+          background: transparent;
         }
 
         .action-btn.role:hover {
-          background: #ede9fe;
-          border-color: #c4b5fd;
+          background: var(--color-bg-hover);
+          border-color: var(--color-border-hover);
         }
 
         .action-btn.role.is-admin {
-          color: #ea580c;
-          border-color: #fed7aa;
-          background: #fff7ed;
+          color: var(--color-warning-text);
+          border-color: var(--color-border);
+          background: transparent;
         }
 
         .action-btn.role.is-admin:hover {
-          background: #ffedd5;
-          border-color: #fdba74;
+          background: var(--color-bg-hover);
+          border-color: var(--color-border-hover);
         }
 
         .action-btn.delete {
-          color: #dc2626;
-          border-color: #fecaca;
-          background: #fef2f2;
+          color: var(--color-danger-text);
+          border-color: var(--color-border);
+          background: transparent;
         }
 
         .action-btn.delete:hover {
-          background: #fee2e2;
-          border-color: #fca5a5;
+          background: var(--color-danger-bg);
+          border-color: var(--color-danger-border);
         }
 
         .admin-loading {
@@ -625,7 +628,7 @@ const AdminUsers = () => {
           justify-content: center;
           gap: 12px;
           height: 400px;
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
 
         .spinner {
@@ -650,7 +653,7 @@ const AdminUsers = () => {
         }
 
         .modal {
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 12px;
           width: 100%;
           max-width: 480px;
@@ -681,13 +684,13 @@ const AdminUsers = () => {
           align-items: center;
           gap: 6px;
           padding: 8px 16px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--color-border);
           border-radius: 20px;
           cursor: pointer;
           transition: all 0.15s;
           font-size: 13px;
           font-weight: 500;
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
 
         .role-chip input[type="radio"] {
@@ -695,14 +698,14 @@ const AdminUsers = () => {
         }
 
         .role-chip:hover {
-          background: #f8fafc;
+          background: var(--color-bg-hover);
           border-color: #cbd5e1;
         }
 
         .role-chip.selected {
-          background: #eff6ff;
-          border-color: #3b82f6;
-          color: #1d4ed8;
+          background: var(--color-primary-bg);
+          border-color: var(--color-primary);
+          color: var(--color-info-text);
         }
 
         .modal-header {
@@ -715,14 +718,14 @@ const AdminUsers = () => {
         .modal-header h3 {
           margin: 0;
           font-size: 18px;
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .modal-close {
           background: none;
           border: none;
           cursor: pointer;
-          color: #64748b;
+          color: var(--color-text-secondary);
           padding: 4px;
         }
 
@@ -734,7 +737,7 @@ const AdminUsers = () => {
           display: block;
           font-size: 14px;
           font-weight: 500;
-          color: #334155;
+          color: var(--color-text);
           margin-bottom: 6px;
         }
 
@@ -742,7 +745,7 @@ const AdminUsers = () => {
         .form-group input[type="email"] {
           width: 100%;
           padding: 10px 12px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--color-border);
           border-radius: 8px;
           font-size: 14px;
           box-sizing: border-box;
@@ -750,7 +753,7 @@ const AdminUsers = () => {
 
         .form-group input:focus {
           outline: none;
-          border-color: #3b82f6;
+          border-color: var(--color-primary);
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
@@ -771,14 +774,14 @@ const AdminUsers = () => {
           align-items: flex-start;
           gap: 10px;
           padding: 12px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--color-border);
           border-radius: 8px;
           cursor: pointer;
           transition: all 0.15s;
         }
 
         .role-option:hover {
-          background: #f8fafc;
+          background: var(--color-bg-hover);
         }
 
         .role-option input[type="radio"] {
@@ -786,7 +789,7 @@ const AdminUsers = () => {
         }
 
         .role-option input[type="radio"]:checked + .role-label strong {
-          color: #3b82f6;
+          color: var(--color-primary);
         }
 
         .role-label {
@@ -797,12 +800,12 @@ const AdminUsers = () => {
 
         .role-label strong {
           font-size: 14px;
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .role-label small {
           font-size: 12px;
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
 
         .modal-actions {
@@ -814,18 +817,18 @@ const AdminUsers = () => {
 
         .btn-cancel {
           padding: 10px 20px;
-          background: #f1f5f9;
+          background: var(--color-bg-hover);
           border: none;
           border-radius: 8px;
           font-size: 14px;
           font-weight: 500;
-          color: #64748b;
+          color: var(--color-text-secondary);
           cursor: pointer;
         }
 
         .btn-submit {
           padding: 10px 20px;
-          background: #3b82f6;
+          background: var(--color-primary);
           color: white;
           border: none;
           border-radius: 8px;
@@ -835,12 +838,12 @@ const AdminUsers = () => {
         }
 
         .btn-submit:hover {
-          background: #2563eb;
+          background: var(--color-primary-hover);
         }
 
         .btn-danger {
           padding: 10px 20px;
-          background: #dc2626;
+          background: var(--color-danger);
           color: white;
           border: none;
           border-radius: 8px;
@@ -850,7 +853,7 @@ const AdminUsers = () => {
         }
 
         .password-display p {
-          color: #64748b;
+          color: var(--color-text-secondary);
           font-size: 14px;
           margin-bottom: 16px;
         }
@@ -858,8 +861,8 @@ const AdminUsers = () => {
         .password-box {
           display: flex;
           align-items: center;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
+          background: var(--color-bg-hover);
+          border: 1px solid var(--color-border);
           border-radius: 8px;
           padding: 12px 16px;
         }
@@ -868,19 +871,19 @@ const AdminUsers = () => {
           flex: 1;
           font-size: 16px;
           font-family: monospace;
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .btn-copy {
           background: none;
           border: none;
           cursor: pointer;
-          color: #64748b;
+          color: var(--color-text-secondary);
           padding: 4px;
         }
 
         .btn-copy:hover {
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .confirm-modal {
@@ -899,49 +902,49 @@ const AdminUsers = () => {
         }
 
         .confirm-icon.reset-icon {
-          background: #e0f2fe;
-          color: #0369a1;
+          background: var(--color-info-bg);
+          color: var(--color-info-text);
         }
 
         .confirm-icon.promote-icon {
-          background: #ede9fe;
-          color: #7c3aed;
+          background: var(--color-primary-bg);
+          color: var(--color-primary);
         }
 
         .confirm-icon.demote-icon {
-          background: #ffedd5;
-          color: #ea580c;
+          background: var(--color-warning-bg);
+          color: var(--color-warning-text);
         }
 
         .confirm-icon.delete-icon {
-          background: #fee2e2;
-          color: #dc2626;
+          background: var(--color-danger-bg);
+          color: var(--color-danger);
         }
 
         .confirm-modal h3 {
           margin: 0 0 12px;
           font-size: 18px;
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .confirm-modal p {
-          color: #475569;
+          color: var(--color-text);
           margin: 0 0 8px;
           font-size: 14px;
         }
 
         .confirm-modal p strong {
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .confirm-note {
           font-size: 13px !important;
-          color: #64748b !important;
+          color: var(--color-text-secondary) !important;
           margin-bottom: 20px !important;
         }
 
         .confirm-note.warning {
-          color: #dc2626 !important;
+          color: var(--color-danger) !important;
         }
 
         .confirm-modal .modal-actions {
@@ -951,7 +954,7 @@ const AdminUsers = () => {
 
         .btn-primary {
           padding: 10px 20px;
-          background: #3b82f6;
+          background: var(--color-primary);
           color: white;
           border: none;
           border-radius: 8px;
@@ -961,7 +964,7 @@ const AdminUsers = () => {
         }
 
         .btn-primary:hover {
-          background: #2563eb;
+          background: var(--color-primary-hover);
         }
 
         .btn-warning {

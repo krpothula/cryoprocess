@@ -8,6 +8,7 @@ const express = require('express');
 const router = express.Router();
 const projectController = require('../controllers/projectController');
 const projectMemberController = require('../controllers/projectMemberController');
+const archiveController = require('../controllers/archiveController');
 const asyncHandler = require('../utils/asyncHandler');
 
 // List all projects
@@ -29,6 +30,18 @@ router.put('/:projectId', asyncHandler(projectController.updateProject));
 // Delete project
 // DELETE /api/projects/:projectId
 router.delete('/:projectId', asyncHandler(projectController.deleteProject));
+
+// Archive project (move to archive storage)
+// PUT /api/projects/:projectId/archive
+router.put('/:projectId/archive', asyncHandler(archiveController.archiveProject));
+
+// Restore archived project (move back to active storage)
+// PUT /api/projects/:projectId/restore
+router.put('/:projectId/restore', asyncHandler(archiveController.restoreProject));
+
+// Relocate project to a new path (superuser only)
+// PUT /api/projects/:projectId/relocate
+router.put('/:projectId/relocate', asyncHandler(archiveController.relocateProject));
 
 // Get all jobs for a project
 // GET /api/projects/:projectId/jobs

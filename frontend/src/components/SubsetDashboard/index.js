@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import { getManualSelectResultsApi } from "../../services/builders/manual-select/manual-select";
 import { BiLoader } from "react-icons/bi";
 import {
+  FiActivity,
   FiCheckCircle,
   FiAlertCircle,
   FiLayers,
@@ -25,12 +26,17 @@ const SubsetDashboard = () => {
   const [commandCopied, setCommandCopied] = useState(false);
 
   // Fetch results
+  // Guard against state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const fetchResults = useCallback(async () => {
     if (!selectedJob?.id) return;
 
     try {
       setLoading(true);
       const response = await getManualSelectResultsApi(selectedJob.id);
+      if (!mountedRef.current) return;
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
@@ -39,7 +45,7 @@ const SubsetDashboard = () => {
       setError("Failed to load subset results");
       console.error("Error fetching results:", err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [selectedJob?.id]);
 
@@ -65,13 +71,12 @@ const SubsetDashboard = () => {
       case "success":
         return <FiCheckCircle className="text-green-500 text-xl" />;
       case "running":
-        return <BiLoader className="animate-spin text-blue-500 text-xl" />;
+        return <FiActivity className="text-amber-500 text-xl animate-pulse" />;
       case "failed":
+      case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
-      case "pending":
-        return <FiClock className="text-yellow-500 text-xl" />;
       default:
-        return <FiCheckCircle className="text-green-500 text-xl" />;
+        return <FiClock className="text-yellow-500 text-xl" />;
     }
   };
 
@@ -113,8 +118,8 @@ const SubsetDashboard = () => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
-        <BiLoader className="animate-spin text-blue-500 text-4xl" />
-        <p className="text-lg text-gray-700 font-medium mt-4">
+        <BiLoader className="animate-spin text-primary text-4xl" />
+        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
           Loading subset results...
         </p>
       </div>
@@ -131,26 +136,26 @@ const SubsetDashboard = () => {
   }
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStatusIcon(selectedJob?.status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
                 Select/{selectedJob?.job_name || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
-                  ? "#16a34a"
+                  ? "var(--color-success-text)"
                   : selectedJob?.status === "error" || selectedJob?.status === "failed"
-                  ? "#dc2626"
+                  ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "#f59e0b"
-                  : "#ca8a04"
+                  ? "var(--color-warning-text)"
+                  : "var(--color-warning-text)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -167,29 +172,29 @@ const SubsetDashboard = () => {
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+              className="flex items-center gap-2 hover:bg-[var(--color-bg)] rounded px-1 py-0.5 transition-colors"
             >
-              <FiTerminal className="text-gray-400" size={12} />
-              <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>RELION Command</span>
+              <FiTerminal className="text-[var(--color-text-muted)]" size={12} />
+              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>RELION Command</span>
               {showCommand ? (
-                <FiChevronUp className="text-gray-400" size={12} />
+                <FiChevronUp className="text-[var(--color-text-muted)]" size={12} />
               ) : (
-                <FiChevronDown className="text-gray-400" size={12} />
+                <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
             {showCommand && command && (
               <button
                 onClick={copyCommand}
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 title="Copy command"
               >
-                <FiCopy className="text-gray-400" size={12} />
+                <FiCopy className="text-[var(--color-text-muted)]" size={12} />
                 {commandCopied && (
-                  <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                  <span style={{ fontSize: "10px", color: "var(--color-success-text)" }}>Copied!</span>
                 )}
               </button>
             )}
@@ -199,7 +204,7 @@ const SubsetDashboard = () => {
               className="mt-2 overflow-x-auto font-mono"
               style={{
                 fontSize: '9px',
-                color: '#475569',
+                color: 'var(--color-text-secondary)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 lineHeight: '1.4'
@@ -212,37 +217,37 @@ const SubsetDashboard = () => {
       </div>
 
       {/* Stats Card - Merged */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <operationInfo.icon className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Operation:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <operationInfo.icon className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Operation:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {operationInfo.name}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiLayers className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Input:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiLayers className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Input:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {particlesBefore > 0 ? particlesBefore.toLocaleString() : "—"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiFilter className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Output:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#16a34a" }}>
+            <FiFilter className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Output:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
               {particlesAfter.toLocaleString()}
             </span>
-            <span style={{ fontSize: "11px", color: "#94a3b8" }}>({retentionPercent}%)</span>
+            <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>({retentionPercent}%)</span>
           </div>
           <div className="flex items-center gap-2">
-            <FiTrash2 className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Removed:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#dc2626" }}>
+            <FiTrash2 className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Removed:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-danger-text)" }}>
               {particlesBefore > 0 ? particlesRemoved.toLocaleString() : "—"}
             </span>
-            <span style={{ fontSize: "11px", color: "#94a3b8" }}>({removalPercent}%)</span>
+            <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>({removalPercent}%)</span>
           </div>
         </div>
       </div>

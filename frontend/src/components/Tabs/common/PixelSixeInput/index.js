@@ -12,6 +12,8 @@ const PixelSizeInput = ({
   onChange,
   handleInputChange,
   disabled = false,
+  disabledHint,
+  autoFilled = false,
   step = "any",
 }) => {
   const [isTooltipVisible, setTooltipVisible] = useState(false);
@@ -23,8 +25,13 @@ const PixelSizeInput = ({
   return (
     <div className="flex items-center" style={{ gap: "8px" }}>
       <div className="w-[30%]">
-        <label style={{ textAlign: "left", opacity: disabled ? 0.3 : 1 }}>
+        <label style={{ textAlign: "left", opacity: disabled ? 0.5 : 1, display: "flex", alignItems: "center", gap: "6px" }}>
           {label}
+          {autoFilled && (
+            <span style={{ fontSize: "9px", fontWeight: 600, color: "var(--color-info-light-text, #0284c7)", backgroundColor: "var(--color-info-light-bg, #e0f2fe)", padding: "1px 5px", borderRadius: "3px", lineHeight: "1.4" }}>
+              AUTO
+            </span>
+          )}
         </label>
       </div>
       <div className="flex gap-[7px] items-center">
@@ -40,53 +47,47 @@ const PixelSizeInput = ({
               onChange={handleInputChange}
               disabled={disabled}
               name={name}
+              onFocus={() => setTooltipVisible(true)}
+              onBlur={() => setTooltipVisible(false)}
               style={{
                 width: "280px",
                 minWidth: "280px",
                 maxWidth: "280px",
                 height: "32px",
-                border: hasError ? "2px solid #dc2626" : "1px solid #e2e8f0",
+                border: hasError ? "2px solid var(--color-danger-text)" : disabled ? "1px dashed var(--color-border-hover)" : "1px solid var(--color-border)",
                 borderRadius: "6px",
                 fontSize: "12px",
                 textAlign: "left",
-                backgroundColor: hasError ? "#fef2f2" : "white",
+                backgroundColor: hasError ? "var(--color-danger-bg)" : disabled ? "var(--color-bg)" : "var(--color-bg-card)",
+                color: "var(--color-text-heading)",
                 padding: "6px 10px",
-                opacity: disabled ? 0.3 : 1,
-                cursor: disabled ? "not-allowed" : "",
-              }}
-            />
-            {isOddError && (
-              <div style={{ color: "#dc2626", fontSize: "11px", marginTop: "2px" }}>
-                Must be an even number
-              </div>
-            )}
-          </div>
-          {/* <div style={{ flexGrow: 1, display: "flex", alignItems: "center" }}>
-            <input
-              type="range"
-              id={name}
-              name={name}
-              min={min}
-              max={max}
-              value={value}
-              onChange={() => {}}
-              disabled={disabled}
-              style={{
-                width: "100%",
                 opacity: disabled ? 0.5 : 1,
                 cursor: disabled ? "not-allowed" : "",
               }}
             />
-          </div> */}
+            {isOddError && (
+              <div style={{ color: "var(--color-danger-text)", fontSize: "11px", marginTop: "2px" }}>
+                Must be an even number
+              </div>
+            )}
+            {disabled && disabledHint && (
+              <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "1px", lineHeight: "1.3" }}>
+                {disabledHint}
+              </div>
+            )}
+          </div>
         </div>
 
         <div
-          className="bg-white p-[2px] rounded flex items-center justify-center cursor-pointer relative"
+          className="bg-[var(--color-bg-card)] p-[2px] rounded flex items-center justify-center cursor-pointer relative"
           onMouseEnter={() => setTooltipVisible(true)}
           onMouseLeave={() => setTooltipVisible(false)}
+          tabIndex={0}
+          onFocus={() => setTooltipVisible(true)}
+          onBlur={() => setTooltipVisible(false)}
         >
-          <IoInformationCircleOutline className="text-gray-400 text-sm" />
-          {isTooltipVisible && (
+          <IoInformationCircleOutline className="text-gray-400 dark:text-slate-500 text-sm" />
+          {isTooltipVisible && tooltipText && (
             <div
               style={{
                 position: "absolute",

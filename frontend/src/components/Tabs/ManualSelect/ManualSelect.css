@@ -4,8 +4,8 @@
 
 /* Main panel */
 .ms-panel {
-  background: #fff;
-  border: 1px solid #ddd;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 16px;
 }
@@ -21,17 +21,17 @@
 .ms-toolbar-summary {
   flex: 1;
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .ms-toolbar-summary strong {
-  color: #2e7d32;
+  color: var(--color-success-text);
 }
 
 .ms-btn-clear {
-  background: #fff !important;
-  border: 1px solid #e57373 !important;
-  color: #c62828 !important;
+  background: var(--color-bg-card) !important;
+  border: 1px solid var(--color-danger-text) !important;
+  color: var(--color-danger-text) !important;
   padding: 6px 16px !important;
   border-radius: 4px !important;
   cursor: pointer;
@@ -42,7 +42,7 @@
 }
 
 .ms-btn-save {
-  background: #4caf50 !important;
+  background: var(--color-success-text) !important;
   border: none !important;
   color: #fff !important;
   padding: 6px 16px !important;
@@ -55,24 +55,24 @@
 }
 
 .ms-btn-save:disabled {
-  background: #bdbdbd !important;
+  background: var(--color-text-muted) !important;
   cursor: not-allowed;
 }
 
 /* Error / Loading */
 .ms-error {
-  background: #ffebee;
-  color: #c62828;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
   padding: 10px 14px;
   border-radius: 4px;
   margin-bottom: 16px;
-  border: 1px solid #ef9a9a;
+  border: 1px solid var(--color-danger-bg);
 }
 
 .ms-loading {
   text-align: center;
   padding: 40px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 /* Class Grid - used for BOTH 2D and 3D */
@@ -83,31 +83,31 @@
   max-height: 600px;
   overflow-y: auto;
   padding: 12px;
-  background: #fff;
+  background: var(--color-bg-card);
   border-radius: 4px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border);
 }
 
 .ms-class-card {
   position: relative;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--color-border);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #fff;
+  background: var(--color-bg-card);
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .ms-class-card:hover {
-  border-color: #999;
+  border-color: var(--color-text-muted);
   transform: scale(1.02);
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .ms-class-card.selected {
-  border-color: #4caf50;
-  background: #e8f5e9;
+  border-color: var(--color-success-text);
+  background: var(--color-success-bg);
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
 }
 
@@ -123,8 +123,8 @@
   flex-direction: column;
   padding: 6px 8px;
   font-size: 11px;
-  background: #f8f8f8;
-  border-top: 1px solid #eee;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border-light);
 }
 
 .ms-class-checkbox {
@@ -137,7 +137,7 @@
   width: 18px;
   height: 18px;
   cursor: pointer;
-  accent-color: #4caf50;
+  accent-color: var(--color-success-text);
 }
 
 /* 3D button overlay on card */
@@ -148,7 +148,7 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  background: rgba(33, 150, 243, 0.9);
+  background: var(--color-primary);
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -161,16 +161,16 @@
 }
 
 .ms-class-3d-btn:hover {
-  background: rgba(25, 118, 210, 1);
+  background: var(--color-primary-hover);
 }
 
 /* Molstar Viewer Panel - below the grid */
 .ms-molstar-panel {
   margin-top: 16px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   overflow: hidden;
-  background: #fff;
+  background: var(--color-bg-card);
 }
 
 .ms-molstar-toolbar {
@@ -178,8 +178,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 14px;
-  background: #f8f8f8;
-  border-bottom: 1px solid #e0e0e0;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -190,12 +190,12 @@
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-heading);
 }
 
 .ms-molstar-meta {
   font-weight: 400;
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 
@@ -204,7 +204,7 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #555;
+  color: var(--color-text);
   font-weight: 500;
 }
 
@@ -213,7 +213,7 @@
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
-  background: #ccc;
+  background: var(--color-text-muted);
   border-radius: 2px;
   outline: none;
   border: none;
@@ -227,9 +227,9 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--color-primary);
   cursor: pointer;
-  border: 2px solid #fff;
+  border: 2px solid var(--color-bg-card);
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
@@ -237,22 +237,22 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--color-primary);
   cursor: pointer;
-  border: 2px solid #fff;
+  border: 2px solid var(--color-bg-card);
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
 .ms-molstar-iso-val {
   font-size: 11px;
-  color: #666;
+  color: var(--color-text-secondary);
   min-width: 24px;
 }
 
 .ms-molstar-close {
-  background: #e0e0e0 !important;
+  background: var(--color-border) !important;
   border: none !important;
-  color: #333 !important;
+  color: var(--color-text-heading) !important;
   padding: 4px 12px !important;
   border-radius: 4px !important;
   font-size: 12px !important;
@@ -262,7 +262,7 @@
 }
 
 .ms-molstar-close:hover {
-  background: #ccc !important;
+  background: var(--color-text-muted) !important;
 }
 
 .ms-molstar-viewer {
@@ -278,13 +278,13 @@
 }
 
 .ms-message-success {
-  background: #e8f5e9;
-  color: #2e7d32;
-  border: 1px solid #a5d6a7;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-bg);
 }
 
 .ms-message-error {
-  background: #ffebee;
-  color: #c62828;
-  border: 1px solid #ef9a9a;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-bg);
 }

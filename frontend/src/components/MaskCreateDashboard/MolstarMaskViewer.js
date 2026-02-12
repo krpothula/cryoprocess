@@ -456,14 +456,14 @@ const MolstarMaskViewer = ({
 
   const sliderBg = (value, min, max, color) => {
     const pct = ((value - min) / (max - min)) * 100;
-    return `linear-gradient(to right, ${color} 0%, ${color} ${pct}%, #e2e8f0 ${pct}%, #e2e8f0 100%)`;
+    return `linear-gradient(to right, ${color} 0%, ${color} ${pct}%, var(--color-border) ${pct}%, var(--color-border) 100%)`;
   };
 
   return (
-    <div className="relative rounded-lg overflow-hidden border border-gray-200">
+    <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700">
       {/* Control Panel - Light theme matching MolstarViewer */}
       {!loading && !error && (
-        <div style={{ backgroundColor: "#f8fafc" }} className="border-b border-gray-200">
+        <div style={{ backgroundColor: "var(--color-bg)" }} className="border-b border-gray-200 dark:border-slate-700">
           {/* Row 1: Toggle buttons side by side + action buttons */}
           <div className="px-3 py-1.5 flex items-center gap-2">
             <button
@@ -499,14 +499,14 @@ const MolstarMaskViewer = ({
             <div className="flex items-center gap-1 ml-auto">
               <button
                 onClick={resetCamera}
-                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all"
+                className="p-1.5 rounded-md text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-all"
                 title="Reset camera"
               >
                 <FiRotateCcw size={13} />
               </button>
               <button
                 onClick={toggleFullscreen}
-                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all"
+                className="p-1.5 rounded-md text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-all"
                 title="Fullscreen"
               >
                 <FiMaximize2 size={13} />
@@ -517,7 +517,7 @@ const MolstarMaskViewer = ({
           {/* Row 2: Mask isosurface + opacity (full width) */}
           {showMask && (
             <div className="px-3 py-1 flex items-center gap-2 border-t border-gray-100">
-              <span className="flex items-center gap-1.5 whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500, color: "#6b7280", minWidth: "70px" }}>
+              <span className="flex items-center gap-1.5 whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500, color: "var(--color-text-secondary)", minWidth: "70px" }}>
                 <span className="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>
                 Mask Iso
               </span>
@@ -622,7 +622,7 @@ const MolstarMaskViewer = ({
         {error && !loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/95">
             <FiAlertCircle className="text-red-500 text-4xl mb-3" />
-            <p className="text-gray-300 text-sm mb-4 max-w-md text-center px-4">{error}</p>
+            <p className="text-gray-300 dark:text-slate-400 text-sm mb-4 max-w-md text-center px-4">{error}</p>
             <button
               onClick={() => window.location.reload()}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"

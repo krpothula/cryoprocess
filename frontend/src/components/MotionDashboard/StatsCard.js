@@ -3,28 +3,28 @@ import React from "react";
 const StatsCard = ({ title, icon, stats, unit = "", color = "blue" }) => {
   if (!stats) {
     return (
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-slate-700">
         <div className="flex items-center gap-2 mb-3">
           {icon}
-          <h4 className="text-sm font-medium text-gray-600">{title}</h4>
+          <h4 className="text-sm font-medium text-gray-600 dark:text-slate-300">{title}</h4>
         </div>
-        <p className="text-gray-400 text-sm">No data available</p>
+        <p className="text-gray-400 dark:text-slate-500 text-sm">No data available</p>
       </div>
     );
   }
 
   const colorClasses = {
-    blue: "text-blue-600 bg-blue-50",
-    green: "text-green-600 bg-green-50",
-    orange: "text-orange-600 bg-orange-50",
-    red: "text-red-600 bg-red-50",
+    blue: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30",
+    green: "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30",
+    orange: "text-orange-600 bg-orange-50 dark:bg-orange-900/30",
+    red: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30",
   };
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow-sm">
+    <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-slate-700">
       <div className="flex items-center gap-2 mb-3">
         {icon}
-        <h4 className="text-sm font-medium text-gray-600">{title}</h4>
+        <h4 className="text-sm font-medium text-gray-600 dark:text-slate-300">{title}</h4>
       </div>
 
       {/* Main stat value */}
@@ -32,27 +32,27 @@ const StatsCard = ({ title, icon, stats, unit = "", color = "blue" }) => {
         <span className={`text-2xl font-bold ${colorClasses[color]?.split(" ")[0]}`}>
           {stats.mean?.toFixed(2) || stats.latest?.toFixed(2) || "0"}
         </span>
-        <span className="text-sm text-gray-500 ml-1">{unit} (mean)</span>
+        <span className="text-sm text-gray-500 dark:text-slate-400 ml-1">{unit} (mean)</span>
       </div>
 
       {/* Min/Max range */}
       <div className="flex justify-between text-sm">
         <div>
-          <span className="text-gray-400">Min:</span>
-          <span className="text-gray-700 font-medium ml-1">
+          <span className="text-gray-400 dark:text-slate-500">Min:</span>
+          <span className="text-gray-700 dark:text-slate-200 font-medium ml-1">
             {stats.min?.toFixed(2) || "0"} {unit}
           </span>
         </div>
         <div>
-          <span className="text-gray-400">Max:</span>
-          <span className="text-gray-700 font-medium ml-1">
+          <span className="text-gray-400 dark:text-slate-500">Max:</span>
+          <span className="text-gray-700 dark:text-slate-200 font-medium ml-1">
             {stats.max?.toFixed(2) || "0"} {unit}
           </span>
         </div>
       </div>
 
       {/* Visual range bar */}
-      <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+      <div className="mt-3 h-2 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full ${colorClasses[color]?.split(" ")[1]} transition-all duration-500`}
           style={{

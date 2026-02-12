@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { FiMoreHorizontal, FiTrash2, FiCheckCircle, FiXCircle, FiCopy } from "react-icons/fi";
+import { FiMoreHorizontal, FiTrash2, FiCheckCircle, FiXCircle, FiCopy, FiColumns, FiBell, FiCheck } from "react-icons/fi";
 import { BiLoader } from "react-icons/bi";
-import { cancelJobById, deleteJob, updateJobStatus } from "../../../../services/slurmApi";
+import { cancelJobById, deleteJob, updateJobStatus, toggleJobNotifyEmail } from "../../../../services/slurmApi";
 import { getJobDetailsApi } from "../../../../services/builders/jobs";
 import { useBuilder } from "../../../../context/BuilderContext";
 import JobLogs from "../JobLogs";
+import JobComparisonModal from "../../../JobComparison";
 import "./JobActions.css";
 
 /**
@@ -27,6 +28,7 @@ import "./JobActions.css";
  * - showLogs: Show logs button (default: true)
  * - showCancel: Show cancel button (default: true)
  * - showCopy: Show copy button (default: true)
+ * - notifyEmail: Whether email notification is enabled for this job
  */
 const JobActions = ({
   jobId,
@@ -35,17 +37,21 @@ const JobActions = ({
   jobStatus,
   onJobUpdated,
   onJobCancelled,
+  notifyEmail: initialNotifyEmail = false,
   showLogs = true,
   showCancel = true,
   showCopy = true,
+  showCompare = true,
 }) => {
-  const { setCopiedJobParams } = useBuilder();
+  const { setCopiedJobParams, emailNotificationsEnabled } = useBuilder();
   const [showLogsModal, setShowLogsModal] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [activeAction, setActiveAction] = useState(null); // 'delete' | 'finished' | 'error' | 'cancel'
   const [confirmInput, setConfirmInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [notifyEmail, setNotifyEmail] = useState(initialNotifyEmail);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const buttonRef = useRef(null);
 
@@ -156,6 +162,19 @@ const JobActions = ({
     setActiveAction(null);
     setConfirmInput("");
     setError(null);
+  };
+
+  // Handle toggle email notification
+  const handleToggleNotify = async (e) => {
+    e.stopPropagation();
+    try {
+      const result = await toggleJobNotifyEmail(jobId);
+      if (result?.success) {
+        setNotifyEmail(result.notify_email);
+      }
+    } catch (err) {
+      console.error("Failed to toggle notification:", err);
+    }
   };
 
   // Map job_type (from database) to UI job names for navigation
@@ -317,6 +336,20 @@ const JobActions = ({
                       <span>Copy Job</span>
                     </button>
                   )}
+                  {showCompare && (
+                    <button
+                      className="job-menu-item job-menu-copy"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeMenu(e);
+                        setShowCompareModal(true);
+                      }}
+                      role="menuitem"
+                    >
+                      <FiColumns aria-hidden="true" />
+                      <span>Compare</span>
+                    </button>
+                  )}
                   {showCancel && canCancel && (
                     <button
                       className="job-menu-item job-menu-cancel"
@@ -342,6 +375,17 @@ const JobActions = ({
                   >
                     <FiXCircle aria-hidden="true" />
                     <span>Mark as Error</span>
+                  </button>
+                  <button
+                    className={`job-menu-item job-menu-notify${notifyEmail ? ' active' : ''}${!emailNotificationsEnabled ? ' disabled' : ''}`}
+                    onClick={emailNotificationsEnabled ? handleToggleNotify : undefined}
+                    disabled={!emailNotificationsEnabled}
+                    role="menuitem"
+                    title={!emailNotificationsEnabled ? 'Email notifications not configured' : ''}
+                  >
+                    <FiBell aria-hidden="true" />
+                    <span>Email on completion</span>
+                    {notifyEmail && emailNotificationsEnabled && <FiCheck size={12} className="notify-check" aria-hidden="true" />}
                   </button>
                   <div className="job-menu-divider" role="separator" />
                   <button
@@ -418,6 +462,16 @@ const JobActions = ({
             />
           </div>
         </div>
+      )}
+
+      {/* Compare Modal */}
+      {showCompareModal && (
+        <JobComparisonModal
+          jobId={jobId}
+          jobName={jobName}
+          jobType={jobType}
+          onClose={() => setShowCompareModal(false)}
+        />
       )}
     </div>
   );

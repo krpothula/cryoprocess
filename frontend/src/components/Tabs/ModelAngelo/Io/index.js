@@ -47,7 +47,7 @@ const FastaBrowseOnly = ({ label, name, value, onBrowse, onPaste, tooltipText })
             ) : (
               <>
                 <span style={{ flex: 1 }}>Browse ...</span>
-                <PiBrowser style={{ color: "#4b5563", flexShrink: 0 }} size={14} />
+                <PiBrowser style={{ color: "var(--color-text-label)", flexShrink: 0 }} size={14} />
               </>
             )}
           </button>
@@ -72,7 +72,7 @@ const FastaBrowseOnly = ({ label, name, value, onBrowse, onPaste, tooltipText })
           </button>
         </div>
         <div
-          className="bg-white p-[2px] rounded flex items-center justify-center cursor-pointer relative"
+          className="bg-white dark:bg-slate-800 p-[2px] rounded flex items-center justify-center cursor-pointer relative"
           onMouseEnter={() => setTooltipVisible(true)}
           onMouseLeave={() => setTooltipVisible(false)}
         >

@@ -3,7 +3,7 @@ import MonitorList from "../MonitorList";
 import { getJobsApi, getLogsApi } from "../../services/builders/jobs";
 import { useBuilder } from "../../context/BuilderContext";
 import { BiLoader } from "react-icons/bi";
-const Meta = ({ isLayoutSwitched, selectedTreeJob, refreshKey, onStatusChange }) => {
+const Meta = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
   const [jobListData, setJobListData] = useState({});
   const [isLoading, setLoading] = useState(true);
   const [moreJobsLoading, setMoreJobsLoading] = useState(false);
@@ -282,17 +282,17 @@ const Meta = ({ isLayoutSwitched, selectedTreeJob, refreshKey, onStatusChange })
     <div ref={boxRef} className="job-status-container">
       {isLoading ? (
         <div className="flex items-center justify-center">
-          <p className="font-medium items-center text-black">
+          <p className="font-medium items-center text-black dark:text-slate-100">
             <BiLoader className="mx-auto mb-2 text-2xl animate-spin" />
             Fetching all the jobs, please wait ..
           </p>
         </div>
       ) : !jobList ? (
         <div className="mt-6">
-          <h2 className="font-semibold text-center text-gray-700 mb-2">
+          <h2 className="font-semibold text-center text-gray-700 dark:text-slate-200 mb-2">
             No Jobs Found
           </h2>
-          <p className="text-gray-500 text-xs text-center font-medium mt-0">
+          <p className="text-gray-500 dark:text-slate-400 text-xs text-center font-medium mt-0">
             Try refreshing the page or check back later.
           </p>
         </div>
@@ -313,7 +313,7 @@ const Meta = ({ isLayoutSwitched, selectedTreeJob, refreshKey, onStatusChange })
         />
       )}
       {moreJobsLoading ? (
-        <p className="flex gap-2 font-medium items-center text-sm text-black p-3">
+        <p className="flex gap-2 font-medium items-center text-sm text-black dark:text-slate-100 p-3">
           <BiLoader className="animate-spin" />
           Loading more jobs ..
         </p>
@@ -322,7 +322,7 @@ const Meta = ({ isLayoutSwitched, selectedTreeJob, refreshKey, onStatusChange })
       )}
       <style>{`
         .job-status-container {
-          background: #ffffff;
+          background: var(--color-bg-card);
           padding: 0;
         }
       `}</style>

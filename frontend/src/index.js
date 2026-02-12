@@ -4,18 +4,21 @@ import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { StyleProvider } from "./context/StyleContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import { MyProvider } from "./useContext/authContext";
 import { ToastContainer } from "react-toastify";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <StyleProvider>
-      <MyProvider>
-        <App />
-        <ToastContainer />
-      </MyProvider>
-    </StyleProvider>
+    <ThemeProvider>
+      <StyleProvider>
+        <MyProvider>
+          <App />
+          <ToastContainer />
+        </MyProvider>
+      </StyleProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );
 

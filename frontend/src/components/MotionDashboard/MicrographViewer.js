@@ -67,7 +67,7 @@ const MicrographViewer = ({ jobId, micrograph, shiftData, zoom = 1, activeTab = 
 
   if (!micrograph) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900">
         <FiImage className="text-4xl mb-3" />
         <p className="text-center text-sm">Select a micrograph to view</p>
       </div>
@@ -76,18 +76,18 @@ const MicrographViewer = ({ jobId, micrograph, shiftData, zoom = 1, activeTab = 
 
   if (loading) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-900">
         <BiLoader className="animate-spin text-blue-500 text-3xl" />
-        <p className="text-gray-600 mt-2 text-sm">Loading image...</p>
+        <p className="text-gray-600 dark:text-slate-300 mt-2 text-sm">Loading image...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-50">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-50 dark:bg-red-900/30">
         <FiImage className="text-red-400 text-3xl" />
-        <p className="text-red-600 mt-2 text-sm">{error}</p>
+        <p className="text-red-600 dark:text-red-400 mt-2 text-sm">{error}</p>
       </div>
     );
   }
@@ -95,7 +95,7 @@ const MicrographViewer = ({ jobId, micrograph, shiftData, zoom = 1, activeTab = 
   const currentImage = activeTab === "micrograph" ? imageData : powerSpectrumData;
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-white">
+    <div className="absolute inset-0 overflow-hidden" style={{ backgroundColor: "var(--color-bg-card)" }}>
       {currentImage?.image ? (
         <img
           src={currentImage.image}
@@ -113,7 +113,7 @@ const MicrographViewer = ({ jobId, micrograph, shiftData, zoom = 1, activeTab = 
           }}
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+        <div className="absolute inset-0 flex items-center justify-center text-gray-500 dark:text-slate-400">
           <p>
             {activeTab === "micrograph"
               ? "Micrograph image not available"

@@ -339,10 +339,10 @@ const MolstarViewer = ({
       {/* Isosurface level slider - top bar */}
       {!loading && !error && (
         <div
-          className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-200"
-          style={{ backgroundColor: "#f8fafc" }}
+          className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-200 dark:border-slate-700"
+          style={{ backgroundColor: "var(--color-bg)" }}
         >
-          <span className="text-gray-500 whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500 }}>
+          <span className="text-gray-500 dark:text-slate-400 whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500 }}>
             Iso Level
           </span>
           <input
@@ -354,10 +354,10 @@ const MolstarViewer = ({
             onChange={(e) => handleIsoChange(parseFloat(e.target.value))}
             className="flex-1 h-1 rounded-lg appearance-none cursor-pointer"
             style={{
-              background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((currentIso - 0.1) / 4.9) * 100}%, #e2e8f0 ${((currentIso - 0.1) / 4.9) * 100}%, #e2e8f0 100%)`,
+              background: `linear-gradient(to right, var(--color-primary) 0%, var(--color-primary) ${((currentIso - 0.1) / 4.9) * 100}%, var(--color-border) ${((currentIso - 0.1) / 4.9) * 100}%, var(--color-border) 100%)`,
             }}
           />
-          <span className="text-gray-500 font-mono" style={{ fontSize: "10px", minWidth: "32px", textAlign: "right" }}>
+          <span className="text-gray-500 dark:text-slate-400 font-mono" style={{ fontSize: "10px", minWidth: "32px", textAlign: "right" }}>
             {currentIso.toFixed(1)}σ
           </span>
         </div>

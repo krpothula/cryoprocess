@@ -25,6 +25,8 @@ const authMiddleware = require('./middleware/auth');
 const { getMonitor } = require('./services/slurmMonitor');
 const { getWebSocketServer } = require('./services/websocket');
 const { onJobStatusChange } = require('./services/thumbnailGenerator');
+const { getEmailService } = require('./services/emailService');
+const { onJobStatusChange: emailOnStatusChange } = require('./services/emailNotifier');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -146,6 +148,7 @@ app.get('/api/software-config', authMiddleware, (req, res) => {
     gctf_exe: settings.GCTF_EXE || '',
     modelangelo_exe: settings.MODELANGELO_EXE || '',
     relion_path: settings.SINGULARITY_IMAGE || '',
+    email_notifications_enabled: settings.EMAIL_NOTIFICATIONS_ENABLED && !!settings.SMTP_HOST,
   });
 });
 
@@ -301,6 +304,11 @@ const startServer = async () => {
     // Register ALL event listeners BEFORE starting the monitor
     // to prevent lost events during the startup window
     slurmMonitor.on('statusChange', onJobStatusChange);
+
+    // Initialize email notification service and register listener
+    const emailService = getEmailService();
+    emailService.initialize();
+    slurmMonitor.on('statusChange', emailOnStatusChange);
 
     const { getLiveOrchestrator } = require('./services/liveOrchestrator');
     const liveOrchestrator = getLiveOrchestrator();

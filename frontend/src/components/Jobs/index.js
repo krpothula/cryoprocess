@@ -3,9 +3,9 @@ import MonitorList from '../MonitorList'
 import "../../App.css"
 import MainComponent from '../MainComponent'
 
-const Jobs = ({isLayoutSwitched, }) => {
+const Jobs = () => {
   return (
-    <div className={isLayoutSwitched ? "App" : "App1"}>
+    <div className="App">
     <div className="left-panel">
     
       <MonitorList />

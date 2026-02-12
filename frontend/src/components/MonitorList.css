@@ -1,8 +1,8 @@
 .monitorlist {
-  background-color: #f8f9fa;
+  background-color: var(--color-bg);
   padding: 2px;
   border-radius: 4px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border);
   /* width: 200px;
   margin-top: 5px; */
 }
@@ -33,6 +33,6 @@
 }
 
 .monitorlist button:hover {
-  background-color: #e6eaef;
+  background-color: var(--color-bg-hover);
 }
 

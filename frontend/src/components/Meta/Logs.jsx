@@ -237,18 +237,18 @@ const LogsArea = ({ isLayoutSwitched }) => {
         .logs-area {
           display: flex;
           flex-direction: column;
-          background: #ffffff;
+          background: var(--color-bg-card);
           padding: 0;
         }
         .logs-header {
-          background: #f1f5f9;
+          background: var(--color-bg-hover);
           position: sticky;
           top: 0;
           z-index: 10;
           padding: 4px 16px;
           height: 36px;
           box-sizing: border-box;
-          border-bottom: 1px solid #e2e8f0;
+          border-bottom: 1px solid var(--color-border);
           display: flex;
           align-items: center;
         }
@@ -274,7 +274,7 @@ const LogsArea = ({ isLayoutSwitched }) => {
           padding: 4px 10px;
           font-size: 12px;
           font-weight: 500;
-          color: #64748b;
+          color: var(--color-text-secondary);
           background: transparent;
           border: none;
           border-radius: 6px;
@@ -285,20 +285,17 @@ const LogsArea = ({ isLayoutSwitched }) => {
           box-sizing: border-box;
         }
         .logs-toggle-btn:hover {
-          color: #1e293b;
-          background: rgba(255, 255, 255, 0.5);
+          color: var(--color-text);
         }
         .logs-toggle-btn-active {
-          background: #ffffff;
-          color: #3b82f6;
+          color: var(--color-primary);
           font-weight: 600;
-          box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
         }
         .logs-toggle-btn-error {
-          color: #dc2626;
+          color: var(--color-danger-text);
         }
         .logs-toggle-btn-error.logs-toggle-btn-active {
-          color: #dc2626;
+          color: var(--color-danger-text);
         }
         .logs-download-wrapper {
           position: relative;
@@ -308,8 +305,8 @@ const LogsArea = ({ isLayoutSwitched }) => {
           transition: all 50ms ease;
         }
         .logs-download-btn:hover {
-          background: rgba(255, 255, 255, 0.5);
-          color: #1e293b;
+          background: var(--color-bg-card);
+          color: var(--color-text);
         }
         .logs-download-menu {
           position: absolute;
@@ -319,8 +316,8 @@ const LogsArea = ({ isLayoutSwitched }) => {
           min-width: 200px;
           max-height: 300px;
           overflow-y: auto;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
+          background: var(--color-bg-card);
+          border: 1px solid var(--color-border);
           border-radius: 8px;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
           z-index: 50;
@@ -330,10 +327,10 @@ const LogsArea = ({ isLayoutSwitched }) => {
           width: 100%;
           padding: 10px 14px;
           font-size: 12px;
-          color: #374151;
+          color: var(--color-text-label);
           background: transparent;
           border: none;
-          border-bottom: 1px solid #f1f5f9;
+          border-bottom: 1px solid var(--color-bg-hover);
           text-align: left;
           cursor: pointer;
           transition: background 50ms ease;
@@ -342,8 +339,8 @@ const LogsArea = ({ isLayoutSwitched }) => {
           border-bottom: none;
         }
         .logs-download-item:hover {
-          background: #f1f5f9;
-          color: #3b82f6;
+          background: var(--color-bg-hover);
+          color: var(--color-primary);
         }
         .logs-content {
           flex: 1;
@@ -355,8 +352,8 @@ const LogsArea = ({ isLayoutSwitched }) => {
           align-items: center;
           justify-content: center;
           min-height: 400px;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
+          background: var(--color-bg-card);
+          border: 1px solid var(--color-border);
           border-radius: 12px;
           padding: 32px;
           text-align: center;
@@ -368,13 +365,13 @@ const LogsArea = ({ isLayoutSwitched }) => {
           align-items: center;
           justify-content: center;
           font-size: 28px;
-          color: #94a3b8;
-          background: #f1f5f9;
+          color: var(--color-text-muted);
+          background: var(--color-bg-hover);
           border-radius: 50%;
           margin-bottom: 16px;
         }
         .logs-loading-icon {
-          color: #3b82f6;
+          color: var(--color-primary);
           animation: spin 1s linear infinite;
         }
         @keyframes spin {
@@ -384,19 +381,19 @@ const LogsArea = ({ isLayoutSwitched }) => {
         .logs-empty-title {
           font-size: 16px;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--color-text);
           margin: 0 0 8px 0;
         }
         .logs-empty-subtitle {
           font-size: 13px;
-          color: #64748b;
+          color: var(--color-text-secondary);
           margin: 0;
           max-width: 300px;
           line-height: 1.5;
         }
         .issues-logs-container {
           padding: 0;
-          background: #ffffff;
+          background: var(--color-bg-card);
           border-radius: 12px;
           overflow: hidden;
         }

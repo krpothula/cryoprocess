@@ -43,7 +43,7 @@ const FileExplorePopup = ({ onClose, onFileSelect, jobType }) => {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white w-[80vw] h-[80vh] p-5 rounded shadow-lg">
+      <div className="bg-white dark:bg-slate-800 w-[80vw] h-[80vh] p-5 rounded shadow-lg">
         <FileExplorer
           data={fileData}
           onClose={onClose}

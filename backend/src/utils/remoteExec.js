@@ -312,6 +312,98 @@ async function writeRemoteFile(filePath, content, options = {}) {
 }
 
 /**
+ * Create a temporary SSH session using per-user credentials.
+ * Returns an object with execCommand / writeRemoteFile methods bound to
+ * the user's private connection, plus a close() to tear it down.
+ *
+ * @param {Object} credentials - { username, privateKey }
+ *   host/port default to the global SLURM_SSH_HOST/PORT from settings.
+ * @returns {Promise<{execCommand, writeRemoteFile, close}>}
+ */
+async function createUserSSHSession(credentials) {
+  const client = new Client();
+  const host = settings.SLURM_SSH_HOST;
+  const port = settings.SLURM_SSH_PORT || 22;
+
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      client.end();
+      reject(new Error('User SSH connection timed out'));
+    }, CONNECT_TIMEOUT);
+
+    client.on('ready', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    client.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    client.connect({
+      host,
+      port,
+      username: credentials.username,
+      privateKey: credentials.privateKey,
+      readyTimeout: CONNECT_TIMEOUT,
+    });
+  });
+
+  logger.info(`[SSH:User] Connected as ${credentials.username}@${host}:${port}`);
+
+  return {
+    /** Same API as the module-level execCommand, but over the user's connection */
+    async execCommand(command, args = [], options = {}) {
+      const escapedArgs = args.map(arg => shellEscape(arg));
+      const fullCommand = [command, ...escapedArgs].join(' ');
+      const cmdWithCwd = options.cwd
+        ? `cd ${shellEscape(options.cwd)} && ${fullCommand}`
+        : fullCommand;
+
+      return new Promise((resolve, reject) => {
+        client.exec(cmdWithCwd, (err, stream) => {
+          if (err) return reject(err);
+          let stdout = '';
+          let stderr = '';
+          stream.on('data', (data) => { stdout += data; });
+          stream.stderr.on('data', (data) => { stderr += data; });
+          stream.on('close', (code) => {
+            if (code !== 0) {
+              const error = new Error(`Command failed with code ${code}: ${command}`);
+              error.code = code;
+              error.stdout = stdout;
+              error.stderr = stderr;
+              reject(error);
+            } else {
+              resolve({ stdout, stderr });
+            }
+          });
+        });
+      });
+    },
+
+    /** Same API as the module-level writeRemoteFile, but over the user's connection */
+    async writeRemoteFile(filePath, content, options = {}) {
+      return new Promise((resolve, reject) => {
+        client.sftp((err, sftp) => {
+          if (err) return reject(err);
+          const writeStream = sftp.createWriteStream(filePath, {
+            mode: options.mode || 0o755,
+          });
+          writeStream.on('close', () => { sftp.end(); resolve(); });
+          writeStream.on('error', (writeErr) => { sftp.end(); reject(writeErr); });
+          writeStream.end(content);
+        });
+      });
+    },
+
+    close() {
+      client.end();
+      logger.info(`[SSH:User] Disconnected ${credentials.username}@${host}`);
+    }
+  };
+}
+
+/**
  * Get SSH connection status
  */
 function getSSHStatus() {
@@ -348,6 +440,7 @@ module.exports = {
   execCommand,
   execShell,
   writeRemoteFile,
+  createUserSSHSession,
   getSSHStatus,
   shutdown,
 };

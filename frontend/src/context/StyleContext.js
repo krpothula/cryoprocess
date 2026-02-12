@@ -6,10 +6,10 @@ export const StyleProvider = ({ children }) => {
     const [inputStyle, setInputStyle] = useState({
         height: '36px',
         width: '100%',
-        border: '1px solid gray',
+        border: '1px solid var(--color-border)',
         padding: '8px',
         borderRadius: '4px',
-        backgroundColor: "#ffffe3",
+        backgroundColor: "var(--color-bg-input)",
     });
 
     const changeInputStyle = (newStyles) => {

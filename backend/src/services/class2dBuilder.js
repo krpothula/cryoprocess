@@ -135,9 +135,9 @@ class Class2DBuilder extends BaseJobBuilder {
         cmd.push('--class_inactivity_threshold', '0.1');
         cmd.push('--grad_write_iter', '10');
 
-        const vdamMiniBatches = getIntParam(data, ['vdamMiniBatches', 'subset_size'], 200);
+        const vdamMiniBatches = getIntParam(data, ['vdamMiniBatches', 'grad_ini_subset'], 200);
         if (vdamMiniBatches > 0) {
-          cmd.push('--subset_size', String(vdamMiniBatches));
+          cmd.push('--grad_ini_subset', String(vdamMiniBatches));
         }
       }
 

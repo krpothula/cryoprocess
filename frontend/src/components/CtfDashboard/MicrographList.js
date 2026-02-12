@@ -13,7 +13,7 @@ const Row = ({ index, style, items, onSelect, getName, isSelectedFn }) => {
       style={style}
       onClick={() => onSelect(name)}
       className={`px-3 cursor-pointer flex items-center ${
-        selected ? "bg-blue-50" : "hover:bg-gray-50"
+        selected ? "bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-slate-700"
       }`}
     >
       <p
@@ -21,7 +21,7 @@ const Row = ({ index, style, items, onSelect, getName, isSelectedFn }) => {
         style={{
           fontSize: "12px",
           fontWeight: selected ? 500 : 400,
-          color: selected ? "#1d4ed8" : "#374151",
+          color: selected ? "#1d4ed8" : "var(--color-text-label)",
         }}
         title={name}
       >
@@ -63,7 +63,7 @@ const MicrographList = ({
 
   if (allMicrographs.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400">
+      <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
         <p className="text-center text-sm">
           No micrographs processed yet
           <br />
@@ -85,7 +85,7 @@ const MicrographList = ({
           style={{ height: "100%" }}
         />
       </div>
-      <div className="text-xs text-gray-500 text-center py-2 border-t flex-shrink-0">
+      <div className="text-xs text-gray-500 dark:text-slate-400 text-center py-2 border-t flex-shrink-0">
         {allMicrographs.length} micrographs
       </div>
     </div>

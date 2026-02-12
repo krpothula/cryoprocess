@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FiUser, FiSave, FiLoader, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
-import { getCurrentUser, updateProfileApi, changePasswordApi } from "../../services/auth/auth";
+import { FiUser, FiSave, FiLoader, FiLock, FiEye, FiEyeOff, FiServer, FiWifi, FiWifiOff, FiTrash2 } from "react-icons/fi";
+import { getCurrentUser, updateProfileApi, changePasswordApi, updateClusterSettingsApi, testClusterConnectionApi } from "../../services/auth/auth";
 import useToast from "../../hooks/useToast";
 
 const UserProfile = () => {
@@ -22,6 +22,16 @@ const UserProfile = () => {
     new_password: "",
     confirm_password: ""
   });
+
+  // Cluster settings state
+  const [clusterUsername, setClusterUsername] = useState("");
+  const [clusterSshKey, setClusterSshKey] = useState("");
+  const [clusterStatus, setClusterStatus] = useState({ connected: false, enabled: false, ssh_key_set: false });
+  const [isSavingCluster, setSavingCluster] = useState(false);
+  const [isTesting, setTesting] = useState(false);
+  const [isToggling, setToggling] = useState(false);
+  const [testMessage, setTestMessage] = useState("");
+
   const showToast = useToast();
 
   useEffect(() => {
@@ -43,6 +53,13 @@ const UserProfile = () => {
         first_name: userData.first_name || "",
         last_name: userData.last_name || "",
         email: userData.email || ""
+      });
+      // Cluster settings
+      setClusterUsername(userData.cluster_username || "");
+      setClusterStatus({
+        connected: userData.cluster_connected || false,
+        enabled: userData.cluster_enabled || false,
+        ssh_key_set: userData.cluster_ssh_key_set || false
       });
     } catch (error) {
       showToast(error.response?.data?.message || "Failed to load profile", { type: "error" });
@@ -117,6 +134,97 @@ const UserProfile = () => {
     }
   };
 
+  const handleSaveCluster = async (e) => {
+    e.preventDefault();
+    if (!clusterUsername.trim()) {
+      showToast("Cluster username is required", { type: "error" });
+      return;
+    }
+
+    try {
+      setSavingCluster(true);
+      setTestMessage("");
+      const payload = { cluster_username: clusterUsername };
+      // Only send SSH key if user pasted a new one
+      if (clusterSshKey) {
+        payload.cluster_ssh_key = clusterSshKey;
+      }
+      const resp = await updateClusterSettingsApi(payload);
+      const data = resp.data.data || resp.data;
+      setClusterStatus({
+        connected: data.cluster_connected || false,
+        enabled: data.cluster_enabled ?? clusterStatus.enabled,
+        ssh_key_set: data.cluster_ssh_key_set || false
+      });
+      setClusterSshKey(""); // Clear the textarea after save
+      showToast("Cluster settings saved", { type: "success" });
+    } catch (error) {
+      showToast(error.response?.data?.message || "Failed to save cluster settings", { type: "error" });
+    } finally {
+      setSavingCluster(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    try {
+      setTesting(true);
+      setTestMessage("");
+      const resp = await testClusterConnectionApi();
+      const data = resp.data.data || resp.data;
+      setClusterStatus((prev) => ({ ...prev, connected: data.connected }));
+      setTestMessage(data.message || (data.connected ? "Connected" : "Connection failed"));
+      if (data.connected) {
+        showToast("Cluster connection successful", { type: "success" });
+      } else {
+        showToast(data.message || "Connection failed", { type: "error" });
+      }
+    } catch (error) {
+      const msg = error.response?.data?.message || "Connection test failed";
+      setTestMessage(msg);
+      setClusterStatus((prev) => ({ ...prev, connected: false }));
+      showToast(msg, { type: "error" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleClearKey = async () => {
+    try {
+      setSavingCluster(true);
+      await updateClusterSettingsApi({ cluster_ssh_key: "" });
+      setClusterStatus((prev) => ({ ...prev, connected: false, enabled: false, ssh_key_set: false }));
+      setClusterSshKey("");
+      setTestMessage("");
+      showToast("SSH key removed", { type: "success" });
+    } catch (error) {
+      showToast(error.response?.data?.message || "Failed to remove SSH key", { type: "error" });
+    } finally {
+      setSavingCluster(false);
+    }
+  };
+
+  const handleToggleEnabled = async () => {
+    const newEnabled = !clusterStatus.enabled;
+    try {
+      setToggling(true);
+      const resp = await updateClusterSettingsApi({ cluster_enabled: newEnabled });
+      const data = resp.data.data || resp.data;
+      setClusterStatus({
+        connected: data.cluster_connected ?? clusterStatus.connected,
+        enabled: data.cluster_enabled ?? newEnabled,
+        ssh_key_set: data.cluster_ssh_key_set ?? clusterStatus.ssh_key_set
+      });
+      showToast(
+        newEnabled ? "Cluster account enabled — jobs will use your credentials" : "Cluster account disabled — jobs will use default service account",
+        { type: "success" }
+      );
+    } catch (error) {
+      showToast(error.response?.data?.message || "Failed to update cluster status", { type: "error" });
+    } finally {
+      setToggling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="profile-loading" aria-live="polite">
@@ -129,7 +237,7 @@ const UserProfile = () => {
             justify-content: center;
             gap: 10px;
             height: calc(100vh - 48px);
-            color: #64748b;
+            color: var(--color-text-secondary);
           }
           .spinner { animation: spin 1s linear infinite; }
           @keyframes spin { to { transform: rotate(360deg); } }
@@ -256,12 +364,119 @@ const UserProfile = () => {
             </form>
           </div>
         </div>
+
+        {/* Cluster Settings Section — full width */}
+        <div className="section-card" style={{ marginTop: 20 }}>
+          <div className="section-title">
+            <FiServer size={16} />
+            <span>Cluster Settings</span>
+            <div className={`cluster-status-badge ${clusterStatus.enabled ? "badge-enabled" : clusterStatus.connected ? "badge-tested" : ""}`}>
+              {clusterStatus.enabled
+                ? <><FiWifi size={12} /> <span>Enabled</span></>
+                : clusterStatus.connected
+                  ? <><FiWifi size={12} /> <span>Tested</span></>
+                  : <><FiWifiOff size={12} /> <span>Not connected</span></>
+              }
+            </div>
+          </div>
+          <p style={{ fontSize: 12, color: "var(--color-text-muted)", margin: "0 0 14px" }}>
+            Enter your SLURM cluster credentials. Jobs will be submitted under your cluster account.
+          </p>
+          <form onSubmit={handleSaveCluster}>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Cluster Username</label>
+                <input
+                  type="text"
+                  value={clusterUsername}
+                  onChange={(e) => setClusterUsername(e.target.value)}
+                  placeholder="e.g. karunakar"
+                />
+              </div>
+              <div className="form-group">
+                <label>
+                  SSH Private Key
+                  {clusterStatus.ssh_key_set && (
+                    <button
+                      type="button"
+                      onClick={handleClearKey}
+                      className="clear-key-btn"
+                      title="Remove stored SSH key"
+                    >
+                      <FiTrash2 size={11} /> Clear
+                    </button>
+                  )}
+                </label>
+                <textarea
+                  value={clusterSshKey}
+                  onChange={(e) => setClusterSshKey(e.target.value)}
+                  placeholder={clusterStatus.ssh_key_set
+                    ? "SSH key is saved. Paste a new key to replace it."
+                    : "Paste your SSH private key here (-----BEGIN OPENSSH PRIVATE KEY-----...)"
+                  }
+                  rows={4}
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontFamily: "monospace",
+                    resize: "vertical",
+                    boxSizing: "border-box",
+                    background: "var(--color-bg)",
+                    color: "var(--color-text)",
+                  }}
+                />
+              </div>
+            </div>
+            <div className="cluster-actions">
+              <button type="submit" className="btn-primary" style={{ width: "auto", padding: "10px 20px" }} disabled={isSavingCluster}>
+                {isSavingCluster ? <><FiLoader className="spinner" size={14} /> Saving...</> : <><FiSave size={14} /> Save</>}
+              </button>
+              <button
+                type="button"
+                className="btn-test"
+                onClick={handleTestConnection}
+                disabled={isTesting || !clusterStatus.ssh_key_set}
+                title={!clusterStatus.ssh_key_set ? "Save your SSH key first" : "Test SSH connection to cluster"}
+              >
+                {isTesting ? <><FiLoader className="spinner" size={14} /> Testing...</> : <><FiWifi size={14} /> Test Connection</>}
+              </button>
+              <button
+                type="button"
+                className={`btn-toggle ${clusterStatus.enabled ? "btn-disconnect" : "btn-connect"}`}
+                onClick={handleToggleEnabled}
+                disabled={isToggling || (!clusterStatus.enabled && !clusterStatus.connected)}
+                title={
+                  !clusterStatus.connected && !clusterStatus.enabled
+                    ? "Test your connection first before enabling"
+                    : clusterStatus.enabled
+                      ? "Disable your cluster account — jobs will use default service account"
+                      : "Enable your cluster account — jobs will use your credentials"
+                }
+              >
+                {isToggling
+                  ? <><FiLoader className="spinner" size={14} /> {clusterStatus.enabled ? "Disabling..." : "Enabling..."}</>
+                  : clusterStatus.enabled
+                    ? <><FiWifiOff size={14} /> Disconnect</>
+                    : <><FiWifi size={14} /> Connect</>
+                }
+              </button>
+              {testMessage && (
+                <span className={`test-result ${clusterStatus.connected ? "success" : "error"}`}>
+                  {testMessage}
+                </span>
+              )}
+            </div>
+          </form>
+        </div>
       </div>
 
       <style>{`
         .profile-page {
-          height: calc(100vh - 48px);
-          background: #ffffff;
+          min-height: calc(100vh - 48px);
+          background: var(--color-bg);
           display: flex;
           align-items: flex-start;
           padding-top: 24px;
@@ -270,7 +485,7 @@ const UserProfile = () => {
           width: 100%;
           max-width: 800px;
           margin: 0 auto;
-          padding: 0 24px;
+          padding: 0 24px 40px;
         }
         .profile-header {
           margin-bottom: 20px;
@@ -288,17 +503,17 @@ const UserProfile = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #0369a1;
+          color: var(--color-primary);
         }
         .user-info h1 {
           margin: 0;
           font-size: 18px;
           font-weight: 600;
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
         .user-info span {
           font-size: 13px;
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
         .profile-grid {
           display: grid;
@@ -306,9 +521,9 @@ const UserProfile = () => {
           gap: 20px;
         }
         .section-card {
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 10px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--color-border);
           padding: 20px;
         }
         .section-title {
@@ -317,32 +532,36 @@ const UserProfile = () => {
           gap: 8px;
           font-size: 14px;
           font-weight: 600;
-          color: #334155;
+          color: var(--color-text);
           margin-bottom: 16px;
           padding-bottom: 12px;
-          border-bottom: 1px solid #f1f5f9;
+          border-bottom: 1px solid var(--color-border-light);
         }
         .form-group {
           margin-bottom: 12px;
         }
         .form-group label {
-          display: block;
+          display: flex;
+          align-items: center;
+          gap: 6px;
           font-size: 12px;
           font-weight: 500;
-          color: #64748b;
+          color: var(--color-text-secondary);
           margin-bottom: 4px;
         }
-        .form-group input {
+        .form-group input, .form-group textarea {
           width: 100%;
           padding: 8px 10px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--color-border);
           border-radius: 6px;
           font-size: 13px;
           box-sizing: border-box;
+          background: var(--color-bg);
+          color: var(--color-text);
         }
-        .form-group input:focus {
+        .form-group input:focus, .form-group textarea:focus {
           outline: none;
-          border-color: #3b82f6;
+          border-color: var(--color-primary);
           box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
         }
         .form-row {
@@ -363,12 +582,12 @@ const UserProfile = () => {
           transform: translateY(-50%);
           background: none;
           border: none;
-          color: #94a3b8;
+          color: var(--color-text-muted);
           cursor: pointer;
           padding: 2px;
         }
         .pwd-toggle:hover {
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
         .btn-primary {
           display: flex;
@@ -377,7 +596,7 @@ const UserProfile = () => {
           gap: 6px;
           width: 100%;
           padding: 10px;
-          background: #0f172a;
+          background: var(--color-text-heading);
           color: white;
           border: none;
           border-radius: 6px;
@@ -387,7 +606,7 @@ const UserProfile = () => {
           margin-top: 8px;
         }
         .btn-primary:hover:not(:disabled) {
-          background: #1e293b;
+          background: var(--color-text);
         }
         .btn-primary:disabled {
           opacity: 0.6;
@@ -399,6 +618,107 @@ const UserProfile = () => {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+
+        /* Cluster Settings */
+        .cluster-status-badge {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-left: auto;
+          font-size: 11px;
+          font-weight: 500;
+          padding: 3px 8px;
+          border-radius: 12px;
+          background: rgba(156,163,175,0.15);
+          color: var(--color-text-muted);
+        }
+        .cluster-status-badge.badge-tested {
+          background: rgba(59,130,246,0.1);
+          color: #2563eb;
+        }
+        .cluster-status-badge.badge-enabled {
+          background: rgba(34,197,94,0.1);
+          color: #16a34a;
+        }
+        .clear-key-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          background: none;
+          border: none;
+          color: var(--color-text-muted);
+          font-size: 11px;
+          cursor: pointer;
+          padding: 0;
+          margin-left: auto;
+        }
+        .clear-key-btn:hover {
+          color: #dc2626;
+        }
+        .cluster-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 8px;
+          flex-wrap: wrap;
+        }
+        .btn-test {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 10px 20px;
+          background: transparent;
+          color: var(--color-primary);
+          border: 1px solid var(--color-primary);
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+        }
+        .btn-test:hover:not(:disabled) {
+          background: rgba(59,130,246,0.06);
+        }
+        .btn-test:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .btn-toggle {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 10px 20px;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          border: none;
+        }
+        .btn-toggle:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .btn-connect {
+          background: #16a34a;
+          color: white;
+        }
+        .btn-connect:hover:not(:disabled) {
+          background: #15803d;
+        }
+        .btn-disconnect {
+          background: transparent;
+          color: #dc2626;
+          border: 1px solid #dc2626;
+        }
+        .btn-disconnect:hover:not(:disabled) {
+          background: rgba(220,38,38,0.06);
+        }
+        .test-result {
+          font-size: 12px;
+          font-weight: 500;
+        }
+        .test-result.success { color: #16a34a; }
+        .test-result.error { color: #dc2626; }
+
         @media (max-width: 700px) {
           .profile-grid {
             grid-template-columns: 1fr;

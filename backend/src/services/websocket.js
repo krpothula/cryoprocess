@@ -28,7 +28,8 @@ class WebSocketServer {
   initialize(server) {
     this.wss = new WebSocket.Server({
       server,
-      path: '/ws'
+      path: '/ws',
+      maxPayload: 64 * 1024, // 64KB max message size
     });
 
     this.wss.on('connection', (ws, req) => {
@@ -50,6 +51,14 @@ class WebSocketServer {
    * @param {http.IncomingMessage} req
    */
   handleConnection(ws, req) {
+    // Reject if too many connections
+    const MAX_CLIENTS = 200;
+    if (this.clients.size >= MAX_CLIENTS) {
+      logger.warn(`[WebSocket] Connection rejected: max clients (${MAX_CLIENTS}) reached`);
+      ws.close(4013, 'Too many connections');
+      return;
+    }
+
     // Validate origin (basic CORS-like protection)
     const origin = req.headers.origin;
     const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
@@ -354,8 +363,12 @@ class WebSocketServer {
    * @param {Object} data
    */
   send(ws, data) {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
+    try {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+      }
+    } catch (err) {
+      logger.debug(`[WebSocket] Send failed: ${err.message}`);
     }
   }
 

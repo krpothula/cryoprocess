@@ -136,7 +136,7 @@ const Import = () => {
       .catch((error) => {
         // Handle error response from the API
         setMessage(
-          `Error: ${error.response.data.message || DefaultMessages.processError
+          `Error: ${error?.response?.data?.message || DefaultMessages.processError
           }`
         );
       })

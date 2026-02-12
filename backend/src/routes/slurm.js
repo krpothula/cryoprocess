@@ -29,6 +29,7 @@ router.get('/jobs/:jobId/issues', asyncHandler(slurmController.getJobIssues));
 router.post('/jobs/:jobId/cancel', asyncHandler(slurmController.cancelJobById));
 router.delete('/jobs/:jobId', asyncHandler(slurmController.deleteJob));
 router.patch('/jobs/:jobId/status', asyncHandler(slurmController.updateJobStatus));
+router.patch('/jobs/:jobId/notify', asyncHandler(slurmController.toggleNotifyEmail));
 
 // SLURM job details (by SLURM job ID)
 router.get('/jobs/:slurmJobId/details', asyncHandler(slurmController.getJobDetails));

@@ -32,11 +32,11 @@ import { getProjectByIdApi } from "../../services/projects/projects";
 // ---------- helpers ----------
 
 const STATUS_COLORS = {
-  running: "#f59e0b",
-  paused: "#ca8a04",
-  stopped: "#64748b",
-  completed: "#16a34a",
-  error: "#dc2626",
+  running: "var(--color-warning-text)",
+  paused: "var(--color-warning-text)",
+  stopped: "var(--color-text-secondary)",
+  completed: "var(--color-success-text)",
+  error: "var(--color-danger-text)",
 };
 
 const STATUS_ICONS = {
@@ -401,7 +401,7 @@ const LiveDashboard = () => {
     return (
       <div style={styles.loadingContainer}>
         <FiRefreshCw style={styles.spinner} />
-        <p style={{ fontSize: 14, color: "#64748b", marginTop: 12 }}>Loading session...</p>
+        <p style={{ fontSize: 14, color: "var(--color-text-secondary)", marginTop: 12 }}>Loading session...</p>
       </div>
     );
   }
@@ -409,8 +409,8 @@ const LiveDashboard = () => {
   if (error) {
     return (
       <div style={styles.loadingContainer}>
-        <FiAlertCircle style={{ fontSize: 40, color: "#dc2626" }} />
-        <p style={{ fontSize: 14, color: "#dc2626", marginTop: 12 }}>{error}</p>
+        <FiAlertCircle style={{ fontSize: 40, color: "var(--color-danger-text)" }} />
+        <p style={{ fontSize: 14, color: "var(--color-danger-text)", marginTop: 12 }}>{error}</p>
         <button style={styles.backBtn} onClick={() => navigate("/projects")}>
           <FiArrowLeft size={14} /> Back to Projects
         </button>
@@ -421,16 +421,16 @@ const LiveDashboard = () => {
   // ---------- render ----------
 
   const LEVEL_CONFIG = {
-    error: { color: "#dc2626", bg: "#fef2f2", border: "#fca5a5", icon: FiAlertCircle, label: "Error" },
-    warning: { color: "#ca8a04", bg: "#fefce8", border: "#fde047", icon: FiAlertTriangle, label: "Warning" },
-    success: { color: "#16a34a", bg: "#f0fdf4", border: "#86efac", icon: FiCheckCircle, label: "Success" },
-    info: { color: "#2563eb", bg: "#eff6ff", border: "#93c5fd", icon: FiInfo, label: "Info" },
+    error: { color: "var(--color-danger-text)", bg: "var(--color-danger-bg)", border: "#fca5a5", icon: FiAlertCircle, label: "Error" },
+    warning: { color: "var(--color-warning-text)", bg: "var(--color-warning-bg)", border: "#fde047", icon: FiAlertTriangle, label: "Warning" },
+    success: { color: "var(--color-success-text)", bg: "var(--color-success-bg)", border: "#86efac", icon: FiCheckCircle, label: "Success" },
+    info: { color: "var(--color-primary)", bg: "var(--color-info-bg)", border: "#93c5fd", icon: FiInfo, label: "Info" },
   };
 
   const STAGE_FILTER_OPTIONS = ["Import", "MotionCorr", "CtfFind", "AutoPick", "Extract", "Class2D"];
 
   const StatusIcon = STATUS_ICONS[session?.status] || FiClock;
-  const statusColor = STATUS_COLORS[session?.status] || "#64748b";
+  const statusColor = STATUS_COLORS[session?.status] || "var(--color-text-secondary)";
 
   return (
     <div style={styles.page}>
@@ -445,10 +445,10 @@ const LiveDashboard = () => {
               {projectName || "Live Session"}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
-              <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+              <span style={{ fontSize: 12, color: "var(--color-text-secondary)", fontWeight: 500 }}>
                 Live Processing
               </span>
-              <span style={{ color: "#cbd5e1" }}>&middot;</span>
+              <span style={{ color: "var(--color-border)" }}>&middot;</span>
               <span
                 style={{
                   ...styles.statusBadge,
@@ -561,7 +561,7 @@ const LiveDashboard = () => {
               >
                 <TabIcon size={13} aria-hidden="true" />
                 {tab.label}
-                {!isDisabled && <FiExternalLink size={10} style={{ color: "#94a3b8" }} aria-hidden="true" />}
+                {!isDisabled && <FiExternalLink size={10} style={{ color: "var(--color-text-muted)" }} aria-hidden="true" />}
               </button>
             );
           }
@@ -649,10 +649,10 @@ const LiveDashboard = () => {
         {/* ── Pipeline Progress with pass rows below ── */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <FiChevronRight size={14} style={{ color: "#2563eb" }} />
+            <FiChevronRight size={14} style={{ color: "var(--color-primary)" }} />
             <span style={styles.cardTitle}>Pipeline Progress</span>
             {st.pass_count > 0 && (
-              <span style={{ fontSize: 11, color: "#64748b", marginLeft: 8 }}>
+              <span style={{ fontSize: 11, color: "var(--color-text-secondary)", marginLeft: 8 }}>
                 Pass #{st.pass_count}
                 {moviesImported > 0 && <> &middot; {moviesImported} movies</>}
               </span>
@@ -666,18 +666,18 @@ const LiveDashboard = () => {
               const StageIcon = stage.icon;
               const isLast = idx === PIPELINE_STAGES.length - 1;
 
-              let boxBg = "#f1f5f9";
-              let boxBorder = "#e2e8f0";
-              let textColor = "#94a3b8";
+              let boxBg = "var(--color-bg)";
+              let boxBorder = "var(--color-border)";
+              let textColor = "var(--color-text-muted)";
 
               if (status === "completed") {
-                boxBg = "#f0fdf4";
+                boxBg = "var(--color-success-bg)";
                 boxBorder = "#86efac";
-                textColor = "#16a34a";
+                textColor = "var(--color-success-text)";
               } else if (status === "current") {
-                boxBg = "#eff6ff";
+                boxBg = "var(--color-info-bg)";
                 boxBorder = "#93c5fd";
-                textColor = "#f59e0b";
+                textColor = "var(--color-warning-text)";
               }
 
               return (
@@ -698,7 +698,7 @@ const LiveDashboard = () => {
                       {status === "completed" && (
                         <FiCheckCircle
                           size={10}
-                          style={{ color: "#16a34a", position: "absolute", top: 4, right: 4 }}
+                          style={{ color: "var(--color-success-text)", position: "absolute", top: 4, right: 4 }}
                         />
                       )}
                     </div>
@@ -708,7 +708,7 @@ const LiveDashboard = () => {
                       <FiChevronRight
                         size={16}
                         style={{
-                          color: status === "completed" || stageStatus(idx + 1) !== "future" ? "#16a34a" : "#cbd5e1",
+                          color: status === "completed" || stageStatus(idx + 1) !== "future" ? "var(--color-success-text)" : "var(--color-border)",
                         }}
                       />
                     </div>
@@ -721,7 +721,7 @@ const LiveDashboard = () => {
           {/* ── Per-pass stat rows below the pipeline cards ── */}
           {passHistory.length > 0 && (
             <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 0 }}>
-              <div style={{ height: 1, background: "#e2e8f0", marginBottom: 8 }} />
+              <div style={{ height: 1, background: "var(--color-border)", marginBottom: 8 }} />
               {passHistory.map((pass, idx) => {
                 const cumValues = [
                   pass.movies_imported || 0,
@@ -751,7 +751,7 @@ const LiveDashboard = () => {
                       transform: "translateY(-50%)",
                       fontSize: 10,
                       fontWeight: 700,
-                      color: "#64748b",
+                      color: "var(--color-text-secondary)",
                     }}>
                       Pass {pass.pass_number}
                     </span>
@@ -778,12 +778,12 @@ const LiveDashboard = () => {
                               <span style={{
                                 fontSize: 12,
                                 fontWeight: 600,
-                                color: val > 0 ? "#334155" : "#cbd5e1",
+                                color: val > 0 ? "var(--color-text)" : "var(--color-border)",
                               }}>
                                 {val > 0 ? val.toLocaleString() : "--"}
                               </span>
                               {showDelta && (
-                                <span style={{ fontSize: 9, color: "#16a34a", fontWeight: 600 }}>
+                                <span style={{ fontSize: 9, color: "var(--color-success-text)", fontWeight: 600 }}>
                                   +{delta.toLocaleString()}
                                 </span>
                               )}
@@ -804,7 +804,7 @@ const LiveDashboard = () => {
         {/* ── Processing Info ── */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <FiClock size={14} style={{ color: "#64748b" }} />
+            <FiClock size={14} style={{ color: "var(--color-text-secondary)" }} />
             <span style={styles.cardTitle}>Processing Info</span>
           </div>
           <div style={styles.infoGrid}>
@@ -838,14 +838,14 @@ const LiveDashboard = () => {
       const class2dIds = session?.jobs?.class2d_ids || [];
       return (
         <div style={styles.emptyState}>
-          <FiImage size={32} style={{ color: "#cbd5e1" }} />
-          <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 8 }}>
+          <FiImage size={32} style={{ color: "var(--color-border)" }} />
+          <p style={{ fontSize: 13, color: "var(--color-text-muted)", marginTop: 8 }}>
             {class2dIds.length === 0
               ? "2D classification has not been triggered yet."
               : "Loading class averages..."}
           </p>
           {session?.class2d_config?.enabled && (
-            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+            <p style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>
               Triggers when particles exceed {session.class2d_config.particle_threshold?.toLocaleString() || "5,000"}
             </p>
           )}
@@ -861,17 +861,17 @@ const LiveDashboard = () => {
         {/* Header info */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <FiImage size={14} style={{ color: "#8b5cf6" }} />
+            <FiImage size={14} style={{ color: "var(--color-indigo-text)" }} />
             <span style={styles.cardTitle}>
               2D Class Averages
               {classData?.iteration != null && (
-                <span style={{ fontWeight: 400, color: "#94a3b8", marginLeft: 8 }}>
+                <span style={{ fontWeight: 400, color: "var(--color-text-muted)", marginLeft: 8 }}>
                   Iteration {classData.iteration} &middot; {classes.length} classes
                 </span>
               )}
             </span>
           </div>
-          <p style={{ fontSize: 11, color: "#64748b", marginTop: -8, marginBottom: 0 }}>
+          <p style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: -8, marginBottom: 0 }}>
             Sorted by particle distribution. Hover for details.
           </p>
         </div>
@@ -961,7 +961,7 @@ const LiveDashboard = () => {
         {/* Filter bar */}
         <div style={actStyles.filterBar}>
           <div style={actStyles.filterSection}>
-            <FiFilter size={12} style={{ color: "#64748b", marginRight: 4 }} aria-hidden="true" />
+            <FiFilter size={12} style={{ color: "var(--color-text-secondary)", marginRight: 4 }} aria-hidden="true" />
             {Object.entries(LEVEL_CONFIG).map(([key, cfg]) => {
               const LevelIcon = cfg.icon;
               const isActive = activityFilters.level === key;
@@ -973,9 +973,9 @@ const LiveDashboard = () => {
                   aria-label={`Filter by ${cfg.label}`}
                   style={{
                     ...actStyles.filterPill,
-                    background: isActive ? cfg.bg : "#f8fafc",
-                    borderColor: isActive ? cfg.border : "#e2e8f0",
-                    color: isActive ? cfg.color : "#94a3b8",
+                    background: isActive ? cfg.bg : "var(--color-bg)",
+                    borderColor: isActive ? cfg.border : "var(--color-border)",
+                    color: isActive ? cfg.color : "var(--color-text-muted)",
                   }}
                 >
                   <LevelIcon size={10} aria-hidden="true" />
@@ -999,7 +999,7 @@ const LiveDashboard = () => {
             </select>
 
             <div style={actStyles.searchWrap}>
-              <FiSearch size={12} style={{ color: "#94a3b8", position: "absolute", left: 8, top: 8 }} aria-hidden="true" />
+              <FiSearch size={12} style={{ color: "var(--color-text-muted)", position: "absolute", left: 8, top: 8 }} aria-hidden="true" />
               <input
                 type="text"
                 placeholder="Search logs..."
@@ -1011,7 +1011,7 @@ const LiveDashboard = () => {
             </div>
           </div>
 
-          <div style={{ fontSize: 10, color: "#94a3b8" }}>
+          <div style={{ fontSize: 10, color: "var(--color-text-muted)" }}>
             {activity.length}{hasFilters ? ` / ${activityTotal}` : ""} entries
           </div>
         </div>
@@ -1019,8 +1019,8 @@ const LiveDashboard = () => {
         {/* Activity entries */}
         {activity.length === 0 ? (
           <div style={styles.emptyState}>
-            <FiClock size={32} style={{ color: "#cbd5e1" }} />
-            <p style={{ fontSize: 13, color: "#94a3b8", marginTop: 8 }}>
+            <FiClock size={32} style={{ color: "var(--color-border)" }} />
+            <p style={{ fontSize: 13, color: "var(--color-text-muted)", marginTop: 8 }}>
               {hasFilters ? "No matching events." : "No activity events yet."}
             </p>
           </div>
@@ -1092,7 +1092,7 @@ const LiveDashboard = () => {
                           size={12}
                           aria-hidden="true"
                           style={{
-                            color: "#94a3b8",
+                            color: "var(--color-text-muted)",
                             flexShrink: 0,
                             transition: "transform 0.15s",
                             transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
@@ -1148,7 +1148,7 @@ const LiveDashboard = () => {
                         {/* stderr output */}
                         {evt.context.stderr_preview && (
                           <div style={actStyles.contextSection}>
-                            <span style={{ ...actStyles.contextLabel, color: "#dc2626" }}>stderr output</span>
+                            <span style={{ ...actStyles.contextLabel, color: "var(--color-danger-text)" }}>stderr output</span>
                             <pre style={actStyles.stderrBlock}>{evt.context.stderr_preview}</pre>
                           </div>
                         )}
@@ -1156,7 +1156,7 @@ const LiveDashboard = () => {
                         {/* RELION error lines */}
                         {evt.context.relion_errors && (
                           <div style={actStyles.contextSection}>
-                            <span style={{ ...actStyles.contextLabel, color: "#dc2626" }}>RELION Errors</span>
+                            <span style={{ ...actStyles.contextLabel, color: "var(--color-danger-text)" }}>RELION Errors</span>
                             <pre style={actStyles.stderrBlock}>{evt.context.relion_errors}</pre>
                           </div>
                         )}
@@ -1230,7 +1230,7 @@ const InfoRow = ({ label, value, mono, fullWidth }) => (
 const styles = {
   page: {
     minHeight: "100vh",
-    background: "#ffffff",
+    background: "var(--color-bg-card)",
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
 
@@ -1240,8 +1240,8 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "10px 20px",
-    borderBottom: "1px solid #e2e8f0",
-    background: "#ffffff",
+    borderBottom: "1px solid var(--color-border)",
+    background: "var(--color-bg-card)",
     position: "sticky",
     top: 0,
     zIndex: 50,
@@ -1253,17 +1253,17 @@ const styles = {
     alignItems: "center",
     gap: 6,
     padding: "6px 10px",
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
+    background: "var(--color-bg)",
+    border: "1px solid var(--color-border)",
     borderRadius: 6,
     cursor: "pointer",
     fontSize: 13,
-    color: "#475569",
+    color: "var(--color-text-secondary)",
   },
   sessionName: {
     fontSize: 15,
     fontWeight: 600,
-    color: "#1e293b",
+    color: "var(--color-text-heading)",
     display: "flex",
     alignItems: "center",
     gap: 8,
@@ -1271,9 +1271,9 @@ const styles = {
   projectLabel: {
     fontSize: 11,
     fontWeight: 400,
-    color: "#94a3b8",
+    color: "var(--color-text-muted)",
     padding: "1px 6px",
-    background: "#f1f5f9",
+    background: "var(--color-bg)",
     borderRadius: 4,
   },
   statusBadge: {
@@ -1293,14 +1293,14 @@ const styles = {
     gap: 4,
     fontSize: 10,
     fontWeight: 700,
-    color: "#dc2626",
+    color: "var(--color-danger-text)",
     letterSpacing: 0.5,
   },
   liveDot: {
     width: 6,
     height: 6,
     borderRadius: "50%",
-    background: "#dc2626",
+    background: "var(--color-danger-text)",
     animation: "liveBlink 1.5s ease-in-out infinite",
   },
 
@@ -1320,19 +1320,19 @@ const styles = {
   controlBtnStart: { background: "#ecfdf5", borderColor: "#6ee7b7", color: "#047857", fontWeight: 600 },
   controlBtnPause: { background: "#fefce8", borderColor: "#fde047", color: "#a16207" },
   controlBtnResume: { background: "#eff6ff", borderColor: "#93c5fd", color: "#1d4ed8" },
-  controlBtnStop: { background: "#fef2f2", borderColor: "#fca5a5", color: "#b91c1c" },
-  controlBtnStopConfirm: { background: "#dc2626", borderColor: "#dc2626", color: "#ffffff" },
-  controlBtnCancel: { background: "#f8fafc", borderColor: "#e2e8f0", color: "#64748b" },
+  controlBtnStop: { background: "var(--color-danger-bg)", borderColor: "#fca5a5", color: "var(--color-danger-text)" },
+  controlBtnStopConfirm: { background: "var(--color-danger-text)", borderColor: "var(--color-danger-text)", color: "#ffffff" },
+  controlBtnCancel: { background: "var(--color-bg)", borderColor: "var(--color-border)", color: "var(--color-text-secondary)" },
   stopConfirm: { display: "flex", alignItems: "center", gap: 8 },
-  stopConfirmText: { fontSize: 11, color: "#b91c1c", maxWidth: 220 },
+  stopConfirmText: { fontSize: 11, color: "var(--color-danger-text)", maxWidth: 220 },
 
   // Tabs
   tabBar: {
     display: "flex",
     gap: 2,
     padding: "0 20px",
-    borderBottom: "1px solid #e2e8f0",
-    background: "#f8fafc",
+    borderBottom: "1px solid var(--color-border)",
+    background: "var(--color-bg)",
   },
   tab: {
     display: "flex",
@@ -1341,7 +1341,7 @@ const styles = {
     padding: "10px 16px",
     fontSize: 12,
     fontWeight: 500,
-    color: "#64748b",
+    color: "var(--color-text-secondary)",
     background: "transparent",
     border: "none",
     borderBottom: "2px solid transparent",
@@ -1349,15 +1349,15 @@ const styles = {
     transition: "all 0.15s ease",
   },
   tabActive: {
-    color: "#2563eb",
-    borderBottomColor: "#2563eb",
-    background: "#ffffff",
+    color: "var(--color-primary)",
+    borderBottomColor: "var(--color-primary)",
+    background: "var(--color-bg-card)",
   },
   tabCount: {
     fontSize: 10,
     fontWeight: 600,
-    background: "#e2e8f0",
-    color: "#64748b",
+    background: "var(--color-border)",
+    color: "var(--color-text-secondary)",
     padding: "1px 5px",
     borderRadius: 8,
     minWidth: 18,
@@ -1373,8 +1373,8 @@ const styles = {
 
   // Card
   card: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
+    background: "var(--color-bg-card)",
+    border: "1px solid var(--color-border)",
     borderRadius: 8,
     padding: 16,
     boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
@@ -1388,7 +1388,7 @@ const styles = {
   cardTitle: {
     fontSize: 13,
     fontWeight: 600,
-    color: "#334155",
+    color: "var(--color-text)",
   },
 
   // Pipeline
@@ -1444,7 +1444,7 @@ const styles = {
     padding: "6px 12px",
     fontSize: 11,
     fontWeight: 600,
-    color: "#94a3b8",
+    color: "var(--color-text-muted)",
     background: "#1e293b",
     textAlign: "center",
     letterSpacing: 0.3,
@@ -1461,7 +1461,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     height: 200,
-    color: "#475569",
+    color: "var(--color-text-secondary)",
     fontSize: 12,
   },
 
@@ -1494,7 +1494,7 @@ const styles = {
     display: "block",
   },
   classImgPlaceholder: {
-    color: "#475569",
+    color: "var(--color-text-secondary)",
     fontSize: 20,
     fontWeight: 700,
   },
@@ -1513,7 +1513,7 @@ const styles = {
   classRes: {
     fontSize: 10,
     fontWeight: 500,
-    color: "#64748b",
+    color: "var(--color-text-secondary)",
   },
 
   // Empty state
@@ -1535,7 +1535,7 @@ const styles = {
   },
   spinner: {
     fontSize: 32,
-    color: "#2563eb",
+    color: "var(--color-primary)",
     animation: "spin 1s linear infinite",
   },
 
@@ -1554,24 +1554,24 @@ const styles = {
     padding: "8px 12px",
     fontSize: 10,
     fontWeight: 600,
-    color: "#64748b",
+    color: "var(--color-text-secondary)",
     textTransform: "uppercase",
     letterSpacing: 0.3,
-    borderBottom: "2px solid #e2e8f0",
+    borderBottom: "2px solid var(--color-border)",
     textAlign: "left",
     position: "sticky",
     top: 0,
-    background: "#ffffff",
+    background: "var(--color-bg-card)",
   },
   td: {
     padding: "6px 12px",
     fontSize: 12,
-    color: "#334155",
-    borderBottom: "1px solid #f1f5f9",
+    color: "var(--color-text)",
+    borderBottom: "1px solid var(--color-bg)",
   },
-  trEven: { background: "#ffffff" },
-  trOdd: { background: "#f8fafc" },
-  trSelected: { background: "#eff6ff", outline: "1px solid #93c5fd" },
+  trEven: { background: "var(--color-bg-card)" },
+  trOdd: { background: "var(--color-bg)" },
+  trSelected: { background: "var(--color-info-bg)", outline: "1px solid #93c5fd" },
 
   // Activity
   activityScroll: {
@@ -1587,11 +1587,11 @@ const styles = {
     gap: 10,
     padding: "6px 10px",
     borderRadius: 4,
-    background: "#f8fafc",
+    background: "var(--color-bg)",
   },
   activityTime: {
     fontSize: 10,
-    color: "#94a3b8",
+    color: "var(--color-text-muted)",
     minWidth: 56,
     fontFamily: "monospace",
   },
@@ -1607,7 +1607,7 @@ const styles = {
   },
   activityMsg: {
     fontSize: 12,
-    color: "#334155",
+    color: "var(--color-text)",
     flex: 1,
   },
 };
@@ -1619,17 +1619,17 @@ const infoRowStyles = {
     alignItems: "center",
     padding: "6px 10px",
     borderRadius: 4,
-    background: "#f8fafc",
+    background: "var(--color-bg)",
   },
   label: {
     fontSize: 11,
     fontWeight: 500,
-    color: "#94a3b8",
+    color: "var(--color-text-muted)",
   },
   value: {
     fontSize: 12,
     fontWeight: 500,
-    color: "#334155",
+    color: "var(--color-text)",
   },
 };
 
@@ -1637,8 +1637,8 @@ const infoRowStyles = {
 
 const ContextKV = ({ k, v }) => (
   <div style={{ display: "flex", gap: 6, fontSize: 11 }}>
-    <span style={{ color: "#94a3b8", fontWeight: 500, minWidth: 70 }}>{k}:</span>
-    <span style={{ color: "#334155", fontWeight: 600, fontFamily: "monospace" }}>{String(v)}</span>
+    <span style={{ color: "var(--color-text-muted)", fontWeight: 500, minWidth: 70 }}>{k}:</span>
+    <span style={{ color: "var(--color-text)", fontWeight: 600, fontFamily: "monospace" }}>{String(v)}</span>
   </div>
 );
 
@@ -1651,8 +1651,8 @@ const actStyles = {
     flexWrap: "wrap",
     gap: 10,
     padding: "10px 14px",
-    background: "#f8fafc",
-    border: "1px solid #e2e8f0",
+    background: "var(--color-bg)",
+    border: "1px solid var(--color-border)",
     borderRadius: 8,
   },
   filterSection: {
@@ -1672,15 +1672,15 @@ const actStyles = {
     border: "1px solid",
     cursor: "pointer",
     transition: "all 0.15s ease",
-    background: "#f8fafc",
+    background: "var(--color-bg)",
   },
   stageSelect: {
     padding: "4px 8px",
     fontSize: 11,
-    border: "1px solid #e2e8f0",
+    border: "1px solid var(--color-border)",
     borderRadius: 6,
-    background: "#ffffff",
-    color: "#334155",
+    background: "var(--color-bg-card)",
+    color: "var(--color-text)",
     cursor: "pointer",
   },
   searchWrap: {
@@ -1691,10 +1691,10 @@ const actStyles = {
   searchInput: {
     padding: "4px 8px 4px 26px",
     fontSize: 11,
-    border: "1px solid #e2e8f0",
+    border: "1px solid var(--color-border)",
     borderRadius: 6,
-    background: "#ffffff",
-    color: "#334155",
+    background: "var(--color-bg-card)",
+    color: "var(--color-text)",
     width: 150,
     outline: "none",
   },
@@ -1712,12 +1712,12 @@ const actStyles = {
     padding: "7px 10px",
     borderRadius: 4,
     borderLeft: "3px solid",
-    background: "#f8fafc",
+    background: "var(--color-bg)",
     transition: "background 0.1s ease",
   },
   entryTime: {
     fontSize: 10,
-    color: "#94a3b8",
+    color: "var(--color-text-muted)",
     minWidth: 52,
     fontFamily: "monospace",
     flexShrink: 0,
@@ -1727,13 +1727,13 @@ const actStyles = {
     fontWeight: 600,
     padding: "1px 6px",
     borderRadius: 4,
-    background: "#e2e8f0",
-    color: "#475569",
+    background: "var(--color-border)",
+    color: "var(--color-text-secondary)",
     flexShrink: 0,
   },
   entryMsg: {
     fontSize: 12,
-    color: "#334155",
+    color: "var(--color-text)",
     flex: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -1744,8 +1744,8 @@ const actStyles = {
     alignItems: "center",
     gap: 3,
     fontSize: 10,
-    color: "#64748b",
-    background: "#f1f5f9",
+    color: "var(--color-text-secondary)",
+    background: "var(--color-bg)",
     padding: "1px 6px",
     borderRadius: 4,
     flexShrink: 0,
@@ -1755,8 +1755,8 @@ const actStyles = {
     fontWeight: 600,
     padding: "1px 5px",
     borderRadius: 3,
-    background: "#dbeafe",
-    color: "#1d4ed8",
+    background: "var(--color-info-bg)",
+    color: "var(--color-primary)",
     flexShrink: 0,
   },
   passDivider: {
@@ -1768,12 +1768,12 @@ const actStyles = {
   passDividerLine: {
     flex: 1,
     height: 1,
-    background: "#e2e8f0",
+    background: "var(--color-border)",
   },
   passDividerLabel: {
     fontSize: 10,
     fontWeight: 600,
-    color: "#94a3b8",
+    color: "var(--color-text-muted)",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     whiteSpace: "nowrap",
@@ -1781,9 +1781,9 @@ const actStyles = {
   contextPanel: {
     margin: "0 0 4px 16px",
     padding: "10px 14px",
-    background: "#f1f5f9",
+    background: "var(--color-bg)",
     borderRadius: "0 0 6px 6px",
-    borderLeft: "3px solid #cbd5e1",
+    borderLeft: "3px solid var(--color-border)",
     display: "flex",
     flexDirection: "column",
     gap: 10,
@@ -1796,7 +1796,7 @@ const actStyles = {
   contextLabel: {
     fontSize: 10,
     fontWeight: 700,
-    color: "#64748b",
+    color: "var(--color-text-secondary)",
     textTransform: "uppercase",
     letterSpacing: 0.3,
   },
@@ -1822,8 +1822,8 @@ const actStyles = {
   cmdBlock: {
     margin: 0,
     padding: 8,
-    background: "#e2e8f0",
-    color: "#475569",
+    background: "var(--color-border)",
+    color: "var(--color-text-secondary)",
     fontSize: 10,
     fontFamily: "monospace",
     borderRadius: 4,
@@ -1835,8 +1835,8 @@ const actStyles = {
   logFilePath: {
     fontSize: 10,
     fontFamily: "monospace",
-    color: "#64748b",
-    background: "#e2e8f0",
+    color: "var(--color-text-secondary)",
+    background: "var(--color-border)",
     padding: "2px 6px",
     borderRadius: 3,
   },
@@ -1848,9 +1848,9 @@ const actStyles = {
     padding: "3px 10px",
     fontSize: 10,
     fontWeight: 600,
-    color: "#64748b",
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
+    color: "var(--color-text-secondary)",
+    background: "var(--color-bg-card)",
+    border: "1px solid var(--color-border)",
     borderRadius: 4,
     cursor: "pointer",
     transition: "all 0.15s ease",

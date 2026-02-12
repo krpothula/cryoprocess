@@ -35,7 +35,7 @@ const FileList = () => {
         <div
           key={index}
           className={`flex justify-between flex-wrap items-center ${
-            isEvenRow ? "bg-lightgray" : "bg-white"
+            isEvenRow ? "bg-lightgray" : "bg-white dark:bg-slate-800"
           }
            ${
              item.type === "file" &&
@@ -121,7 +121,7 @@ const FileList = () => {
           )}
         </div>
       </div>
-      <div className="flex justify-end w-full bg-white mt-2 absolute bottom-0">
+      <div className="flex justify-end w-full bg-white dark:bg-slate-800 mt-2 absolute bottom-0">
         {selectedFile?.path ? (
           <p className="mr-auto text-black/80 font-medium text-sm">
             Selected File: <span className="text-black font-semibold">{selectedFile?.path}</span>

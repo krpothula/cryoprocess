@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import { getManualSelectResultsApi } from "../../services/builders/manual-select/manual-select";
 import axiosInstance from "../../services/config";
@@ -19,12 +19,17 @@ const ManualSelectDashboard = () => {
   const [classesLoading, setClassesLoading] = useState(false);
 
   // Fetch results
+  // Guard against state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const fetchResults = useCallback(async () => {
     if (!selectedJob?.id) return;
 
     try {
       setLoading(true);
       const response = await getManualSelectResultsApi(selectedJob.id);
+      if (!mountedRef.current) return;
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
@@ -33,7 +38,7 @@ const ManualSelectDashboard = () => {
       setError("Failed to load selection results");
       console.error("Error fetching results:", err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [selectedJob?.id]);
 
@@ -85,7 +90,7 @@ const ManualSelectDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black font-medium mt-4">
+        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
           Loading class selection results...
         </p>
       </div>
@@ -102,13 +107,13 @@ const ManualSelectDashboard = () => {
   }
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
       {(() => {
         // Use status from results API (most current) or fallback to selectedJob
         const jobStatus = results?.job_status || selectedJob?.status || 'pending';
         return (
-          <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               {jobStatus === "success" ? (
                 <FiCheckCircle className="text-green-500 text-xl" />
@@ -118,19 +123,19 @@ const ManualSelectDashboard = () => {
                 <FiCheckCircle className="text-yellow-500 text-xl" />
               )}
               <div>
-                <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+                <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
                   Select/{results?.job_name || selectedJob?.job_name || "Job"}
                 </h2>
                 <p style={{
                   fontSize: "12px",
                   fontWeight: 500,
                   color: jobStatus === "success"
-                    ? "#16a34a"
+                    ? "var(--color-success-text)"
                     : jobStatus === "error" || jobStatus === "failed"
-                    ? "#dc2626"
+                    ? "var(--color-danger-text)"
                     : jobStatus === "running"
-                    ? "#f59e0b"
-                    : "#ca8a04"
+                    ? "var(--color-warning-text)"
+                    : "var(--color-warning-text)"
                 }}>
                   {jobStatus === "success"
                     ? "Success"
@@ -149,19 +154,19 @@ const ManualSelectDashboard = () => {
       })()}
 
       {/* Stats Card - Merged */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiGrid className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Classes Selected:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#7c3aed" }}>
+            <FiGrid className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Classes Selected:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-indigo-text)" }}>
               {numSelected} / {classes.length || "?"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiLayers className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Total Particles:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#16a34a" }}>
+            <FiLayers className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Total Particles:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
               {results?.particle_count?.toLocaleString() || 0}
             </span>
           </div>
@@ -169,8 +174,8 @@ const ManualSelectDashboard = () => {
       </div>
 
       {/* Class Images Grid */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
-        <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2" style={{ fontSize: "12px" }}>
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+        <h3 className="font-bold text-[var(--color-text)] mb-3 flex items-center gap-2" style={{ fontSize: "12px" }}>
           <FiGrid className="text-violet-500" />
           Class Selection ({numSelected} of {classes.length} selected)
         </h3>
@@ -178,7 +183,7 @@ const ManualSelectDashboard = () => {
         {classesLoading ? (
           <div className="flex items-center justify-center py-12">
             <BiLoader className="animate-spin text-violet-500 text-2xl mr-2" />
-            <span className="text-gray-500">Loading class images...</span>
+            <span className="text-[var(--color-text-secondary)]">Loading class images...</span>
           </div>
         ) : classes.length > 0 ? (
           <div className="class-images-grid">
@@ -210,7 +215,7 @@ const ManualSelectDashboard = () => {
             })}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-[var(--color-text-secondary)]">
             <p>Class images not available</p>
             {results?.selected_classes?.length > 0 && (
               <p className="text-sm mt-1">Selected classes: {results.selected_classes.join(', ')}</p>
@@ -228,7 +233,7 @@ const ManualSelectDashboard = () => {
           max-height: 600px;
           overflow-y: auto;
           padding: 8px;
-          background: #f8fafc;
+          background: var(--color-bg);
           border-radius: 8px;
         }
 
@@ -245,7 +250,7 @@ const ManualSelectDashboard = () => {
         }
 
         .class-image-card.not-selected {
-          border: 2px solid #e2e8f0;
+          border: 2px solid var(--color-border);
           opacity: 0.6;
         }
 
@@ -313,15 +318,15 @@ const ManualSelectDashboard = () => {
         }
 
         .class-image-card.not-selected .class-number {
-          color: #94a3b8;
+          color: var(--color-text-muted);
         }
 
         .class-image-card.not-selected .class-particles {
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
 
         .class-image-card.not-selected .class-resolution {
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
       `}</style>
     </div>

@@ -274,6 +274,12 @@ const jobSchema = new mongoose.Schema({
     default: []
   },
 
+  /** Whether to send email notification when job reaches terminal state */
+  notify_email: {
+    type: Boolean,
+    default: false
+  },
+
   /**
    * Cached STAR file data for dashboard display.
    * Avoids re-parsing large STAR files on every request.

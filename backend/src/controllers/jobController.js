@@ -15,6 +15,8 @@ const response = require('../utils/responseHelper');
 const { JOB_STATUS } = require('../config/constants');
 const { getJobProgress, getTotalExpected } = require('../utils/progressHelper');
 const { isGpuEnabled } = require('../utils/paramHelper');
+const User = require('../models/User');
+const { decryptField } = require('../utils/crypto');
 const ProjectMember = require('../models/ProjectMember');
 const { checkProjectAccess } = require('./projectMemberController');
 
@@ -59,6 +61,10 @@ exports.submitJob = async (req, res) => {
     const access = await checkProjectAccess(data.project_id, req.user.id, 'editor');
     if (!access.hasAccess) {
       return response.forbidden(res, 'You do not have permission to submit jobs in this project');
+    }
+
+    if (project.is_archived) {
+      return response.badRequest(res, 'Cannot submit jobs to an archived project. Restore it first.');
     }
 
     const projectPath = getProjectPath(project);
@@ -233,7 +239,8 @@ exports.submitJob = async (req, res) => {
       command: commandStr,
       execution_mode: data.execution_mode || 'slurm',
       parameters: req.body,
-      pipeline_stats: inheritedStats
+      pipeline_stats: inheritedStats,
+      notify_email: !!req.body.notify_email
     });
 
     logger.job.step(jobType, 6, 'Job saved to database', { job_id: jobId, output_dir: outputDir });
@@ -293,7 +300,7 @@ exports.submitJob = async (req, res) => {
         logger.warn(`[${jobType}] Job type does not support GPU, ignoring gres=${requestedGres}`);
       }
 
-      // For non-MPI jobs, force mpiProcs=1 to prevent srun usage
+      // For non-MPI jobs, force mpiProcs=1 to prevent mpirun usage
       const requestedMpi = data.runningmpi || data.numberOfMpiProcs || data.mpiProcs || 1;
       const effectiveMpi = builder.supportsMpi ? requestedMpi : 1;
 
@@ -311,6 +318,23 @@ exports.submitJob = async (req, res) => {
         clustername: data.clustername,
         arguments: data.arguments || data.slurmArguments || data.AdditionalArguments
       };
+    }
+
+    // Check if submitting user has per-user cluster credentials enabled
+    let userCredentials = null;
+    if (executionMode === 'slurm') {
+      try {
+        const submittingUser = await User.findOne({ id: req.user.id }).select('+cluster_ssh_key').lean();
+        if (submittingUser?.cluster_enabled && submittingUser.cluster_ssh_key && submittingUser.cluster_username) {
+          userCredentials = {
+            username: submittingUser.cluster_username,
+            privateKey: decryptField(submittingUser.cluster_ssh_key)
+          };
+          logger.info(`[${jobType}] Using per-user SSH credentials: ${submittingUser.cluster_username}`);
+        }
+      } catch (credErr) {
+        logger.warn(`[${jobType}] Failed to load user cluster credentials, falling back to global: ${credErr.message}`);
+      }
     }
 
     logger.job.step(jobType, 7, 'Preparing submission', { execution_mode: executionMode });
@@ -401,7 +425,8 @@ exports.submitJob = async (req, res) => {
       outputDir,
       executionMode,
       slurmParams,
-      postCommand: builder.postCommand
+      postCommand: builder.postCommand,
+      userCredentials
     });
 
     const duration = Date.now() - startTime;

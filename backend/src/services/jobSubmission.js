@@ -12,10 +12,10 @@ const settings = require('../config/settings');
 const Job = require('../models/Job');
 const { isPathSafe } = require('../utils/security');
 const { JOB_STATUS } = require('../config/constants');
-const { execCommand, writeRemoteFile, isSSHMode } = require('../utils/remoteExec');
+const { execCommand, writeRemoteFile, isSSHMode, createUserSSHSession } = require('../utils/remoteExec');
 
 // Allowed SLURM submit commands (whitelist)
-const ALLOWED_SUBMIT_COMMANDS = ['sbatch', 'srun', '/usr/bin/sbatch', '/usr/bin/srun'];
+const ALLOWED_SUBMIT_COMMANDS = ['sbatch', '/usr/bin/sbatch'];
 
 /**
  * Sanitize SLURM parameter to prevent injection
@@ -153,8 +153,8 @@ cd ${projectPath}
       script += `${singularityCmd}\n`;
     }
   } else if (mpiProcs > 1) {
-    // Native MPI (without Singularity) - use srun
-    script += `srun ${cmdStr}\n`;
+    // Native MPI (without Singularity) - use mpirun
+    script += `mpirun -n ${mpiProcs} ${cmdStr}\n`;
   } else {
     script += `${cmdStr}\n`;
   }
@@ -215,6 +215,8 @@ const submitJobDirect = async (options) => {
 
 /**
  * Submit job to SLURM
+ * When options.userCredentials is provided ({ username, privateKey }),
+ * a temporary per-user SSH session is used instead of the global connection.
  */
 const submitToSlurm = async (options) => {
   const {
@@ -223,10 +225,23 @@ const submitToSlurm = async (options) => {
     jobName,
     projectPath,
     outputDir,
-    slurmParams = {}
+    slurmParams = {},
+    userCredentials = null
   } = options;
 
+  let userSession = null;
+
   try {
+    // If per-user credentials are provided, create a temporary SSH session
+    if (userCredentials) {
+      logger.info(`[JobSubmit] Using per-user SSH session for ${userCredentials.username}`);
+      userSession = await createUserSSHSession(userCredentials);
+    }
+
+    // Use per-user session methods when available, otherwise fall back to global
+    const doWriteFile = userSession ? userSession.writeRemoteFile : writeRemoteFile;
+    const doExecCommand = userSession ? userSession.execCommand : execCommand;
+
     // Generate SLURM script
     const scriptContent = generateSlurmScript({
       jobName,
@@ -234,15 +249,15 @@ const submitToSlurm = async (options) => {
       projectPath,
       command: cmd,
       partition: sanitizeSlurmParam(slurmParams.queuename, 'partition'),
-      mpiProcs: slurmParams.runningmpi || 1,
-      threads: slurmParams.threads || 1,
-      gpus: slurmParams.gres || 0,
+      mpiProcs: Math.min(Math.max(parseInt(slurmParams.runningmpi) || 1, 1), 128),
+      threads: Math.min(Math.max(parseInt(slurmParams.threads) || 1, 1), 256),
+      gpus: Math.min(Math.max(parseInt(slurmParams.gres) || 0, 0), 16),
       additionalArgs: sanitizeSlurmParam(slurmParams.arguments, 'arguments', /^[\w\-.,:/\s=]+$/, 512)
     });
 
-    // Write script to file (locally or via SFTP in SSH mode)
+    // Write script to file (locally, via global SFTP, or via per-user SFTP)
     const scriptPath = path.join(outputDir, 'run.sh');
-    await writeRemoteFile(scriptPath, scriptContent, { mode: 0o755 });
+    await doWriteFile(scriptPath, scriptContent, { mode: 0o755 });
     logger.info(`[JobSubmit] SLURM script written: ${scriptPath}`);
 
     // Submit to SLURM - validate submit command against whitelist
@@ -264,7 +279,7 @@ const submitToSlurm = async (options) => {
     }
 
     try {
-      const { stdout, stderr } = await execCommand(submitCmd, [scriptPath], { cwd: projectPath });
+      const { stdout, stderr } = await doExecCommand(submitCmd, [scriptPath], { cwd: projectPath });
 
       // Parse SLURM job ID from output (e.g., "Submitted batch job 12345")
       const match = stdout.match(/Submitted batch job (\d+)/);
@@ -341,6 +356,11 @@ const submitToSlurm = async (options) => {
       message: 'Job submission failed',
       error: error.message
     };
+  } finally {
+    // Always close the per-user SSH session when done
+    if (userSession) {
+      userSession.close();
+    }
   }
 };
 

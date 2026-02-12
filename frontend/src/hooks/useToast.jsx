@@ -11,9 +11,9 @@ const useToast = () => {
       closeOnClick: true,
       pauseOnHover: true,
       draggable: true,
-      theme: "light",
+      theme: document.documentElement.classList.contains("dark") ? "dark" : "light",
       closeButton: false,
-      className: "text-black",
+      className: "text-black dark:text-slate-100",
     };
 
     // Merge default options with user-provided options

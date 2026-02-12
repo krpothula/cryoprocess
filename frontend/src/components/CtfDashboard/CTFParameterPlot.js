@@ -170,15 +170,15 @@ const CTFParameterPlot = ({
   const Icon = selectedParam.icon;
 
   return (
-    <div className="bg-white rounded-lg p-4 shadow-sm">
+    <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-slate-700">
       {/* Header with Progress and Parameter Selector */}
       <div className="flex items-center justify-between mb-4">
         {/* Progress Ring */}
         <div className="flex items-center gap-3">
           <ProgressRing progress={progress} size={50} />
           <div>
-            <p className="text-sm text-gray-500">Micrographs</p>
-            <p className="text-xl font-bold text-gray-800">
+            <p className="text-sm text-gray-500 dark:text-slate-400">Micrographs</p>
+            <p className="text-xl font-bold text-gray-800 dark:text-slate-200">
               {processed}/{total}
             </p>
           </div>
@@ -188,15 +188,15 @@ const CTFParameterPlot = ({
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
             <Icon className={colorClasses.text} size={18} />
-            <span className="font-medium text-gray-700">{selectedParam.label}</span>
-            <FiChevronDown className={`text-gray-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+            <span className="font-medium text-gray-700 dark:text-slate-200">{selectedParam.label}</span>
+            <FiChevronDown className={`text-gray-500 dark:text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg dark:shadow-2xl border border-gray-200 dark:border-slate-700 z-10">
               {PARAMETERS.map((param) => {
                 const ParamIcon = param.icon;
                 const paramColors = getColorClasses(param.color);
@@ -208,12 +208,12 @@ const CTFParameterPlot = ({
                       setDropdownOpen(false);
                       setRangeSelection(null);
                     }}
-                    className={`w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 transition-colors ${
-                      selectedParam.id === param.id ? 'bg-gray-50' : ''
+                    className={`w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors ${
+                      selectedParam.id === param.id ? 'bg-gray-50 dark:bg-slate-700' : ''
                     } first:rounded-t-lg last:rounded-b-lg`}
                   >
                     <ParamIcon className={paramColors.text} size={16} />
-                    <span className="text-gray-700">{param.label}</span>
+                    <span className="text-gray-700 dark:text-slate-200">{param.label}</span>
                   </button>
                 );
               })}
@@ -224,19 +224,19 @@ const CTFParameterPlot = ({
         {/* Stats Summary */}
         <div className="flex items-center gap-6 text-sm">
           <div>
-            <span className="text-gray-500">Min: </span>
+            <span className="text-gray-500 dark:text-slate-400">Min: </span>
             <span className={`font-medium ${colorClasses.text}`}>
               {stats.min.toFixed(selectedParam.id === 'fom' ? 3 : 1)} {selectedParam.unit}
             </span>
           </div>
           <div>
-            <span className="text-gray-500">Avg: </span>
+            <span className="text-gray-500 dark:text-slate-400">Avg: </span>
             <span className={`font-medium ${colorClasses.text}`}>
               {stats.avg.toFixed(selectedParam.id === 'fom' ? 3 : 1)} {selectedParam.unit}
             </span>
           </div>
           <div>
-            <span className="text-gray-500">Max: </span>
+            <span className="text-gray-500 dark:text-slate-400">Max: </span>
             <span className={`font-medium ${colorClasses.text}`}>
               {stats.max.toFixed(selectedParam.id === 'fom' ? 3 : 1)} {selectedParam.unit}
             </span>
@@ -268,7 +268,7 @@ const CTFParameterPlot = ({
                   y1={plotHeight * (1 - ratio)}
                   x2={plotWidth}
                   y2={plotHeight * (1 - ratio)}
-                  stroke="#e5e7eb"
+                  stroke="var(--color-chart-grid)"
                   strokeDasharray="4,4"
                 />
               ))}
@@ -319,7 +319,7 @@ const CTFParameterPlot = ({
               })}
 
               {/* X-axis */}
-              <line x1={0} y1={plotHeight} x2={plotWidth} y2={plotHeight} stroke="#9ca3af" />
+              <line x1={0} y1={plotHeight} x2={plotWidth} y2={plotHeight} stroke="var(--color-text-muted)" />
 
               {/* X-axis labels */}
               {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
@@ -340,7 +340,7 @@ const CTFParameterPlot = ({
               })}
 
               {/* Y-axis */}
-              <line x1={0} y1={0} x2={0} y2={plotHeight} stroke="#9ca3af" />
+              <line x1={0} y1={0} x2={0} y2={plotHeight} stroke="var(--color-text-muted)" />
 
               {/* Y-axis label */}
               <text
@@ -367,8 +367,8 @@ const CTFParameterPlot = ({
 
           {/* Selection info */}
           {rangeSelection && (
-            <div className="absolute top-2 right-2 flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow border border-gray-200">
-              <span className="text-sm text-gray-600">
+            <div className="absolute top-2 right-2 flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg shadow border border-gray-200 dark:border-slate-700">
+              <span className="text-sm text-gray-600 dark:text-slate-300">
                 Selected: {rangeSelection.start.toFixed(1)} - {rangeSelection.end.toFixed(1)} {selectedParam.unit}
               </span>
               <button
@@ -382,13 +382,13 @@ const CTFParameterPlot = ({
 
           {/* Drag instruction */}
           {!rangeSelection && (
-            <div className="absolute bottom-0 right-2 text-xs text-gray-400">
+            <div className="absolute bottom-0 right-2 text-xs text-gray-400 dark:text-slate-500">
               Drag to select range
             </div>
           )}
         </div>
       ) : (
-        <div className="h-40 flex items-center justify-center text-gray-400">
+        <div className="h-40 flex items-center justify-center text-gray-400 dark:text-slate-500">
           No data available
         </div>
       )}

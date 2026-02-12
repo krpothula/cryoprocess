@@ -36,6 +36,14 @@ router.post('/change-password', authMiddleware, asyncHandler(authController.chan
 // PUT /api/auth/profile
 router.put('/profile', authMiddleware, asyncHandler(authController.updateProfile));
 
+// Cluster SSH settings
+// PUT /api/auth/cluster-settings
+router.put('/cluster-settings', authMiddleware, asyncHandler(authController.updateClusterSettings));
+
+// Test cluster SSH connection
+// POST /api/auth/cluster-test
+router.post('/cluster-test', authMiddleware, asyncHandler(authController.testClusterConnection));
+
 // Refresh token
 // POST /api/auth/refresh
 router.post('/refresh', asyncHandler(authController.refreshToken));

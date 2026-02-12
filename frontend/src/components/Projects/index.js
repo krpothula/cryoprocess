@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import ProjectsList from "./List";
-import { FiPlus, FiSearch, FiZap } from "react-icons/fi";
+import { FiPlus, FiSearch, FiZap, FiArchive } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 
 const ProjectsHome = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
   return (
     <div className="projects-page">
@@ -27,6 +28,14 @@ const ProjectsHome = () => {
               />
             </div>
             <button
+              className={`btn-archive-toggle ${showArchived ? "active" : ""}`}
+              onClick={() => setShowArchived(!showArchived)}
+              title={showArchived ? "Hide archived projects" : "Show archived projects"}
+            >
+              <FiArchive />
+              <span>Archived</span>
+            </button>
+            <button
               className="btn-live-project"
               onClick={() => navigate("/projects/create-live")}
             >
@@ -45,14 +54,14 @@ const ProjectsHome = () => {
 
         {/* Content */}
         <main className="projects-main">
-          <ProjectsList searchTerm={searchTerm} />
+          <ProjectsList searchTerm={searchTerm} showArchived={showArchived} />
         </main>
       </div>
 
       <style>{`
         .projects-page {
           min-height: calc(100vh - 48px);
-          background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+          background: linear-gradient(180deg, var(--color-bg) 0%, var(--color-border-light) 100%);
         }
 
         .projects-container {
@@ -76,13 +85,13 @@ const ProjectsHome = () => {
         .header-title h1 {
           font-size: 24px;
           font-weight: 600;
-          color: #0f172a;
+          color: var(--color-text-heading);
           margin: 0;
         }
 
         .header-subtitle {
           font-size: 14px;
-          color: #64748b;
+          color: var(--color-text-secondary);
         }
 
         .header-actions {
@@ -97,8 +106,8 @@ const ProjectsHome = () => {
           gap: 10px;
           padding: 0 16px;
           height: 42px;
-          background: white;
-          border: 1px solid #e2e8f0;
+          background: var(--color-bg-card);
+          border: 1px solid var(--color-border);
           border-radius: 10px;
           width: 280px;
           transition: all 0.2s ease;
@@ -106,11 +115,11 @@ const ProjectsHome = () => {
         }
 
         .search-wrapper:focus-within {
-          border-color: #3b82f6;
+          border-color: var(--color-primary);
         }
 
         .search-wrapper svg {
-          color: #94a3b8;
+          color: var(--color-text-muted);
           font-size: 16px;
           flex-shrink: 0;
         }
@@ -121,13 +130,44 @@ const ProjectsHome = () => {
           outline: none !important;
           box-shadow: none !important;
           font-size: 14px;
-          color: #0f172a;
+          color: var(--color-text-heading);
           background: transparent;
           appearance: none;
         }
 
         .search-wrapper input::placeholder {
-          color: #94a3b8;
+          color: var(--color-text-muted);
+        }
+
+        .btn-archive-toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          height: 42px;
+          padding: 0 16px;
+          background: var(--color-bg-card);
+          color: var(--color-text-secondary);
+          font-size: 14px;
+          font-weight: 500;
+          border: 1px solid var(--color-border);
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-archive-toggle:hover {
+          background: var(--color-bg-hover);
+          border-color: var(--color-border-hover);
+        }
+
+        .btn-archive-toggle.active {
+          background: var(--color-warning-bg);
+          color: var(--color-warning-text);
+          border-color: var(--color-warning-text);
+        }
+
+        .btn-archive-toggle svg {
+          font-size: 16px;
         }
 
         .btn-live-project {
@@ -136,7 +176,7 @@ const ProjectsHome = () => {
           gap: 8px;
           height: 42px;
           padding: 0 20px;
-          background: #3b82f6;
+          background: var(--color-primary);
           color: white;
           font-size: 14px;
           font-weight: 500;
@@ -147,7 +187,7 @@ const ProjectsHome = () => {
         }
 
         .btn-live-project:hover {
-          background: #2563eb;
+          background: var(--color-primary-hover);
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
@@ -162,7 +202,7 @@ const ProjectsHome = () => {
           gap: 8px;
           height: 42px;
           padding: 0 20px;
-          background: #3b82f6;
+          background: var(--color-primary);
           color: white;
           font-size: 14px;
           font-weight: 500;
@@ -173,7 +213,7 @@ const ProjectsHome = () => {
         }
 
         .btn-new-project:hover {
-          background: #2563eb;
+          background: var(--color-primary-hover);
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
@@ -183,9 +223,9 @@ const ProjectsHome = () => {
         }
 
         .projects-main {
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 16px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--color-border);
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02);
           overflow: visible;
         }

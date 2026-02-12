@@ -104,14 +104,6 @@ const Motion = ({
         tooltipText="Flip gain reference horizontally or vertically. Required if gain and movies were saved with different orientations. Check your detector documentation."
       />
 
-      {/* <CustomInput
-        onChange={handleInputChange}
-        name="defectFile"
-        label="Defect file:"
-        placeholder=""
-        tooltipText="defectFile"
-      /> */}
-
       <CustomInput
         isCustomUpload={true}
         onChange={() => {
@@ -132,7 +124,6 @@ const Motion = ({
         onChange={handleInputChange}
         tooltipText="Use RELION's built-in motion correction. Recommended for most cases. Select 'No' to use external MotionCor2 if you have specific requirements."
       />
-      {/* MOTIONCOR2 executable - read from .env, no browse option */}
       <CustomInput
         onChange={() => {}}
         name="motioncore"
@@ -151,6 +142,7 @@ const Motion = ({
         tooltipText="GPU device IDs for MotionCor2 (e.g., '0' for first GPU, '0,1' for two GPUs). Only applies when using external MotionCor2."
         value={formData?.["gpu"] || ""}
         disabled={isUseRelionImplementationYes}
+        disabledHint="Switch to MotionCor2 to configure GPUs"
       />
       <SimpleInput
         onChange={handleInputChange}
@@ -160,6 +152,7 @@ const Motion = ({
         tooltipText="Additional command-line arguments for MotionCor2. For advanced users only. Refer to MotionCor2 documentation for available options."
         value={formData?.["othermotion"] || ""}
         disabled={isUseRelionImplementationYes}
+        disabledHint="Switch to MotionCor2 to use extra arguments"
       />
     </div>
   );

@@ -7,6 +7,8 @@ const SimpleInput = ({
   placeholder = "",
   tooltipText,
   disabled = false,
+  disabledHint,
+  autoFilled = false,
   name,
   value,
 }) => {
@@ -14,8 +16,13 @@ const SimpleInput = ({
   return (
     <div className="flex items-center gap-2">
       <div style={{ width: "30%" }}>
-        <label style={{ textAlign: "left", opacity: disabled ? 0.3 : 1 }}>
+        <label style={{ textAlign: "left", opacity: disabled ? 0.5 : 1, display: "flex", alignItems: "center", gap: "6px" }}>
           {label}
+          {autoFilled && (
+            <span style={{ fontSize: "9px", fontWeight: 600, color: "var(--color-primary)", backgroundColor: "var(--color-info-bg)", padding: "1px 5px", borderRadius: "3px", lineHeight: "1.4" }}>
+              AUTO
+            </span>
+          )}
         </label>
       </div>
 
@@ -27,37 +34,47 @@ const SimpleInput = ({
             value={value}
             placeholder={placeholder}
             disabled={disabled}
+            onFocus={() => setTooltipVisible(true)}
+            onBlur={() => setTooltipVisible(false)}
             style={{
               height: "32px",
               width: "280px",
               minWidth: "280px",
               maxWidth: "280px",
-              border: "1px solid #e2e8f0",
-              backgroundColor: "white",
+              border: disabled ? "1px dashed var(--color-border)" : "1px solid var(--color-border)",
+              backgroundColor: disabled ? "var(--color-bg)" : "var(--color-bg-card)",
               padding: "6px 10px",
               fontSize: "12px",
               borderRadius: "6px",
-              opacity: disabled ? 0.3 : 1,
+              opacity: disabled ? 0.5 : 1,
               cursor: disabled ? "not-allowed" : "auto",
             }}
           />
+          {disabled && disabledHint && (
+            <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "1px", lineHeight: "1.3" }}>
+              {disabledHint}
+            </div>
+          )}
         </div>
 
         <div
-          className="bg-white p-[2px] rounded flex items-center justify-center cursor-pointer relative"
+          className="bg-[var(--color-bg-card)] p-[2px] rounded flex items-center justify-center cursor-pointer relative"
           onMouseEnter={() => setTooltipVisible(true)}
           onMouseLeave={() => setTooltipVisible(false)}
+          tabIndex={0}
+          onFocus={() => setTooltipVisible(true)}
+          onBlur={() => setTooltipVisible(false)}
         >
-          <IoInformationCircleOutline className="text-gray-400 text-sm" />
-          {isTooltipVisible && (
+          <IoInformationCircleOutline className="text-[var(--color-text-muted)] text-sm" />
+          {isTooltipVisible && tooltipText && (
             <div
               style={{
                 position: "absolute",
                 left: "calc(100% + 8px)",
                 top: "50%",
                 transform: "translateY(-50%)",
-                backgroundColor: "#1e293b",
-                color: "#f8fafc",
+                backgroundColor: "var(--color-text-heading)",
+                color: "var(--color-bg)",
                 padding: "8px 10px",
                 borderRadius: "6px",
                 fontSize: "11px",
@@ -78,7 +95,7 @@ const SimpleInput = ({
                   height: "0",
                   borderTop: "6px solid transparent",
                   borderBottom: "6px solid transparent",
-                  borderRight: "6px solid #1e293b",
+                  borderRight: "6px solid var(--color-text-heading)",
                 }}
               />
             </div>

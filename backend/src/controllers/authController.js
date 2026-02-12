@@ -5,10 +5,12 @@
  */
 
 const jwt = require('jsonwebtoken');
+const { Client } = require('ssh2');
 const logger = require('../utils/logger');
 const User = require('../models/User');
 const settings = require('../config/settings');
 const { validatePassword, isValidEmail } = require('../utils/security');
+const { encryptField, decryptField } = require('../utils/crypto');
 const response = require('../utils/responseHelper');
 const { TIMING } = require('../config/constants');
 
@@ -34,6 +36,11 @@ exports.register = async (req, res) => {
 
     if (!username || !email || !password) {
       return response.badRequest(res, 'Username, email, and password are required');
+    }
+
+    // Validate username: single word, no spaces, alphanumeric + underscore/dot/hyphen
+    if (!/^[a-zA-Z0-9_.\-]+$/.test(username)) {
+      return response.badRequest(res, 'Username must be a single word with no spaces (letters, numbers, underscore, dot, or hyphen only)');
     }
 
     // Validate email format
@@ -98,19 +105,14 @@ exports.register = async (req, res) => {
  */
 exports.login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!username || !password) {
-      return response.badRequest(res, 'Username and password are required');
+    if (!email || !password) {
+      return response.badRequest(res, 'Email and password are required');
     }
 
-    // Find user (include password for comparison)
-    const user = await User.findOne({
-      $or: [
-        { username: username.toLowerCase() },
-        { email: username.toLowerCase() }
-      ]
-    }).select('+password');
+    // Find user by email (include password for comparison)
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
 
     if (!user) {
       return response.unauthorized(res, 'Invalid credentials');
@@ -134,7 +136,7 @@ exports.login = async (req, res) => {
     const token = user.generateAuthToken();
     setAuthCookie(res, token);
 
-    logger.info(`[Auth] User logged in: ${username}`);
+    logger.info(`[Auth] User logged in: ${user.email}`);
 
     return response.successData(res, {
       user: {
@@ -175,7 +177,11 @@ exports.getCurrentUser = async (req, res) => {
       is_staff: user.is_staff,
       is_superuser: user.is_superuser,
       date_joined: user.date_joined,
-      last_login: user.last_login
+      last_login: user.last_login,
+      cluster_username: user.cluster_username || '',
+      cluster_connected: user.cluster_connected || false,
+      cluster_enabled: user.cluster_enabled || false,
+      cluster_ssh_key_set: !!user.cluster_ssh_key
     });
   } catch (error) {
     logger.error('[Auth] getCurrentUser error:', error);
@@ -336,6 +342,163 @@ exports.refreshToken = async (req, res) => {
     return response.success(res, { message: 'Token refreshed' });
   } catch (error) {
     logger.error('[Auth] refreshToken error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Update cluster SSH settings
+ * PUT /api/auth/cluster-settings
+ */
+exports.updateClusterSettings = async (req, res) => {
+  try {
+    const { cluster_username, cluster_ssh_key, cluster_enabled } = req.body;
+
+    const user = await User.findOne({ id: req.user.id });
+    if (!user) {
+      return response.notFound(res, 'User not found');
+    }
+
+    if (cluster_username !== undefined) {
+      const trimmed = cluster_username.trim();
+      if (trimmed && !/^[a-zA-Z0-9_.\-]+$/.test(trimmed)) {
+        return response.badRequest(res, 'Cluster username contains invalid characters');
+      }
+      user.cluster_username = trimmed;
+    }
+
+    if (cluster_ssh_key !== undefined) {
+      if (cluster_ssh_key === '') {
+        user.cluster_ssh_key = '';
+        user.cluster_enabled = false;
+      } else {
+        user.cluster_ssh_key = encryptField(cluster_ssh_key);
+      }
+      user.cluster_connected = false;
+    }
+
+    if (cluster_enabled !== undefined) {
+      // Only allow enabling if credentials are configured and tested
+      if (cluster_enabled && !user.cluster_connected) {
+        return response.badRequest(res, 'Test your connection first before enabling');
+      }
+      user.cluster_enabled = !!cluster_enabled;
+    }
+
+    await user.save();
+
+    logger.info(`[Auth] Cluster settings updated for user: ${user.username} (enabled: ${user.cluster_enabled})`);
+
+    return response.successData(res, {
+      cluster_username: user.cluster_username,
+      cluster_connected: user.cluster_connected,
+      cluster_enabled: user.cluster_enabled,
+      cluster_ssh_key_set: !!user.cluster_ssh_key
+    });
+  } catch (error) {
+    logger.error('[Auth] updateClusterSettings error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Test cluster SSH connection
+ * POST /api/auth/cluster-test
+ */
+exports.testClusterConnection = async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id }).select('+cluster_ssh_key');
+    if (!user) {
+      return response.notFound(res, 'User not found');
+    }
+
+    if (!user.cluster_username) {
+      return response.badRequest(res, 'Cluster username is required. Save your settings first.');
+    }
+    if (!user.cluster_ssh_key) {
+      return response.badRequest(res, 'SSH private key is required. Save your settings first.');
+    }
+
+    const host = settings.SLURM_SSH_HOST;
+    if (!host) {
+      return response.badRequest(res, 'Cluster host is not configured. Ask your admin to set SLURM_SSH_HOST in .env');
+    }
+
+    let sshKey;
+    try {
+      sshKey = decryptField(user.cluster_ssh_key);
+    } catch (decryptErr) {
+      logger.error(`[Auth] Failed to decrypt SSH key for user ${user.username}: ${decryptErr.message}`);
+      return response.serverError(res, 'Failed to decrypt stored SSH key');
+    }
+
+    const port = settings.SLURM_SSH_PORT || 22;
+    const TEST_TIMEOUT = 10000;
+
+    const result = await new Promise((resolve) => {
+      const client = new Client();
+      let settled = false;
+
+      const finish = (success, message) => {
+        if (settled) return;
+        settled = true;
+        client.end();
+        resolve({ success, message });
+      };
+
+      const timer = setTimeout(() => {
+        finish(false, 'Connection timed out after 10 seconds');
+      }, TEST_TIMEOUT);
+
+      client.on('ready', () => {
+        client.exec('whoami', (err, stream) => {
+          if (err) {
+            clearTimeout(timer);
+            return finish(false, `Command execution failed: ${err.message}`);
+          }
+
+          let stdout = '';
+          stream.on('data', (data) => { stdout += data; });
+          stream.on('close', () => {
+            clearTimeout(timer);
+            finish(true, `Connected as ${stdout.trim()}`);
+          });
+        });
+      });
+
+      client.on('error', (err) => {
+        clearTimeout(timer);
+        finish(false, err.message);
+      });
+
+      client.connect({
+        host,
+        port,
+        username: user.cluster_username,
+        privateKey: sshKey,
+        readyTimeout: TEST_TIMEOUT,
+      });
+    });
+
+    // Update connection status in DB
+    user.cluster_connected = result.success;
+    await user.save();
+
+    if (result.success) {
+      logger.info(`[Auth] Cluster connection test passed for user: ${user.username} → ${user.cluster_username}@${host}`);
+      return response.successData(res, {
+        connected: true,
+        message: result.message
+      });
+    } else {
+      logger.warn(`[Auth] Cluster connection test failed for user: ${user.username} — ${result.message}`);
+      return response.successData(res, {
+        connected: false,
+        message: result.message
+      });
+    }
+  } catch (error) {
+    logger.error('[Auth] testClusterConnection error:', error);
     return response.serverError(res, error.message);
   }
 };

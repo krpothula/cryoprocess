@@ -20,7 +20,7 @@ const ProgressRing = ({ progress = 0, size = 60, strokeWidth = 4 }) => {
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#e5e7eb"
+          stroke="var(--color-chart-grid, #e5e7eb)"
           strokeWidth={strokeWidth}
         />
         {/* Progress circle */}
@@ -39,7 +39,7 @@ const ProgressRing = ({ progress = 0, size = 60, strokeWidth = 4 }) => {
       </svg>
       {/* Percentage text */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-sm font-bold text-gray-700">
+        <span className="text-sm font-bold text-gray-700 dark:text-slate-200">
           {Math.round(progress)}%
         </span>
       </div>

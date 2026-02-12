@@ -41,6 +41,7 @@ const Extract = ({
         onChange={handleInputChange}
         tooltipText="Normalize particle images to have zero mean and unit standard deviation in the background. Highly recommended for consistent classification and refinement results."
       />
+
       <PixelSizeInput
         label="Diameter background circle (pix):"
         placeholder=""
@@ -95,7 +96,9 @@ const Extract = ({
         handleInputChange={handleInputChange}
         tooltipText="Target box size (in pixels) after rescaling. Must be even and smaller than original. Common practice: downsample 2-4x for initial classification, then re-extract at full size."
         disabled={!isrescaleParticlesYes}
+        disabledHint="Enable 'Rescaled particles' to set target size"
       />
+
       <CustomDropdown
         label="Use autopick FOM threshold?"
         options={dropdownOptions}
@@ -115,6 +118,7 @@ const Extract = ({
         handleInputChange={handleInputChange}
         tooltipText="Minimum FOM score for particles to be extracted. Only particles with FOM >= this value will be included. Check your autopicking results to determine appropriate threshold."
         disabled={!autopick}
+        disabledHint="Enable 'Use autopick FOM threshold' first"
       />
     </div>
   );

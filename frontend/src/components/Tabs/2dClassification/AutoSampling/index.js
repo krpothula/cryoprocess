@@ -21,6 +21,7 @@ const AutoSampling = ({
         onChange={handleInputChange}
         tooltipText="Perform in-plane rotation and translation alignment. Set to 'Yes' for standard classification. 'No' only if particles are already perfectly aligned."
       />
+
       <PixelSizeInput
         label="In-plane angular sampling:"
         placeholder=""
@@ -32,6 +33,7 @@ const AutoSampling = ({
         handleInputChange={handleInputChange}
         tooltipText="In-plane angular sampling rate (degrees). Note: For efficient GPU calculations, RELION may automatically adjust this value (e.g., to 5.625°). Values that are multiples of 360/64 work best for GPU optimization."
         disabled={disableImageAlignment}
+        disabledHint="Enable 'Perform image alignment' first"
       />
       <PixelSizeInput
         label="Offset search range(pix):"
@@ -44,6 +46,7 @@ const AutoSampling = ({
         handleInputChange={handleInputChange}
         tooltipText="Maximum shift (in pixels) to search for particle centering. Use ~10% of box size. Larger values for poorly centered particles but slower."
         disabled={disableImageAlignment}
+        disabledHint="Enable 'Perform image alignment' first"
       />
       <PixelSizeInput
         label="Offset search step(pix):"
@@ -56,6 +59,7 @@ const AutoSampling = ({
         handleInputChange={handleInputChange}
         tooltipText="Step size (in pixels) for offset search. Smaller steps = more precise but slower. Usually 1-2 pixels is sufficient."
         disabled={disableImageAlignment}
+        disabledHint="Enable 'Perform image alignment' first"
       />
       <CustomDropdown
         label="Allow coarser sampling?"
@@ -65,6 +69,7 @@ const AutoSampling = ({
         onChange={handleInputChange}
         tooltipText="Allow coarser angular sampling in early iterations for speed. Recommended 'Yes' for faster convergence, especially with large datasets."
         disabled={disableImageAlignment}
+        disabledHint="Enable 'Perform image alignment' first"
       />
     </div>
   );

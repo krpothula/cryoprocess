@@ -12,6 +12,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { getJobsTreeApi } from "../../services/builders/jobs";
 import { transformApiResponseToTree } from "../../utils/tree";
+import { useTheme } from "../../context/ThemeContext";
 import { BiLoader } from "react-icons/bi";
 import { FiGitBranch, FiDownload } from "react-icons/fi";
 
@@ -104,7 +105,7 @@ const defaultEdgeOptions = {
   },
   animated: false,
   style: {
-    stroke: "#94a3b8",
+    stroke: "var(--color-text-muted)",
     strokeWidth: 1.5,
   },
 };
@@ -172,7 +173,7 @@ function buildFlowData(
 
       // Edge uses child's job type color; animate if running
       const isRunning = child.status === "running";
-      const edgeColor = child.style?.backgroundColor || "#94a3b8";
+      const edgeColor = child.style?.backgroundColor || "var(--color-text-muted)";
 
       edges.push({
         id: `${tree.id}-${child.id}`,
@@ -199,6 +200,7 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { setViewport } = useReactFlow();
+  const { isDark } = useTheme();
 
   const onNodesChange = useCallback(
     (changes) =>
@@ -329,7 +331,7 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
-        <Background color="#e2e8f0" gap={20} size={1} />
+        <Background color={isDark ? "#334155" : "#e2e8f0"} gap={20} size={1} />
         <Controls
           position="top-right"
           showInteractive={false}
@@ -340,7 +342,7 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
           width: 100%;
           height: calc(100vh - 48px);
           min-height: 400px;
-          background: #fafbfc;
+          background: var(--color-bg-card);
         }
 
         /* Root pipeline node */
@@ -353,8 +355,8 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
           align-items: center;
           gap: 6px;
           padding: 8px 16px;
-          background: #3b82f6;
-          border: 2px solid #2563eb;
+          background: var(--color-primary);
+          border: 2px solid var(--color-primary-hover);
           border-radius: 8px;
           color: #ffffff;
           font-size: 12px;
@@ -377,8 +379,9 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
           flex-direction: column;
           align-items: flex-start;
           padding: 8px 12px;
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 8px;
+          border: 1px solid var(--color-border);
           border-left: 4px solid var(--node-color);
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
           cursor: pointer;
@@ -388,11 +391,13 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
         }
 
         .job-node-card:hover {
+          border-color: var(--node-color);
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
           transform: translateY(-1px);
         }
 
         .job-node-wrapper.selected .job-node-card {
+          border-color: var(--node-color);
           box-shadow: 0 0 0 2px var(--node-color), 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
@@ -429,7 +434,7 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
         .job-name-text {
           font-size: 12px;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--color-text);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -437,7 +442,7 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
 
         .job-type-text {
           font-size: 10px;
-          color: #64748b;
+          color: var(--color-text-secondary);
           margin-top: 2px;
           white-space: nowrap;
           overflow: hidden;
@@ -454,7 +459,7 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
           width: 18px;
           height: 18px;
           border-radius: 4px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
           opacity: 0;
           transition: all 0.15s ease;
           cursor: pointer;
@@ -462,12 +467,12 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
 
         .job-node-card:hover .job-populate-icon {
           opacity: 1;
-          color: #3b82f6;
-          background: #eff6ff;
+          color: var(--color-primary);
+          background: var(--color-primary-bg);
         }
 
         .job-populate-icon:hover {
-          background: #3b82f6 !important;
+          background: var(--color-primary) !important;
           color: white !important;
           transform: scale(1.1);
         }
@@ -476,8 +481,8 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
         .job-handle-bottom {
           width: 6px !important;
           height: 6px !important;
-          background: #cbd5e1 !important;
-          border: 1.5px solid white !important;
+          background: var(--color-border-hover) !important;
+          border: 1.5px solid var(--color-bg-card) !important;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
         }
 
@@ -498,7 +503,7 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
           justify-content: center;
           height: 100%;
           min-height: 300px;
-          background: #fafbfc;
+          background: var(--color-bg-card);
         }
 
         .tree-loading-content,
@@ -506,14 +511,14 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
         .tree-empty-content {
           text-align: center;
           padding: 32px;
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 12px;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
         .tree-loading-icon {
           font-size: 36px;
-          color: #3b82f6;
+          color: var(--color-primary);
           animation: spin 1s linear infinite;
           margin-bottom: 16px;
         }
@@ -524,7 +529,7 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
         }
 
         .tree-loading-text {
-          color: #475569;
+          color: var(--color-text-label);
           font-size: 14px;
           font-weight: 500;
           margin: 0;
@@ -533,12 +538,12 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
         .tree-error-icon,
         .tree-empty-icon {
           font-size: 48px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
           margin-bottom: 16px;
         }
 
         .tree-error-text {
-          color: #ef4444;
+          color: var(--color-danger-text);
           font-size: 14px;
           font-weight: 500;
           margin: 0 0 16px 0;
@@ -549,7 +554,7 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
           font-size: 13px;
           font-weight: 600;
           color: white;
-          background: #3b82f6;
+          background: var(--color-primary);
           border: none;
           border-radius: 8px;
           cursor: pointer;
@@ -557,19 +562,19 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
         }
 
         .tree-retry-btn:hover {
-          background: #2563eb;
+          background: var(--color-primary-hover);
           transform: translateY(-1px);
         }
 
         .tree-empty-title {
-          color: #1e293b;
+          color: var(--color-text);
           font-size: 18px;
           font-weight: 600;
           margin: 0 0 8px 0;
         }
 
         .tree-empty-subtitle {
-          color: #64748b;
+          color: var(--color-text-secondary);
           font-size: 14px;
           margin: 0;
         }
@@ -580,23 +585,23 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
           border-radius: 8px;
           overflow: hidden;
           border: none;
-          background: white;
+          background: var(--color-bg-card);
         }
 
         .react-flow__controls-button {
-          background: white;
+          background: var(--color-bg-card);
           border: none;
-          border-bottom: 1px solid #f1f5f9;
+          border-bottom: 1px solid var(--color-border-light);
           width: 28px;
           height: 28px;
         }
 
         .react-flow__controls-button:hover {
-          background: #f8fafc;
+          background: var(--color-bg);
         }
 
         .react-flow__controls-button svg {
-          fill: #64748b;
+          fill: var(--color-text-secondary);
         }
       `}</style>
     </div>

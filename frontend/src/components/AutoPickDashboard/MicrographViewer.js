@@ -32,7 +32,7 @@ const MicrographViewer = ({ imageData, loading, selectedMicrograph, zoom = 1, ci
 
   if (!selectedMicrograph) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900">
         <FiImage className="text-4xl mb-3" />
         <p className="text-center text-sm">Select a micrograph to view</p>
       </div>
@@ -41,16 +41,16 @@ const MicrographViewer = ({ imageData, loading, selectedMicrograph, zoom = 1, ci
 
   if (loading) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-900">
         <BiLoader className="animate-spin text-blue-500 text-3xl" />
-        <p className="text-gray-600 mt-2 text-sm">Loading image...</p>
+        <p className="text-gray-600 dark:text-slate-300 mt-2 text-sm">Loading image...</p>
       </div>
     );
   }
 
   if (!imageData?.image) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900">
         <FiImage className="text-4xl mb-3" />
         <p className="text-center text-sm">Could not load micrograph image</p>
       </div>
@@ -70,8 +70,8 @@ const MicrographViewer = ({ imageData, loading, selectedMicrograph, zoom = 1, ci
   return (
     <div className="absolute inset-0 overflow-hidden" style={{ position: "absolute" }}>
       <div
-        className="h-full w-full flex items-center justify-center bg-white"
-        style={{ position: "relative" }}
+        className="h-full w-full flex items-center justify-center"
+        style={{ position: "relative", backgroundColor: "var(--color-bg-card)" }}
       >
         <div
           style={{

@@ -33,7 +33,7 @@ const Table = ({ columns, rows, isDataLoading }) => {
             rows.map((row, rowIndex) => (
               <tr
                 key={rowIndex}
-                className={rowIndex % 2 === 0 ? "bg-white" : "bg-white"}
+                className={rowIndex % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-white dark:bg-slate-800"}
               >
                 {columns.map((col, colIndex) => (
                   <td

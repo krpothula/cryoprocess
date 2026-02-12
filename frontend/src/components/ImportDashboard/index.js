@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import { getImportResultsApi } from "../../services/builders/import/import";
 import { BiLoader } from "react-icons/bi";
@@ -27,6 +27,7 @@ import {
 import MovieViewer from "./MovieViewer";
 import ImportedFilesList from "./ImportedFilesList";
 import MolstarViewer from "../InitialModelDashboard/MolstarViewer";
+import useJobNotification from "../../hooks/useJobNotification";
 
 // Format file size
 const formatFileSize = (bytes) => {
@@ -61,12 +62,17 @@ const ImportDashboard = () => {
   };
 
   // Fetch import results
+  // Guard against state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const fetchResults = useCallback(async () => {
     if (!selectedJob?.id) return;
 
     try {
       setLoading(true);
       const response = await getImportResultsApi(selectedJob.id);
+      if (!mountedRef.current) return;
       if (response?.data?.status === "success") {
         const data = response.data.data;
         setResults(data);
@@ -88,7 +94,7 @@ const ImportDashboard = () => {
       }
       console.error("Error fetching results:", err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [selectedJob?.id, selectedMovie]);
 
@@ -113,12 +119,16 @@ const ImportDashboard = () => {
     setViewerZoom(1);
   }, [selectedMovie]);
 
+  // Trigger immediate fetch on WebSocket job_update (supplements polling)
+  useJobNotification(selectedJob?.id, fetchResults);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "success":
         return <FiCheckCircle className="text-green-500 text-xl" />;
       case "running":
-        return <FiActivity className="text-blue-500 text-xl animate-pulse" />;
+        return <FiActivity className="text-amber-500 text-xl animate-pulse" />;
+      case "failed":
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
@@ -175,26 +185,26 @@ const ImportDashboard = () => {
   const importedFiles = results?.imported_files || [];
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStatusIcon(selectedJob?.status || results?.job_status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
                 Import/{selectedJob?.job_name || results?.job_name || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
                 color: (selectedJob?.status || results?.job_status) === "success"
-                  ? "#16a34a"
+                  ? "var(--color-success-text)"
                   : (selectedJob?.status || results?.job_status) === "error"
-                  ? "#dc2626"
+                  ? "var(--color-danger-text)"
                   : (selectedJob?.status || results?.job_status) === "running"
-                  ? "#f59e0b"
-                  : "#ca8a04"
+                  ? "var(--color-warning-text)"
+                  : "var(--color-warning-text)"
               }}>
                 {(selectedJob?.status || results?.job_status) === "success"
                   ? "Success"
@@ -212,32 +222,32 @@ const ImportDashboard = () => {
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+              className="flex items-center gap-2 hover:bg-[var(--color-bg)] rounded px-1 py-0.5 transition-colors"
               aria-expanded={showCommand}
               aria-label="Toggle RELION command"
             >
-              <FiTerminal className="text-gray-400" size={12} aria-hidden="true" />
-              <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>RELION Command</span>
+              <FiTerminal className="text-[var(--color-text-muted)]" size={12} aria-hidden="true" />
+              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>RELION Command</span>
               {showCommand ? (
-                <FiChevronUp className="text-gray-400" size={12} aria-hidden="true" />
+                <FiChevronUp className="text-[var(--color-text-muted)]" size={12} aria-hidden="true" />
               ) : (
-                <FiChevronDown className="text-gray-400" size={12} aria-hidden="true" />
+                <FiChevronDown className="text-[var(--color-text-muted)]" size={12} aria-hidden="true" />
               )}
             </button>
             {showCommand && command && (
               <button
                 onClick={copyCommand}
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 title="Copy command"
                 aria-label="Copy RELION command"
               >
-                <FiCopy className="text-gray-400" size={12} aria-hidden="true" />
+                <FiCopy className="text-[var(--color-text-muted)]" size={12} aria-hidden="true" />
                 {commandCopied && (
-                  <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                  <span style={{ fontSize: "10px", color: "var(--color-success-text)" }}>Copied!</span>
                 )}
               </button>
             )}
@@ -247,7 +257,7 @@ const ImportDashboard = () => {
               className="mt-2 overflow-x-auto font-mono"
               style={{
                 fontSize: '9px',
-                color: '#475569',
+                color: 'var(--color-text-secondary)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 lineHeight: '1.4'
@@ -260,44 +270,44 @@ const ImportDashboard = () => {
       </div>
 
       {/* Stats Card - Merged */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {importType === "movies" ? (
-              <FiFilm className="text-gray-400" size={14} aria-hidden="true" />
+              <FiFilm className="text-[var(--color-text-muted)]" size={14} aria-hidden="true" />
             ) : (
-              <FiImage className="text-gray-400" size={14} aria-hidden="true" />
+              <FiImage className="text-[var(--color-text-muted)]" size={14} aria-hidden="true" />
             )}
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Type:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b", textTransform: "capitalize" }}>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Type:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)", textTransform: "capitalize" }}>
               {importType}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiFilm className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Total:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiFilm className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Total:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {totalImported}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiMaximize2 className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Pixel Size:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiMaximize2 className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.angpix ? `${parseFloat(results.angpix).toFixed(3)} Å/px` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiZap className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Voltage:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiZap className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Voltage:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.kV ? `${results.kV} kV` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiTarget className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Cs:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiTarget className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Cs:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.cs ? `${results.cs} mm` : "N/A"}
             </span>
           </div>
@@ -305,12 +315,12 @@ const ImportDashboard = () => {
       </div>
 
       {/* Three Column Layout */}
-      <div className="flex border border-gray-200 rounded-lg overflow-hidden" style={{ height: "411px" }}>
+      <div className="flex border-b border-[var(--color-border)] overflow-hidden" style={{ height: "411px" }}>
         {/* Imported Files List */}
-        <div className="flex-1 min-w-0 bg-white flex flex-col border-r border-gray-200">
-          <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
-            <FiList className="text-gray-400" size={13} />
-            <span className="text-xs font-bold text-gray-600">Processed {importType === "movies" ? "Movies" : "Micrographs"}</span>
+        <div className="flex-1 min-w-0 bg-[var(--color-bg-card)] flex flex-col border-r border-[var(--color-border)]">
+          <div className="px-3 py-2 border-b border-[var(--color-border-light)] flex items-center gap-2 flex-shrink-0">
+            <FiList className="text-[var(--color-text-muted)]" size={13} />
+            <span className="text-xs font-bold text-[var(--color-text-secondary)]">Processed {importType === "movies" ? "Movies" : "Micrographs"}</span>
           </div>
           <div className="flex-1 min-h-0">
             <ImportedFilesList
@@ -324,20 +334,20 @@ const ImportDashboard = () => {
         </div>
 
         {/* Movie/Micrograph Viewer - Square */}
-        <div className="bg-white flex flex-col" style={{ width: "411px", flexShrink: 0 }}>
-          <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
+        <div className="bg-[var(--color-bg-card)] flex flex-col" style={{ width: "411px", flexShrink: 0 }}>
+          <div className="px-3 py-2 border-b border-[var(--color-border-light)] flex items-center gap-2 flex-shrink-0">
             {importType === "movies" ? (
-              <FiFilm className="text-gray-400" size={13} />
+              <FiFilm className="text-[var(--color-text-muted)]" size={13} />
             ) : (
-              <FiImage className="text-gray-400" size={13} />
+              <FiImage className="text-[var(--color-text-muted)]" size={13} />
             )}
-            <span className="text-xs font-bold text-gray-600">Viewer</span>
-            <button onClick={handleZoomOut} className="p-0.5 hover:bg-gray-100 rounded ml-1" title="Zoom Out" aria-label="Zoom out">
-              <FiZoomOut className="text-gray-600" size={12} aria-hidden="true" />
+            <span className="text-xs font-bold text-[var(--color-text-secondary)]">Viewer</span>
+            <button onClick={handleZoomOut} className="p-0.5 hover:bg-[var(--color-bg-hover)] rounded ml-1" title="Zoom Out" aria-label="Zoom out">
+              <FiZoomOut className="text-[var(--color-text-secondary)]" size={12} aria-hidden="true" />
             </button>
-            <span className="text-[9px] text-gray-500">{Math.round(viewerZoom * 100)}%</span>
-            <button onClick={handleZoomIn} className="p-0.5 hover:bg-gray-100 rounded" title="Zoom In" aria-label="Zoom in">
-              <FiZoomIn className="text-gray-600" size={12} aria-hidden="true" />
+            <span className="text-[9px] text-[var(--color-text-secondary)]">{Math.round(viewerZoom * 100)}%</span>
+            <button onClick={handleZoomIn} className="p-0.5 hover:bg-[var(--color-bg-hover)] rounded" title="Zoom In" aria-label="Zoom in">
+              <FiZoomIn className="text-[var(--color-text-secondary)]" size={12} aria-hidden="true" />
             </button>
           </div>
           <div className="flex-1 min-h-0 relative">
@@ -375,26 +385,26 @@ const OtherNodeTypeDashboard = ({
   const isVolumeType = ["ref3d", "mask", "halfmap"].includes(nodeType);
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStatusIcon(selectedJob?.status || results?.job_status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
                 Import/{selectedJob?.job_name || results?.job_name || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
                 color: (selectedJob?.status || results?.job_status) === "success"
-                  ? "#16a34a"
+                  ? "var(--color-success-text)"
                   : (selectedJob?.status || results?.job_status) === "error"
-                  ? "#dc2626"
+                  ? "var(--color-danger-text)"
                   : (selectedJob?.status || results?.job_status) === "running"
-                  ? "#f59e0b"
-                  : "#ca8a04"
+                  ? "var(--color-warning-text)"
+                  : "var(--color-warning-text)"
               }}>
                 {(selectedJob?.status || results?.job_status) === "success"
                   ? "Success"
@@ -411,32 +421,32 @@ const OtherNodeTypeDashboard = ({
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+              className="flex items-center gap-2 hover:bg-[var(--color-bg)] rounded px-1 py-0.5 transition-colors"
               aria-expanded={showCommand}
               aria-label="Toggle RELION command"
             >
-              <FiTerminal className="text-gray-400" size={12} aria-hidden="true" />
-              <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>RELION Command</span>
+              <FiTerminal className="text-[var(--color-text-muted)]" size={12} aria-hidden="true" />
+              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>RELION Command</span>
               {showCommand ? (
-                <FiChevronUp className="text-gray-400" size={12} aria-hidden="true" />
+                <FiChevronUp className="text-[var(--color-text-muted)]" size={12} aria-hidden="true" />
               ) : (
-                <FiChevronDown className="text-gray-400" size={12} aria-hidden="true" />
+                <FiChevronDown className="text-[var(--color-text-muted)]" size={12} aria-hidden="true" />
               )}
             </button>
             {showCommand && command && (
               <button
                 onClick={copyCommand}
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 title="Copy command"
                 aria-label="Copy RELION command"
               >
-                <FiCopy className="text-gray-400" size={12} aria-hidden="true" />
+                <FiCopy className="text-[var(--color-text-muted)]" size={12} aria-hidden="true" />
                 {commandCopied && (
-                  <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                  <span style={{ fontSize: "10px", color: "var(--color-success-text)" }}>Copied!</span>
                 )}
               </button>
             )}
@@ -446,7 +456,7 @@ const OtherNodeTypeDashboard = ({
               className="mt-2 overflow-x-auto font-mono"
               style={{
                 fontSize: '9px',
-                color: '#475569',
+                color: 'var(--color-text-secondary)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 lineHeight: '1.4'
@@ -459,31 +469,31 @@ const OtherNodeTypeDashboard = ({
       </div>
 
       {/* Stats Card - Merged */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiBox className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Type:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiBox className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Type:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {nodeLabel}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiFile className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>File:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }} title={importedFile?.name}>
+            <FiFile className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>File:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }} title={importedFile?.name}>
               {importedFile?.name || "N/A"}
             </span>
-            <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+            <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
               {importedFile?.entry_count > 0
                 ? `(${importedFile.entry_count.toLocaleString()} ${nodeType === 'refs2d' ? 'classes' : nodeType === 'coords' ? 'particles' : 'entries'})`
                 : `(${formatFileSize(importedFile?.size)})`}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiFolder className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Output:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }} title={results?.output_dir}>
+            <FiFolder className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Output:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }} title={results?.output_dir}>
               {results?.output_dir?.split("/").slice(-2).join("/") || "N/A"}
             </span>
           </div>
@@ -492,35 +502,35 @@ const OtherNodeTypeDashboard = ({
 
       {/* Volume dimensions if available */}
       {dimensions && (
-        <div className="bg-white rounded-lg p-4 shadow-sm">
+        <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FiBox className="text-gray-400" size={14} />
-              <span style={{ fontSize: "12px", color: "#64748b" }}>Dimensions:</span>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+              <FiBox className="text-[var(--color-text-muted)]" size={14} />
+              <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Dimensions:</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
                 {dimensions.nx} x {dimensions.ny} x {dimensions.nz}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <FiGrid className="text-gray-400" size={14} />
-              <span style={{ fontSize: "12px", color: "#64748b" }}>Total Voxels:</span>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+              <FiGrid className="text-[var(--color-text-muted)]" size={14} />
+              <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Total Voxels:</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
                 {(dimensions.nx * dimensions.ny * dimensions.nz).toLocaleString()}
               </span>
             </div>
             {importedFile?.voxel_size && (
               <div className="flex items-center gap-2">
-                <FiMaximize2 className="text-gray-400" size={14} />
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Voxel Size:</span>
-                <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+                <FiMaximize2 className="text-[var(--color-text-muted)]" size={14} />
+                <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Voxel Size:</span>
+                <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
                   {importedFile.voxel_size.toFixed(3)} Å
                 </span>
               </div>
             )}
             <div className="flex items-center gap-2">
-              <FiFile className="text-gray-400" size={14} />
-              <span style={{ fontSize: "12px", color: "#64748b" }}>File Size:</span>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+              <FiFile className="text-[var(--color-text-muted)]" size={14} />
+              <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>File Size:</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
                 {formatFileSize(importedFile?.size)}
               </span>
             </div>
@@ -530,8 +540,8 @@ const OtherNodeTypeDashboard = ({
 
       {/* 3D Viewer for MRC Volume Types only (ref3d, mask, halfmap) */}
       {isVolumeType && importedFile?.exists && (
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
+        <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+          <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiBox className="text-blue-500" size={13} />
             Volume Viewer
           </h3>

@@ -46,7 +46,7 @@ const FileBrowseOnly = ({ label, name, value, onBrowse, tooltipText, disabled })
             ) : (
               <>
                 <span style={{ flex: 1 }}>Browse ...</span>
-                <PiBrowser style={{ color: "#4b5563", flexShrink: 0, fontSize: "14px" }} />
+                <PiBrowser style={{ color: "var(--color-text-label)", flexShrink: 0, fontSize: "14px" }} />
               </>
             )}
           </button>

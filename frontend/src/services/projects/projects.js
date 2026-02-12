@@ -10,9 +10,10 @@ const createProjectApi = (payload = {}) => {
 
 /**
  * Get list of all projects
+ * @param {object} params - { limit, skip, include_archived }
  */
-const getProjectListApi = ({ limit, skip = 1 }) => {
-  return axiosInstance.get(`/api/projects?skip=${skip}&limit=${limit}`);
+const getProjectListApi = ({ limit, skip = 1, include_archived = 'false' }) => {
+  return axiosInstance.get(`/api/projects?skip=${skip}&limit=${limit}&include_archived=${include_archived}`);
 };
 
 /**
@@ -78,12 +79,30 @@ const searchUsersApi = (query) => {
   return axiosInstance.get(`/api/users/search?q=${encodeURIComponent(query)}`);
 };
 
+/**
+ * Archive a project (move to archive storage)
+ * @param {string} projectId
+ */
+const archiveProjectApi = (projectId) => {
+  return axiosInstance.put(`/api/projects/${projectId}/archive`);
+};
+
+/**
+ * Restore an archived project (move back to active storage)
+ * @param {string} projectId
+ */
+const restoreProjectApi = (projectId) => {
+  return axiosInstance.put(`/api/projects/${projectId}/restore`);
+};
+
 export {
   createProjectApi,
   getProjectListApi,
   getProjectByIdApi,
   getProjectApi,
   deleteProjectApi,
+  archiveProjectApi,
+  restoreProjectApi,
   getProjectMembersApi,
   addProjectMemberApi,
   updateProjectMemberApi,

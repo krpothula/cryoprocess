@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import {
   getAutoPickResultsApi,
@@ -27,6 +27,7 @@ import {
 } from "react-icons/fi";
 import MicrographList from "./MicrographList";
 import MicrographViewer from "./MicrographViewer";
+import useJobNotification from "../../hooks/useJobNotification";
 
 const AutoPickDashboard = () => {
   const { selectedJob } = useBuilder();
@@ -59,12 +60,17 @@ const AutoPickDashboard = () => {
 
   // Fetch full results
   // NOTE: Must be defined BEFORE fetchLiveStats due to dependency
+  // Guard against state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const fetchResults = useCallback(async () => {
     if (!selectedJob?.id) return;
 
     try {
       setLoading(true);
       const response = await getAutoPickResultsApi(selectedJob.id);
+      if (!mountedRef.current) return;
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
@@ -73,7 +79,7 @@ const AutoPickDashboard = () => {
       setError("Failed to load autopick results");
       console.error("Error fetching results:", err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [selectedJob?.id]);
 
@@ -159,12 +165,16 @@ const AutoPickDashboard = () => {
     setViewerZoom(1);
   }, [selectedMicrograph]);
 
+  // Trigger immediate fetch on WebSocket job_update (supplements polling)
+  useJobNotification(selectedJob?.id, fetchResults);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "success":
         return <FiCheckCircle className="text-green-500 text-xl" />;
       case "running":
-        return <FiActivity className="text-blue-500 text-xl animate-pulse" />;
+        return <FiActivity className="text-amber-500 text-xl animate-pulse" />;
+      case "failed":
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
@@ -176,7 +186,7 @@ const AutoPickDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black font-medium mt-4">
+        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
           Loading autopick results...
         </p>
       </div>
@@ -185,9 +195,9 @@ const AutoPickDashboard = () => {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 dark:bg-red-900/30 m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-red-600 dark:text-red-400 font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -195,23 +205,23 @@ const AutoPickDashboard = () => {
   const stats = results?.summary_stats;
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStatusIcon(selectedJob?.status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text)" }}>
                 AutoPick/{selectedJob?.job_name || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
-                  ? "#16a34a"
+                  ? "var(--color-success)"
                   : selectedJob?.status === "error"
-                  ? "#dc2626"
+                  ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
                   ? "#f59e0b"
                   : "#ca8a04"
@@ -231,29 +241,29 @@ const AutoPickDashboard = () => {
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+              className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded px-1 py-0.5 transition-colors"
             >
-              <FiTerminal className="text-gray-400" size={12} />
-              <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>RELION Command</span>
+              <FiTerminal className="text-gray-400 dark:text-slate-500" size={12} />
+              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>RELION Command</span>
               {showCommand ? (
-                <FiChevronUp className="text-gray-400" size={12} />
+                <FiChevronUp className="text-gray-400 dark:text-slate-500" size={12} />
               ) : (
-                <FiChevronDown className="text-gray-400" size={12} />
+                <FiChevronDown className="text-gray-400 dark:text-slate-500" size={12} />
               )}
             </button>
             {showCommand && selectedJob?.command && (
               <button
                 onClick={copyCommand}
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
                 title="Copy command"
               >
-                <FiCopy className="text-gray-400" size={12} />
+                <FiCopy className="text-gray-400 dark:text-slate-500" size={12} />
                 {commandCopied && (
-                  <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                  <span style={{ fontSize: "10px", color: "var(--color-success)" }}>Copied!</span>
                 )}
               </button>
             )}
@@ -263,7 +273,7 @@ const AutoPickDashboard = () => {
               className="mt-2 overflow-x-auto font-mono"
               style={{
                 fontSize: '9px',
-                color: '#475569',
+                color: 'var(--color-text-label)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 lineHeight: '1.4'
@@ -276,19 +286,19 @@ const AutoPickDashboard = () => {
       </div>
 
       {/* Stats Card */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiImage className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Micrographs:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiImage className="text-gray-400 dark:text-slate-500" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {liveStats?.processed ?? stats?.total_micrographs ?? 0}/{liveStats?.total ?? stats?.total_micrographs ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiTarget className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Method:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiTarget className="text-gray-400 dark:text-slate-500" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Method:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {selectedJob?.parameters?.useTopaz === "Yes"
                 ? selectedJob?.parameters?.performTopazTraining === "Yes"
                   ? "Topaz Train"
@@ -301,16 +311,16 @@ const AutoPickDashboard = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiMinimize2 className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Min Diameter:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiMinimize2 className="text-gray-400 dark:text-slate-500" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Min Diameter:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {selectedJob?.parameters?.minDiameter || 200} Å
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiMaximize2 className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Max Diameter:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiMaximize2 className="text-gray-400 dark:text-slate-500" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Max Diameter:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {selectedJob?.parameters?.maxDiameter || 250} Å
             </span>
           </div>
@@ -319,14 +329,14 @@ const AutoPickDashboard = () => {
 
       {/* Main Content - Two Column Layout */}
       <div
-        className="flex border border-gray-200 rounded-lg overflow-hidden"
+        className="flex border-b border-gray-200 dark:border-slate-700 overflow-hidden"
         style={{ height: "411px" }}
       >
         {/* Micrograph List */}
-        <div className="flex-1 min-w-0 bg-white border-r border-gray-200 flex flex-col">
-          <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
-            <FiList className="text-gray-400" size={13} />
-            <span className="text-xs font-bold text-gray-600">Processed Micrographs</span>
+        <div className="flex-1 min-w-0 bg-[var(--color-bg-card)] border-r border-gray-200 dark:border-slate-700 flex flex-col">
+          <div className="px-3 py-2 border-b border-gray-100 dark:border-slate-700 flex items-center gap-2 flex-shrink-0">
+            <FiList className="text-gray-400 dark:text-slate-500" size={13} />
+            <span className="text-xs font-bold text-gray-600 dark:text-slate-300">Processed Micrographs</span>
           </div>
           <div className="flex-1 min-h-0">
             <MicrographList
@@ -339,31 +349,31 @@ const AutoPickDashboard = () => {
         </div>
 
         {/* Micrograph Viewer - Square */}
-        <div className="bg-white flex flex-col" style={{ width: "411px", flexShrink: 0 }}>
-          <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
-            <FiImage className="text-gray-400" size={13} />
-            <span className="text-xs font-bold text-gray-600">Viewer</span>
-            <button onClick={handleZoomOut} className="p-0.5 hover:bg-gray-100 rounded ml-1" title="Zoom Out">
-              <FiZoomOut className="text-gray-600" size={12} />
+        <div className="bg-[var(--color-bg-card)] flex flex-col" style={{ width: "411px", flexShrink: 0 }}>
+          <div className="px-3 py-2 border-b border-gray-100 dark:border-slate-700 flex items-center gap-2 flex-shrink-0">
+            <FiImage className="text-gray-400 dark:text-slate-500" size={13} />
+            <span className="text-xs font-bold text-gray-600 dark:text-slate-300">Viewer</span>
+            <button onClick={handleZoomOut} className="p-0.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded ml-1" title="Zoom Out">
+              <FiZoomOut className="text-gray-600 dark:text-slate-300" size={12} />
             </button>
-            <span className="text-[9px] text-gray-500">{Math.round(viewerZoom * 100)}%</span>
-            <button onClick={handleZoomIn} className="p-0.5 hover:bg-gray-100 rounded" title="Zoom In">
-              <FiZoomIn className="text-gray-600" size={12} />
+            <span className="text-[9px] text-gray-500 dark:text-slate-400">{Math.round(viewerZoom * 100)}%</span>
+            <button onClick={handleZoomIn} className="p-0.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded" title="Zoom In">
+              <FiZoomIn className="text-gray-600 dark:text-slate-300" size={12} />
             </button>
             {/* Marker toggle and circle size slider */}
             <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={() => setShowPicks(!showPicks)}
-                className={`p-0.5 rounded transition-colors ${showPicks ? "hover:bg-gray-100" : "hover:bg-gray-100 opacity-50"}`}
+                className={`p-0.5 rounded transition-colors ${showPicks ? "hover:bg-gray-100 dark:hover:bg-slate-700" : "hover:bg-gray-100 dark:hover:bg-slate-700 opacity-50"}`}
                 title={showPicks ? "Hide markers" : "Show markers"}
               >
                 {showPicks ? (
                   <FiEye className="text-green-600" size={12} />
                 ) : (
-                  <FiEyeOff className="text-gray-400" size={12} />
+                  <FiEyeOff className="text-gray-400 dark:text-slate-500" size={12} />
                 )}
               </button>
-              <span className={`text-xs ml-2 ${showPicks ? "text-gray-500" : "text-gray-300"}`}>Size:</span>
+              <span className={`text-xs ml-2 ${showPicks ? "text-gray-500 dark:text-slate-400" : "text-gray-300 dark:text-slate-600"}`}>Size:</span>
               <input
                 type="range"
                 min="20"
@@ -371,7 +381,7 @@ const AutoPickDashboard = () => {
                 value={circleRadius}
                 onChange={(e) => setCircleRadius(parseInt(e.target.value))}
                 disabled={!showPicks}
-                className={`w-16 h-1.5 rounded-lg ${showPicks ? "bg-gray-200 cursor-pointer" : "bg-gray-100 cursor-not-allowed opacity-40"}`}
+                className={`w-16 h-1.5 rounded-lg ${showPicks ? "bg-gray-200 dark:bg-slate-700 cursor-pointer" : "bg-gray-100 dark:bg-slate-800 cursor-not-allowed opacity-40"}`}
               />
             </div>
           </div>

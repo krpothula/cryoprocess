@@ -259,7 +259,7 @@ const CreateProject = () => {
       <style>{`
         .lp-page {
           min-height: calc(100vh - 56px);
-          background: #ffffff;
+          background: var(--color-bg);
           padding: 32px 48px;
         }
 
@@ -274,7 +274,7 @@ const CreateProject = () => {
           padding: 8px 0;
           background: none;
           border: none;
-          color: #64748b;
+          color: var(--color-text-secondary);
           font-size: 14px;
           font-weight: 500;
           cursor: pointer;
@@ -282,7 +282,7 @@ const CreateProject = () => {
         }
 
         .lp-back-btn:hover {
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .lp-card {
@@ -296,14 +296,14 @@ const CreateProject = () => {
         .lp-card-title {
           font-size: 28px;
           font-weight: 600;
-          color: #0f172a;
+          color: var(--color-text-heading);
           margin: 0 0 8px 0;
           letter-spacing: -0.5px;
         }
 
         .lp-card-subtitle {
           font-size: 15px;
-          color: #64748b;
+          color: var(--color-text-secondary);
           margin: 0;
         }
 
@@ -312,8 +312,8 @@ const CreateProject = () => {
           align-items: flex-start;
           gap: 12px;
           padding: 16px;
-          background: #fef2f2;
-          border: 1px solid #fecaca;
+          background: var(--color-danger-bg);
+          border: 1px solid var(--color-danger);
           border-radius: 10px;
           margin-bottom: 24px;
         }
@@ -325,7 +325,7 @@ const CreateProject = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #dc2626;
+          color: var(--color-danger);
           font-size: 20px;
         }
 
@@ -336,13 +336,13 @@ const CreateProject = () => {
         .lp-error-card-title {
           font-size: 14px;
           font-weight: 600;
-          color: #991b1b;
+          color: var(--color-danger-text);
           margin: 0 0 4px 0;
         }
 
         .lp-error-card-message {
           font-size: 13px;
-          color: #b91c1c;
+          color: var(--color-danger-text);
           margin: 0;
           line-height: 1.5;
         }
@@ -352,14 +352,14 @@ const CreateProject = () => {
           padding: 4px;
           background: none;
           border: none;
-          color: #dc2626;
+          color: var(--color-danger);
           cursor: pointer;
           border-radius: 4px;
           transition: background 0.15s ease;
         }
 
         .lp-error-card-close:hover {
-          background: #fee2e2;
+          background: var(--color-danger-bg);
         }
 
         .lp-error-card-close svg {
@@ -373,7 +373,7 @@ const CreateProject = () => {
         }
 
         .lp-section {
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--color-border);
           border-radius: 10px;
           overflow: hidden;
         }
@@ -389,7 +389,7 @@ const CreateProject = () => {
         }
 
         .lp-section-header:hover {
-          background: #f8fafc;
+          background: var(--color-bg-hover);
         }
 
         .lp-section-header-left {
@@ -400,20 +400,20 @@ const CreateProject = () => {
         .lp-section-title {
           font-size: 15px;
           font-weight: 600;
-          color: #0f172a;
+          color: var(--color-text-heading);
           margin: 0;
         }
 
         .lp-section-desc {
           font-size: 13px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
           margin: 4px 0 0 0;
         }
 
         .lp-section-chevron {
           flex-shrink: 0;
           font-size: 18px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
           transition: transform 0.2s ease;
           margin-left: 12px;
         }
@@ -427,7 +427,7 @@ const CreateProject = () => {
           display: flex;
           flex-direction: column;
           gap: 16px;
-          border-top: 1px solid #f1f5f9;
+          border-top: 1px solid var(--color-border-light);
         }
 
         .lp-form-group {
@@ -441,16 +441,16 @@ const CreateProject = () => {
         .lp-form-group label {
           font-size: 13px;
           font-weight: 500;
-          color: #334155;
+          color: var(--color-text);
         }
 
         .lp-form-group input,
         .lp-form-group textarea {
           padding: 10px 12px;
           font-size: 14px;
-          color: #0f172a;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
+          color: var(--color-text-heading);
+          background: var(--color-bg-input);
+          border: 1px solid var(--color-border);
           border-radius: 8px;
           outline: none;
           transition: all 0.15s ease;
@@ -459,13 +459,13 @@ const CreateProject = () => {
 
         .lp-form-group input:focus,
         .lp-form-group textarea:focus {
-          border-color: #3b82f6;
+          border-color: var(--color-primary);
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
         .lp-form-group input::placeholder,
         .lp-form-group textarea::placeholder {
-          color: #94a3b8;
+          color: var(--color-text-muted);
         }
 
         .lp-form-group textarea {
@@ -476,13 +476,13 @@ const CreateProject = () => {
 
         .lp-char-count {
           font-size: 12px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
           text-align: right;
         }
 
         .lp-form-hint {
           font-size: 12px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
           margin-top: -2px;
         }
 
@@ -492,15 +492,15 @@ const CreateProject = () => {
           gap: 12px;
           margin-top: 8px;
           padding-top: 24px;
-          border-top: 1px solid #e2e8f0;
+          border-top: 1px solid var(--color-border);
         }
 
         .lp-btn-cancel {
           padding: 10px 20px;
           font-size: 14px;
           font-weight: 500;
-          color: #64748b;
-          background: #f1f5f9;
+          color: var(--color-text-secondary);
+          background: var(--color-bg-hover);
           border: none;
           border-radius: 8px;
           cursor: pointer;
@@ -508,8 +508,8 @@ const CreateProject = () => {
         }
 
         .lp-btn-cancel:hover {
-          background: #e2e8f0;
-          color: #334155;
+          background: var(--color-border);
+          color: var(--color-text);
         }
 
         .lp-btn-submit {
@@ -520,7 +520,7 @@ const CreateProject = () => {
           font-size: 14px;
           font-weight: 500;
           color: white;
-          background: #3b82f6;
+          background: var(--color-primary);
           border: none;
           border-radius: 8px;
           cursor: pointer;
@@ -528,7 +528,7 @@ const CreateProject = () => {
         }
 
         .lp-btn-submit:hover:not(.lp-btn-disabled) {
-          background: #2563eb;
+          background: var(--color-primary-hover);
         }
 
         .lp-btn-disabled {

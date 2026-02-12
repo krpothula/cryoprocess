@@ -6,7 +6,7 @@
 .jl-container {
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--color-bg-card);
 }
 
 /* Header */
@@ -15,8 +15,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 14px 18px;
-  background: linear-gradient(to right, #f8fafc, #ffffff);
-  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(to right, var(--color-bg), var(--color-bg-card));
+  border-bottom: 1px solid var(--color-border);
 }
 
 .jl-header-left {
@@ -31,11 +31,11 @@
   gap: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .jl-title svg {
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .jl-status {
@@ -51,13 +51,13 @@
 }
 
 .jl-status.live {
-  background: #ecfdf5;
-  color: #059669;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .jl-status.complete {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
 }
 
 .jl-status-dot {
@@ -67,12 +67,12 @@
 }
 
 .jl-status.live .jl-status-dot {
-  background: #10b981;
+  background: var(--color-success);
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
 .jl-status.complete .jl-status-dot {
-  background: #94a3b8;
+  background: var(--color-text-muted);
 }
 
 @keyframes pulse-dot {
@@ -92,10 +92,10 @@
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  color: #475569;
+  color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -103,9 +103,9 @@
 }
 
 .jl-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #1e293b;
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-hover);
+  color: var(--color-text);
 }
 
 .jl-btn:disabled {
@@ -117,12 +117,12 @@
   padding: 7px;
   background: transparent;
   border-color: transparent;
-  color: #94a3b8;
+  color: var(--color-text-muted);
 }
 
 .jl-btn.close:hover {
-  background: #fef2f2;
-  color: #ef4444;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
 .jl-btn.small {
@@ -136,10 +136,10 @@
   align-items: center;
   gap: 8px;
   padding: 10px 18px;
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
   font-size: 13px;
-  border-bottom: 1px solid #fecaca;
+  border-bottom: 1px solid var(--color-danger-border);
 }
 
 /* Summary Cards */
@@ -148,8 +148,8 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   padding: 16px 18px;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .jl-summary-card {
@@ -157,25 +157,25 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   transition: all 0.2s ease;
 }
 
 .jl-summary-card.has-errors {
-  background: #fef2f2;
-  border-color: #fecaca;
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
 }
 
 .jl-summary-card.has-warnings {
-  background: #fffbeb;
-  border-color: #fde68a;
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
 }
 
 .jl-summary-card.success {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  background: var(--color-success-bg-light);
+  border-color: var(--color-success-border-light);
 }
 
 .jl-summary-icon {
@@ -188,18 +188,18 @@
 }
 
 .jl-summary-icon.errors {
-  background: linear-gradient(135deg, #fee2e2, #fecaca);
-  color: #dc2626;
+  background: linear-gradient(135deg, var(--color-danger-bg), var(--color-danger-border));
+  color: var(--color-danger-text);
 }
 
 .jl-summary-icon.warnings {
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
-  color: #d97706;
+  background: linear-gradient(135deg, var(--color-warning-bg), var(--color-warning-border));
+  color: var(--color-warning-strong);
 }
 
 .jl-summary-icon.lines {
-  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
-  color: #4f46e5;
+  background: linear-gradient(135deg, var(--color-indigo-bg), var(--color-indigo-bg-end));
+  color: var(--color-indigo-text);
 }
 
 .jl-summary-info {
@@ -210,13 +210,13 @@
 .jl-summary-value {
   font-size: 20px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--color-text);
   line-height: 1.1;
 }
 
 .jl-summary-label {
   font-size: 11px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -227,8 +227,8 @@
   display: flex;
   align-items: center;
   padding: 0 18px;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .jl-tab {
@@ -239,7 +239,7 @@
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -248,21 +248,21 @@
 }
 
 .jl-tab:hover {
-  color: #1e293b;
-  background: #f8fafc;
+  color: var(--color-text);
+  background: var(--color-bg);
 }
 
 .jl-tab.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 .jl-tab.has-errors {
-  color: #dc2626;
+  color: var(--color-danger-text);
 }
 
 .jl-tab.has-errors.active {
-  border-bottom-color: #dc2626;
+  border-bottom-color: var(--color-danger-text);
 }
 
 .jl-tab-badge {
@@ -278,12 +278,12 @@
 }
 
 .jl-tab-badge.error {
-  background: #dc2626;
+  background: var(--color-danger-text);
   color: #ffffff;
 }
 
 .jl-tab-badge.warning {
-  background: #f59e0b;
+  background: var(--color-warning);
   color: #ffffff;
 }
 
@@ -300,25 +300,25 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   cursor: pointer;
 }
 
 .jl-filter-toggle input {
   width: 14px;
   height: 14px;
-  accent-color: #3b82f6;
+  accent-color: var(--color-primary);
   cursor: pointer;
 }
 
 .jl-filter-toggle:hover {
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 /* Content Area */
 .jl-content {
   flex: 1;
-  background: #ffffff;
+  background: var(--color-bg-card);
 }
 
 /* Loading State */
@@ -329,15 +329,15 @@
   justify-content: center;
   gap: 12px;
   padding: 48px 24px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .jl-spinner {
   width: 28px;
   height: 28px;
-  border: 2px solid #e2e8f0;
-  border-top-color: #3b82f6;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -358,27 +358,27 @@
 }
 
 .jl-empty-icon {
-  color: #cbd5e1;
+  color: var(--color-border-hover);
   margin-bottom: 4px;
 }
 
 .jl-empty-state.success .jl-empty-icon {
-  color: #22c55e;
+  color: var(--color-success);
 }
 
 .jl-empty-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .jl-empty-state.success .jl-empty-title {
-  color: #16a34a;
+  color: var(--color-success-strong);
 }
 
 .jl-empty-desc {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--color-text-muted);
 }
 
 /* Issues List */
@@ -390,8 +390,8 @@
 }
 
 .jl-issue-item {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 14px 16px;
   cursor: pointer;
@@ -399,20 +399,20 @@
 }
 
 .jl-issue-item:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-hover);
 }
 
 .jl-issue-item.expanded {
-  background: #f1f5f9;
+  background: var(--color-bg-hover);
 }
 
 .jl-issue-item.error {
-  border-left: 4px solid #dc2626;
+  border-left: 4px solid var(--color-danger-text);
 }
 
 .jl-issue-item.warning {
-  border-left: 4px solid #f59e0b;
+  border-left: 4px solid var(--color-warning);
 }
 
 .jl-issue-header {
@@ -433,13 +433,13 @@
 }
 
 .jl-issue-severity.error {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .jl-issue-severity.warning {
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-strong);
 }
 
 .jl-issue-info {
@@ -453,7 +453,7 @@
 .jl-issue-category {
   font-size: 13px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .jl-issue-source {
@@ -463,67 +463,67 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  background: #e2e8f0;
-  color: #64748b;
+  background: var(--color-border);
+  color: var(--color-text-secondary);
 }
 
 .jl-issue-source.stdout {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--color-primary-light);
+  color: var(--color-primary-hover);
 }
 
 .jl-issue-source.stderr {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .jl-issue-source.postprocess {
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-strong);
 }
 
 .jl-issue-line {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   font-family: 'JetBrains Mono', 'Consolas', monospace;
 }
 
 .jl-issue-expand {
-  color: #94a3b8;
+  color: var(--color-text-muted);
   transition: color 0.15s ease;
 }
 
 .jl-issue-item:hover .jl-issue-expand {
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .jl-issue-message {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
-  color: #475569;
+  color: var(--color-text-secondary);
   line-height: 1.6;
   word-break: break-word;
-  background: #ffffff;
+  background: var(--color-bg-card);
   padding: 10px 12px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
 }
 
 .jl-issue-context {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px dashed #e2e8f0;
+  border-top: 1px dashed var(--color-border);
 }
 
 .jl-issue-context pre {
   margin: 0;
   padding: 12px;
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 8px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 11px;
   line-height: 1.6;
-  color: #1e293b;
+  color: var(--color-text);
   white-space: pre-wrap;
   overflow-x: auto;
 }
@@ -531,32 +531,31 @@
 /* Log Content */
 .jl-log-content {
   padding: 0;
-  background: #ffffff !important;
+  background: var(--color-bg-card) !important;
 }
 
-/* Force white background with multiple selectors for specificity */
+/* Force card background with multiple selectors for specificity */
 .jl-log-content pre,
 .jl-container .jl-content .jl-log-content pre,
 div.jl-log-content pre,
 .issues-logs-container .jl-log-content pre {
   margin: 0;
   padding: 16px;
-  background: #ffffff !important;
+  background: var(--color-bg-card) !important;
   border-radius: 0 !important;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 13px;
-  line-height: 1.8;
-  color: #1e293b !important;
-  white-space: pre-wrap;
-  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text) !important;
+  white-space: pre;
+  overflow-x: auto;
   max-height: none !important;
-  overflow: visible !important;
 }
 
-/* Force white background on all pre inside job logs container */
+/* Force card background on all pre inside job logs container */
 .jl-container pre {
-  background: #ffffff !important;
-  color: #1e293b !important;
+  background: var(--color-bg-card) !important;
+  color: var(--color-text) !important;
 }
 
 /* ============================================
@@ -564,7 +563,7 @@ div.jl-log-content pre,
    ============================================ */
 
 .job-logs-card-container {
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 12px;
   overflow: hidden;
   display: flex;
@@ -576,8 +575,8 @@ div.jl-log-content pre,
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .job-logs-card-title {
@@ -586,7 +585,7 @@ div.jl-log-content pre,
   gap: 10px;
   font-size: 16px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .job-logs-card-actions {
@@ -600,16 +599,16 @@ div.jl-log-content pre,
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #64748b;
+  color: var(--color-text-secondary);
   cursor: pointer;
 }
 
 .card-action-btn {
   padding: 6px 14px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  color: #475569;
+  color: var(--color-text-secondary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -617,22 +616,22 @@ div.jl-log-content pre,
 }
 
 .card-action-btn:hover {
-  background: #e2e8f0;
-  color: #1e293b;
+  background: var(--color-border);
+  color: var(--color-text);
 }
 
 .card-action-btn.close {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-text);
 }
 
 .job-logs-status-bar {
   display: flex;
   justify-content: space-between;
   padding: 8px 20px;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
   font-size: 12px;
 }
 
@@ -640,7 +639,7 @@ div.jl-log-content pre,
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .status-indicator::before {
@@ -653,7 +652,7 @@ div.jl-log-content pre,
 }
 
 .status-indicator.complete::before {
-  background: #94a3b8;
+  background: var(--color-text-muted);
   animation: none;
 }
 
@@ -663,8 +662,8 @@ div.jl-log-content pre,
 }
 
 .log-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -674,17 +673,17 @@ div.jl-log-content pre,
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #f8fafc;
+  background: var(--color-bg);
   cursor: pointer;
 }
 
 .log-card-header:hover {
-  background: #f1f5f9;
+  background: var(--color-bg-hover);
 }
 
 .chevron {
   font-size: 10px;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   transition: transform 0.2s ease;
 }
 
@@ -695,13 +694,13 @@ div.jl-log-content pre,
 .card-title {
   font-size: 14px;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
 }
 
 .error-badge {
   padding: 2px 8px;
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
   font-size: 11px;
   font-weight: 600;
   border-radius: 10px;
@@ -709,8 +708,8 @@ div.jl-log-content pre,
 
 .warning-badge {
   padding: 2px 8px;
-  background: #fffbeb;
-  color: #d97706;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
   font-size: 11px;
   font-weight: 600;
   border-radius: 10px;
@@ -718,8 +717,8 @@ div.jl-log-content pre,
 
 .success-badge {
   padding: 2px 8px;
-  background: #f0fdf4;
-  color: #16a34a;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
   font-size: 11px;
   font-weight: 600;
   border-radius: 10px;
@@ -727,18 +726,18 @@ div.jl-log-content pre,
 
 .log-card-body {
   padding: 16px;
-  background: #ffffff;
+  background: var(--color-bg-card);
 }
 
 .log-text {
   margin: 0;
   padding: 12px;
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 8px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
   line-height: 1.6;
-  color: #1e293b;
+  color: var(--color-text);
   white-space: pre-wrap;
   word-break: break-all;
   max-height: 300px;
@@ -746,8 +745,8 @@ div.jl-log-content pre,
 }
 
 .log-text.error {
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .issues-list-card {
@@ -757,8 +756,8 @@ div.jl-log-content pre,
 }
 
 .issue-card-item {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 12px;
   cursor: pointer;
@@ -766,15 +765,15 @@ div.jl-log-content pre,
 }
 
 .issue-card-item:hover {
-  background: #f1f5f9;
+  background: var(--color-bg-hover);
 }
 
 .issue-card-item.error {
-  border-left: 3px solid #dc2626;
+  border-left: 3px solid var(--color-danger-text);
 }
 
 .issue-card-item.warning {
-  border-left: 3px solid #d97706;
+  border-left: 3px solid var(--color-warning-strong);
 }
 
 .issue-card-header {
@@ -790,7 +789,7 @@ div.jl-log-content pre,
 
 .issue-category {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--color-text);
   font-size: 13px;
 }
 
@@ -798,55 +797,55 @@ div.jl-log-content pre,
   font-size: 10px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: #e2e8f0;
-  color: #64748b;
+  background: var(--color-border);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   font-weight: 500;
 }
 
 .issue-source.source-stdout {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--color-primary-light);
+  color: var(--color-primary-hover);
 }
 
 .issue-source.source-stderr {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .issue-message {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
-  color: #475569;
+  color: var(--color-text-secondary);
   line-height: 1.5;
 }
 
 .issue-context-card {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--color-border);
 }
 
 .context-code {
   margin: 0;
   padding: 10px;
-  background: #ffffff;
+  background: var(--color-bg-card);
   border-radius: 6px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 11px;
-  color: #1e293b;
+  color: var(--color-text);
   white-space: pre-wrap;
 }
 
 .card-empty {
   padding: 24px;
   text-align: center;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   font-size: 13px;
 }
 
 .card-empty.success {
-  color: #16a34a;
+  color: var(--color-success-strong);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -856,6 +855,6 @@ div.jl-log-content pre,
 .card-loading {
   padding: 24px;
   text-align: center;
-  color: #64748b;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }

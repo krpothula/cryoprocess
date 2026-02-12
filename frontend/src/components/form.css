@@ -17,8 +17,8 @@
   gap: 4px;
   margin: 0 -16px 8px -16px;
   padding: 4px 16px;
-  background: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--color-bg-hover);
+  border-bottom: 1px solid var(--color-border);
   width: calc(100% + 32px);
   position: sticky;
   top: 0;
@@ -35,7 +35,7 @@
   cursor: pointer;
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--color-text-secondary);
   transition: all 150ms ease;
   border-radius: 6px;
   white-space: nowrap;
@@ -46,26 +46,25 @@
 }
 
 .tabs-container button:hover {
-  color: #1e293b;
+  color: var(--color-text);
   background: rgba(255, 255, 255, 0.5);
 }
 
 .tabs-container button.active-tab {
-  background: #ffffff;
-  color: #3b82f6;
+  background: transparent;
+  color: var(--color-primary);
   font-weight: 600;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
 }
 
 .tabs-container button.disabled-tab {
-  color: #cbd5e1;
+  color: var(--color-border-hover);
   cursor: not-allowed;
   opacity: 0.6;
 }
 
 .tabs-container button.disabled-tab:hover {
   background: transparent;
-  color: #cbd5e1;
+  color: var(--color-border-hover);
 }
 
 /* Form Content */
@@ -89,7 +88,7 @@
   align-items: center;
   gap: 8px;
   padding: 4px 0;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .label-box-container:last-child {
@@ -99,7 +98,7 @@
 .label-box-container label {
   font-weight: 500;
   font-size: 12px;
-  color: #374151;
+  color: var(--color-text-label);
   text-align: right;
   padding-right: 8px;
 }
@@ -111,28 +110,28 @@
   max-width: 280px;
   padding: 6px 10px;
   font-size: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  background: #ffffff;
-  color: #1e293b;
+  background: var(--color-bg-card);
+  color: var(--color-text);
   transition: all 150ms ease;
   height: auto;
 }
 
 .label-box-container input:hover,
 .label-box-container select:hover {
-  border-color: #cbd5e1;
+  border-color: var(--color-border-hover);
 }
 
 .label-box-container input:focus,
 .label-box-container select:focus {
-  border-color: #3b82f6;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   outline: none;
 }
 
 .label-box-container input::placeholder {
-  color: #94a3b8;
+  color: var(--color-text-muted);
 }
 
 /* Grouped Inputs */
@@ -148,15 +147,15 @@
 /* File Input */
 input[type="file"] {
   padding: 8px 12px;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed var(--color-border-hover);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--color-bg);
   cursor: pointer;
 }
 
 input[type="file"]:hover {
-  border-color: #94a3b8;
-  background: #f1f5f9;
+  border-color: var(--color-text-muted);
+  background: var(--color-bg-hover);
 }
 
 /* Range slider styles are handled globally in index.css */
@@ -174,7 +173,7 @@ input[type="number"] {
 
 /* Submit Button */
 button[type="submit"] {
-  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: white;
   border: none;
   padding: 8px 20px;
@@ -229,37 +228,37 @@ select {
   height: 16px;
   font-size: 10px;
   font-weight: 600;
-  color: #64748b;
-  background: #f1f5f9;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
   border-radius: 50%;
   margin-left: 6px;
   cursor: help;
 }
 
 .tooltip-icon:hover {
-  background: #e2e8f0;
-  color: #1e293b;
+  background: var(--color-border);
+  color: var(--color-text);
 }
 
 /* Message Styles */
 p.success-message {
-  color: #059669;
+  color: var(--color-success-text);
   font-weight: 500;
   padding: 8px 12px;
-  background: #ecfdf5;
+  background: var(--color-success-bg-light);
   border-radius: 6px;
-  border: 1px solid #a7f3d0;
+  border: 1px solid var(--color-success-border);
   font-size: 13px;
 }
 
 p.error-message,
 p.text-danger {
-  color: #dc2626;
+  color: var(--color-danger-text);
   font-weight: 500;
   padding: 8px 12px;
-  background: #fef2f2;
+  background: var(--color-danger-bg);
   border-radius: 6px;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--color-danger-border);
   font-size: 13px;
 }
 
@@ -267,16 +266,16 @@ p.text-danger {
 input:disabled,
 select:disabled,
 textarea:disabled {
-  background: #f8fafc;
-  color: #94a3b8;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
   cursor: not-allowed;
-  border-color: #e2e8f0;
+  border-color: var(--color-border);
 }
 
 /* Focus Ring for Accessibility */
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }

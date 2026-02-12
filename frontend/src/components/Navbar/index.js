@@ -2,17 +2,19 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MyContext } from "../../useContext/authContext";
 import { logout } from "../../utils/session";
-import { FiUser, FiLogOut, FiSettings, FiFolder, FiGitBranch, FiServer, FiChevronRight, FiUsers } from "react-icons/fi";
+import { FiUser, FiLogOut, FiFolder, FiGitBranch, FiServer, FiChevronRight, FiUsers, FiMoon, FiSun } from "react-icons/fi";
 import { getProjectByIdApi } from "../../services/projects/projects";
 import { getSession } from "../../services/liveSession";
+import { useTheme } from "../../context/ThemeContext";
 
-const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
+const Navbar = ({ setShowJobTree, showJobTree }) => {
   const [open, setOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const modalRef = useRef(null);
   const navigate = useNavigate();
   const { setUser } = useContext(MyContext);
   const location = useLocation();
+  const { isDark, toggleTheme } = useTheme();
 
   // Check if user is admin (staff or superuser)
   const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
@@ -188,9 +190,9 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
                   <FiUser size={18} aria-hidden="true" />
                   <span>Profile</span>
                 </button>
-                <button className="dropdown-item" role="menuitem" onClick={onSwitchLayout}>
-                  <FiSettings size={18} aria-hidden="true" />
-                  <span>Switch Layout</span>
+                <button className="dropdown-item" role="menuitem" onClick={() => { toggleTheme(); }}>
+                  {isDark ? <FiSun size={18} aria-hidden="true" /> : <FiMoon size={18} aria-hidden="true" />}
+                  <span>{isDark ? "Light Mode" : "Dark Mode"}</span>
                 </button>
                 <div className="dropdown-divider" role="separator" />
                 <button className="dropdown-item logout" role="menuitem" onClick={handleLogout}>
@@ -210,8 +212,8 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
           z-index: 50;
           width: 100%;
           height: 48px;
-          background: #ffffff;
-          border-bottom: 1px solid #e2e8f0;
+          background: var(--color-bg-card);
+          border-bottom: 1px solid var(--color-border);
         }
 
         .navbar-content {
@@ -262,14 +264,14 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
         }
 
         .project-separator {
-          color: #cbd5e1;
+          color: var(--color-text-muted);
           font-size: 14px;
         }
 
         .project-name {
           font-size: 15px;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--color-text-heading);
         }
 
         .project-live-badge {
@@ -278,8 +280,8 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
           text-transform: uppercase;
           padding: 2px 6px;
           border-radius: 4px;
-          background: #eff6ff;
-          color: #2563eb;
+          background: var(--color-primary-bg);
+          color: var(--color-primary);
           letter-spacing: 0.5px;
         }
 
@@ -296,7 +298,7 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
           align-items: center;
           gap: 5px;
           padding: 6px 10px;
-          color: #64748b;
+          color: var(--color-text-secondary);
           font-size: 13px;
           font-weight: 500;
           text-decoration: none;
@@ -308,13 +310,12 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
         }
 
         .nav-link:hover {
-          color: #1e293b;
-          background: #f1f5f9;
+          color: var(--color-text-heading);
         }
 
         .nav-link.active {
-          color: #3b82f6;
-          background: #eff6ff;
+          color: var(--color-primary);
+          font-weight: 600;
         }
 
         .nav-icon {
@@ -355,10 +356,10 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
           top: calc(100% + 8px);
           right: 0;
           width: 200px;
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 12px;
-          border: 1px solid #e2e8f0;
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1), 0 2px 10px rgba(0, 0, 0, 0.05);
+          border: 1px solid var(--color-border);
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.08);
           overflow: hidden;
           animation: dropdownFade 0.15s ease;
         }
@@ -379,8 +380,8 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
           align-items: center;
           gap: 12px;
           padding: 16px;
-          background: #f8fafc;
-          border-bottom: 1px solid #e2e8f0;
+          background: var(--color-bg-hover);
+          border-bottom: 1px solid var(--color-border);
         }
 
         .dropdown-avatar {
@@ -399,14 +400,14 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
         }
 
         .dropdown-header span {
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--color-text-heading);
         }
 
         .dropdown-divider {
           height: 1px;
-          background: #e2e8f0;
+          background: var(--color-border);
         }
 
         .dropdown-item {
@@ -415,8 +416,8 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
           gap: 12px;
           width: 100%;
           padding: 12px 16px;
-          font-size: 14px;
-          color: #475569;
+          font-size: 13px;
+          color: var(--color-text-secondary);
           background: transparent;
           border: none;
           cursor: pointer;
@@ -424,15 +425,15 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
         }
 
         .dropdown-item:hover {
-          background: #f1f5f9;
+          background: var(--color-bg-hover);
         }
 
         .dropdown-item.logout {
-          color: #ef4444;
+          color: var(--color-danger-text);
         }
 
         .dropdown-item.logout:hover {
-          background: #fef2f2;
+          background: var(--color-danger-bg);
         }
 
         .dropdown-user-info {
@@ -442,33 +443,32 @@ const Navbar = ({ onSwitchLayout, setShowJobTree, showJobTree }) => {
         }
 
         .dropdown-username {
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--color-text-heading);
         }
 
         .dropdown-role {
-          font-size: 10px;
-          font-weight: 600;
-          text-transform: uppercase;
+          font-size: 11px;
+          font-weight: 500;
           padding: 2px 6px;
           border-radius: 4px;
           width: fit-content;
         }
 
         .dropdown-role.superuser {
-          background: #fef3c7;
-          color: #d97706;
+          background: var(--color-warning-bg);
+          color: var(--color-warning-text);
         }
 
         .dropdown-role.staff {
-          background: #dbeafe;
-          color: #1d4ed8;
+          background: var(--color-info-bg);
+          color: var(--color-info-text);
         }
 
         .dropdown-role.user {
-          background: #f1f5f9;
-          color: #64748b;
+          background: var(--color-bg-hover);
+          color: var(--color-text-muted);
         }
       `}</style>
     </>

@@ -5,7 +5,7 @@ import { BiLoader } from "react-icons/bi";
 const PowerSpectrumViewer = ({ imageData, selectedMicrograph, micrographData }) => {
   if (!selectedMicrograph) {
     return (
-      <div className="h-80 flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
+      <div className="h-80 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900 rounded-lg">
         <FiImage className="text-5xl mb-3" />
         <p className="text-center">
           Select a micrograph to view
@@ -18,7 +18,7 @@ const PowerSpectrumViewer = ({ imageData, selectedMicrograph, micrographData }) 
 
   if (!imageData) {
     return (
-      <div className="h-80 flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
+      <div className="h-80 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900 rounded-lg">
         <BiLoader className="text-4xl animate-spin text-blue-500 mb-3" />
         <p className="text-sm">Loading power spectrum...</p>
       </div>
@@ -45,25 +45,25 @@ const PowerSpectrumViewer = ({ imageData, selectedMicrograph, micrographData }) 
       {/* Quick Info */}
       {micrographData && (
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-blue-50 rounded-lg p-3">
+          <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-3">
             <div className="flex items-center gap-2">
               <FiTarget className="text-blue-500" />
-              <span className="text-xs text-gray-500">Defocus</span>
+              <span className="text-xs text-gray-500 dark:text-slate-400">Defocus</span>
             </div>
-            <p className="text-lg font-semibold text-gray-800 mt-1">
+            <p className="text-lg font-semibold text-gray-800 dark:text-slate-200 mt-1">
               {micrographData.defocus_avg?.toLocaleString() || "N/A"}
-              <span className="text-sm text-gray-500 ml-1">A</span>
+              <span className="text-sm text-gray-500 dark:text-slate-400 ml-1">A</span>
             </p>
           </div>
 
-          <div className="bg-green-50 rounded-lg p-3">
+          <div className="bg-green-50 dark:bg-green-900/30 rounded-lg p-3">
             <div className="flex items-center gap-2">
               <FiImage className="text-green-500" />
-              <span className="text-xs text-gray-500">Resolution</span>
+              <span className="text-xs text-gray-500 dark:text-slate-400">Resolution</span>
             </div>
-            <p className="text-lg font-semibold text-gray-800 mt-1">
+            <p className="text-lg font-semibold text-gray-800 dark:text-slate-200 mt-1">
               {micrographData.ctf_max_resolution?.toFixed(2) || "N/A"}
-              <span className="text-sm text-gray-500 ml-1">A</span>
+              <span className="text-sm text-gray-500 dark:text-slate-400 ml-1">A</span>
             </p>
           </div>
         </div>

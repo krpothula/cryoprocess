@@ -321,6 +321,24 @@ export const updateJobStatus = async (jobId, status) => {
   }
 };
 
+/**
+ * Toggle email notification for a job
+ * @param {string} jobId - CryoScale job ID
+ * @returns {Promise<{success: boolean, notify_email: boolean}>}
+ */
+export const toggleJobNotifyEmail = async (jobId) => {
+  try {
+    const response = await axiosInstance.patch(`${SLURM_BASE_URL}/jobs/${jobId}/notify`);
+    return response.data;
+  } catch (error) {
+    console.error("Failed to toggle job notification:", error);
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message
+    };
+  }
+};
+
 const slurmApi = {
   getSlurmPartitions,
   getSlurmNodes,
@@ -337,6 +355,7 @@ const slurmApi = {
   getJobIssues,
   deleteJob,
   updateJobStatus,
+  toggleJobNotifyEmail,
 };
 
 export default slurmApi;

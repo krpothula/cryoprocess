@@ -246,7 +246,7 @@ const FolderBrowserPopup = ({
           <div style={S.breadcrumb}>
             {getBreadcrumb().map((crumb, idx) => (
               <span key={idx} style={{ display: "flex", alignItems: "center" }}>
-                {idx > 0 && <FiChevronRight size={12} style={{ color: "#cbd5e1", margin: "0 2px" }} />}
+                {idx > 0 && <FiChevronRight size={12} style={{ color: "var(--color-border-hover)", margin: "0 2px" }} />}
                 <button
                   onClick={() => navigateToFolder(crumb.path)}
                   style={{ ...S.crumbBtn, ...(crumb.path === currentPath ? S.crumbActive : {}) }}
@@ -267,7 +267,7 @@ const FolderBrowserPopup = ({
         {/* Filters */}
         {!isSingleFileMode && (
           <div style={S.filterBar}>
-            <FiFilter size={13} style={{ color: "#94a3b8", flexShrink: 0 }} />
+            <FiFilter size={13} style={{ color: "var(--color-text-muted)", flexShrink: 0 }} />
             <input
               type="text"
               value={prefix}
@@ -314,7 +314,7 @@ const FolderBrowserPopup = ({
               </div>
             ) : items.length === 0 ? (
               <div style={S.emptyState}>
-                <span style={{ color: "#94a3b8" }}>{prefix || suffix ? "No files match the filter" : "Empty folder"}</span>
+                <span style={{ color: "var(--color-text-muted)" }}>{prefix || suffix ? "No files match the filter" : "Empty folder"}</span>
               </div>
             ) : (
               <>
@@ -331,18 +331,18 @@ const FolderBrowserPopup = ({
                         if (item.is_dir) navigateToFolder(item.path);
                         else if (isSingleFileMode) { setSelectedFile(item); if (onFileSelect) onFileSelect({ path: item.path }); }
                       }}
-                      onMouseEnter={(e) => { if (!isSelFile) e.currentTarget.style.background = "#f8fafc"; }}
+                      onMouseEnter={(e) => { if (!isSelFile) e.currentTarget.style.background = "var(--color-bg)"; }}
                       onMouseLeave={(e) => { if (!isSelFile) e.currentTarget.style.background = "transparent"; }}
                     >
                       <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                         {item.is_dir
-                          ? <FaFolderOpen size={14} style={{ color: "#f59e0b", flexShrink: 0 }} />
-                          : <FaRegFile size={13} style={{ color: isSelFile ? "#3b82f6" : "#94a3b8", flexShrink: 0 }} />
+                          ? <FaFolderOpen size={14} style={{ color: "var(--color-warning)", flexShrink: 0 }} />
+                          : <FaRegFile size={13} style={{ color: isSelFile ? "var(--color-primary)" : "var(--color-text-muted)", flexShrink: 0 }} />
                         }
                         <span style={{
                           fontSize: 13,
                           fontWeight: item.is_dir ? 500 : 400,
-                          color: isSelFile ? "#1d4ed8" : item.is_dir ? "#0f172a" : "#334155",
+                          color: isSelFile ? "var(--color-primary-hover)" : item.is_dir ? "var(--color-text-heading)" : "var(--color-text)",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
@@ -350,10 +350,10 @@ const FolderBrowserPopup = ({
                           {item.name}
                         </span>
                       </div>
-                      <span style={{ width: 90, textAlign: "right", fontSize: 12, color: "#94a3b8" }}>
+                      <span style={{ width: 90, textAlign: "right", fontSize: 12, color: "var(--color-text-muted)" }}>
                         {item.is_dir ? "--" : formatSize(item.size)}
                       </span>
-                      <span style={{ width: 80, textAlign: "right", fontSize: 11, color: "#94a3b8", textTransform: "uppercase", fontWeight: 500, letterSpacing: 0.3 }}>
+                      <span style={{ width: 80, textAlign: "right", fontSize: 11, color: "var(--color-text-muted)", textTransform: "uppercase", fontWeight: 500, letterSpacing: 0.3 }}>
                         {item.is_dir ? "Folder" : (item.extension || "File").replace(".", "")}
                       </span>
                     </div>
@@ -362,7 +362,7 @@ const FolderBrowserPopup = ({
                 {/* Bottom spacer for virtualization */}
                 <div style={{ height: bottomSpacer, flexShrink: 0 }} />
                 {isLoadingMore && (
-                  <div style={{ padding: "8px 14px", fontSize: 12, color: "#64748b", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <div style={{ padding: "8px 14px", fontSize: 12, color: "var(--color-text-secondary)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                     <FiLoader size={13} style={{ animation: "spin 1s linear infinite" }} />
                     Loading more...
                   </div>
@@ -427,35 +427,35 @@ const FolderBrowserPopup = ({
 const S = {
   overlay: {
     position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-    background: "rgba(15, 23, 42, 0.4)", backdropFilter: "blur(4px)", zIndex: 50,
+    background: "var(--color-bg-overlay)", backdropFilter: "blur(4px)", zIndex: 50,
   },
   popup: {
-    background: "#fff", width: "min(900px, 90vw)", height: "min(640px, 85vh)",
+    background: "var(--color-bg-card)", width: "min(900px, 90vw)", height: "min(640px, 85vh)",
     borderRadius: 16, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
     display: "flex", flexDirection: "column", overflow: "hidden",
   },
   header: {
     display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "16px 20px", borderBottom: "1px solid #f1f5f9",
+    padding: "16px 20px", borderBottom: "1px solid var(--color-border-light)",
   },
   headerIcon: {
-    width: 36, height: 36, borderRadius: 10, background: "#eff6ff",
-    display: "flex", alignItems: "center", justifyContent: "center", color: "#3b82f6",
+    width: 36, height: 36, borderRadius: 10, background: "var(--color-primary-bg)",
+    display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-primary)",
   },
-  headerTitle: { margin: 0, fontSize: 15, fontWeight: 600, color: "#0f172a" },
-  headerSub: { fontSize: 12, color: "#94a3b8" },
+  headerTitle: { margin: 0, fontSize: 15, fontWeight: 600, color: "var(--color-text-heading)" },
+  headerSub: { fontSize: 12, color: "var(--color-text-muted)" },
   closeBtn: {
     width: 32, height: 32, borderRadius: 8, border: "none", background: "transparent",
-    color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+    color: "var(--color-text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
   },
   navBar: {
     display: "flex", alignItems: "center", gap: 6, padding: "10px 20px",
-    borderBottom: "1px solid #f1f5f9", background: "#fafbfc",
+    borderBottom: "1px solid var(--color-border-light)", background: "var(--color-bg)",
   },
   navBtn: {
-    width: 30, height: 30, borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff",
+    width: 30, height: 30, borderRadius: 6, border: "1px solid var(--color-border)", background: "var(--color-bg-card)",
     display: "flex", alignItems: "center", justifyContent: "center",
-    color: "#64748b", cursor: "pointer", fontSize: 12, flexShrink: 0,
+    color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 12, flexShrink: 0,
   },
   navBtnDisabled: { opacity: 0.35, cursor: "not-allowed" },
   breadcrumb: {
@@ -464,85 +464,85 @@ const S = {
   },
   crumbBtn: {
     background: "none", border: "none", cursor: "pointer", padding: "2px 4px",
-    borderRadius: 4, color: "#64748b", fontSize: 13, whiteSpace: "nowrap",
+    borderRadius: 4, color: "var(--color-text-secondary)", fontSize: 13, whiteSpace: "nowrap",
   },
-  crumbActive: { color: "#2563eb", fontWeight: 600 },
+  crumbActive: { color: "var(--color-primary-hover)", fontWeight: 600 },
   countBadge: {
-    fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap", flexShrink: 0,
-    background: "#f1f5f9", padding: "3px 8px", borderRadius: 6,
+    fontSize: 11, color: "var(--color-text-muted)", whiteSpace: "nowrap", flexShrink: 0,
+    background: "var(--color-bg-hover)", padding: "3px 8px", borderRadius: 6,
   },
   filterBar: {
     display: "flex", alignItems: "center", gap: 8, margin: "0 20px",
-    padding: "0 12px", height: 38, border: "1px solid #e2e8f0", borderRadius: 8,
-    background: "#fff", marginTop: 12,
+    padding: "0 12px", height: 38, border: "1px solid var(--color-border)", borderRadius: 8,
+    background: "var(--color-bg-card)", marginTop: 12,
   },
   filterInput: {
     flex: 1, border: "none", outline: "none", boxShadow: "none", fontSize: 13,
-    background: "transparent", color: "#334155", minWidth: 0, padding: "8px 4px",
+    background: "transparent", color: "var(--color-text)", minWidth: 0, padding: "8px 4px",
     WebkitAppearance: "none", appearance: "none",
   },
-  filterDivider: { width: 1, height: 18, background: "#e2e8f0", flexShrink: 0 },
+  filterDivider: { width: 1, height: 18, background: "var(--color-border)", flexShrink: 0 },
   filterClear: {
-    width: 24, height: 24, borderRadius: 6, border: "none", background: "#fee2e2",
-    color: "#ef4444", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+    width: 24, height: 24, borderRadius: 6, border: "none", background: "var(--color-danger-bg)",
+    color: "var(--color-danger)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
     flexShrink: 0,
   },
   extInfo: {
-    margin: "12px 20px 0", fontSize: 12, color: "#64748b", background: "#eff6ff",
+    margin: "12px 20px 0", fontSize: 12, color: "var(--color-text-secondary)", background: "var(--color-primary-bg)",
     padding: "6px 12px", borderRadius: 6,
   },
   errorBar: {
-    margin: "12px 20px 0", fontSize: 12, color: "#dc2626", background: "#fef2f2",
-    padding: "8px 12px", borderRadius: 8, border: "1px solid #fecaca",
+    margin: "12px 20px 0", fontSize: 12, color: "var(--color-danger-text)", background: "var(--color-danger-bg)",
+    padding: "8px 12px", borderRadius: 8, border: "1px solid var(--color-danger)",
   },
   tableWrap: {
     flex: 1, display: "flex", flexDirection: "column", margin: "12px 20px 0",
-    border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden", minHeight: 0,
+    border: "1px solid var(--color-border)", borderRadius: 10, overflow: "hidden", minHeight: 0,
   },
   tableHeader: {
     display: "flex", alignItems: "center", padding: "8px 14px",
-    background: "#f8fafc", borderBottom: "1px solid #e2e8f0",
-    fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase",
+    background: "var(--color-bg)", borderBottom: "1px solid var(--color-border)",
+    fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase",
     letterSpacing: 0.5, flexShrink: 0, gap: 8,
   },
   tableBody: { flex: 1, overflowY: "auto", minHeight: 0 },
   row: {
     display: "flex", alignItems: "center", padding: "7px 14px", gap: 8,
-    borderBottom: "1px solid #f8fafc", cursor: "pointer", transition: "background 0.1s",
+    borderBottom: "1px solid var(--color-bg)", cursor: "pointer", transition: "background 0.1s",
   },
-  rowSelectedFile: { background: "#eff6ff", borderLeft: "3px solid #3b82f6" },
+  rowSelectedFile: { background: "var(--color-primary-bg)", borderLeft: "3px solid var(--color-primary)" },
   emptyState: {
     display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-    height: 120, color: "#64748b", fontSize: 13,
+    height: 120, color: "var(--color-text-secondary)", fontSize: 13,
   },
   footer: {
-    padding: "12px 20px", borderTop: "1px solid #f1f5f9",
+    padding: "12px 20px", borderTop: "1px solid var(--color-border-light)",
     display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
     flexShrink: 0,
   },
   selectionRow: { display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 },
-  selLabel: { fontSize: 12, fontWeight: 600, color: "#64748b", flexShrink: 0 },
+  selLabel: { fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", flexShrink: 0 },
   selInputWrap: {
     display: "flex", alignItems: "center", flex: 1, minWidth: 0,
-    border: "1px solid #e2e8f0", borderRadius: 8, background: "#f8fafc", overflow: "hidden",
+    border: "1px solid var(--color-border)", borderRadius: 8, background: "var(--color-bg)", overflow: "hidden",
   },
   selInput: {
     flex: 1, border: "none", outline: "none", boxShadow: "none", padding: "7px 10px",
-    fontSize: 12, fontFamily: "monospace", background: "transparent", color: "#334155", minWidth: 0,
+    fontSize: 12, fontFamily: "monospace", background: "transparent", color: "var(--color-text)", minWidth: 0,
     WebkitAppearance: "none", appearance: "none",
   },
   selClear: {
     padding: "0 8px", height: "100%", border: "none", background: "transparent",
-    color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center",
+    color: "var(--color-text-muted)", cursor: "pointer", display: "flex", alignItems: "center",
   },
   footerActions: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 },
   cancelBtn: {
-    padding: "8px 16px", borderRadius: 8, border: "1px solid #e2e8f0",
-    background: "#fff", color: "#64748b", fontSize: 13, fontWeight: 500, cursor: "pointer",
+    padding: "8px 16px", borderRadius: 8, border: "1px solid var(--color-border)",
+    background: "var(--color-bg-card)", color: "var(--color-text-secondary)", fontSize: 13, fontWeight: 500, cursor: "pointer",
   },
   selectBtn: {
     display: "flex", alignItems: "center", gap: 6, padding: "8px 18px",
-    borderRadius: 8, border: "none", background: "#3b82f6", color: "#fff",
+    borderRadius: 8, border: "none", background: "var(--color-primary)", color: "#fff",
     fontSize: 13, fontWeight: 500, cursor: "pointer",
   },
   selectBtnDisabled: { opacity: 0.4, cursor: "not-allowed" },

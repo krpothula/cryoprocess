@@ -100,7 +100,7 @@ const MovieViewer = ({ selectedFile, importType, zoom = 1, onToggleFullscreen })
           </span>
           <button
             onClick={toggleFullscreen}
-            className="p-1 hover:bg-gray-700 rounded ml-1"
+            className="p-1 hover:bg-gray-700 dark:hover:bg-slate-600 rounded ml-1"
             title="Exit Fullscreen"
           >
             <FiMaximize2 className="text-white" size={14} />
@@ -122,7 +122,7 @@ const MovieViewer = ({ selectedFile, importType, zoom = 1, onToggleFullscreen })
         />
         <button
           onClick={toggleFullscreen}
-          className="absolute top-4 left-4 text-white bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded"
+          className="absolute top-4 left-4 text-white bg-gray-800 dark:bg-slate-900 hover:bg-gray-700 dark:hover:bg-slate-600 px-3 py-1 rounded"
         >
           Close
         </button>
@@ -131,7 +131,7 @@ const MovieViewer = ({ selectedFile, importType, zoom = 1, onToggleFullscreen })
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-white">
+    <div className="absolute inset-0 overflow-hidden bg-white dark:bg-slate-800">
       <img
         ref={imageRef}
         src={thumbnailUrl}

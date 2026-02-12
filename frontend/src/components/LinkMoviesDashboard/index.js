@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import { getLinkMoviesResultsApi } from "../../services/builders/link-movies/link-movies";
 import { BiLoader } from "react-icons/bi";
@@ -16,6 +16,7 @@ import {
   FiChevronUp,
   FiExternalLink,
 } from "react-icons/fi";
+import useJobNotification from "../../hooks/useJobNotification";
 
 const LinkMoviesDashboard = () => {
   const { selectedJob } = useBuilder();
@@ -35,12 +36,17 @@ const LinkMoviesDashboard = () => {
   };
 
   // Fetch results
+  // Guard against state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const fetchResults = useCallback(async () => {
     if (!selectedJob?.id) return;
 
     try {
       setLoading(true);
       const response = await getLinkMoviesResultsApi(selectedJob.id);
+      if (!mountedRef.current) return;
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
@@ -49,7 +55,7 @@ const LinkMoviesDashboard = () => {
       setError("Failed to load Link Movies results");
       console.error("Error fetching results:", err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [selectedJob?.id]);
 
@@ -69,12 +75,16 @@ const LinkMoviesDashboard = () => {
     }
   }, [selectedJob?.id, selectedJob?.status, fetchResults]);
 
+  // Trigger immediate fetch on WebSocket job_update (supplements polling)
+  useJobNotification(selectedJob?.id, fetchResults);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "success":
         return <FiCheckCircle className="text-green-500 text-xl" />;
       case "running":
-        return <FiActivity className="text-blue-500 text-xl animate-pulse" />;
+        return <FiActivity className="text-amber-500 text-xl animate-pulse" />;
+      case "failed":
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
@@ -108,26 +118,26 @@ const LinkMoviesDashboard = () => {
   const summary = results?.summary || {};
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStatusIcon(selectedJob?.status || results?.job_status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
                 Import/{selectedJob?.job_name || results?.job_name || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
-                  ? "#16a34a"
+                  ? "var(--color-success-text)"
                   : selectedJob?.status === "error"
-                  ? "#dc2626"
+                  ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "#f59e0b"
-                  : "#ca8a04"
+                  ? "var(--color-warning-text)"
+                  : "var(--color-warning-text)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -144,29 +154,29 @@ const LinkMoviesDashboard = () => {
         </div>
 
         {/* Command Section */}
-        <div className="mt-3 pt-3 border-t">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+              className="flex items-center gap-2 hover:bg-[var(--color-bg)] rounded px-1 py-0.5 transition-colors"
             >
-              <FiTerminal className="text-gray-400" size={12} />
-              <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>Shell Script</span>
+              <FiTerminal className="text-[var(--color-text-muted)]" size={12} />
+              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>Shell Script</span>
               {showCommand ? (
-                <FiChevronUp className="text-gray-400" size={12} />
+                <FiChevronUp className="text-[var(--color-text-muted)]" size={12} />
               ) : (
-                <FiChevronDown className="text-gray-400" size={12} />
+                <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
             {showCommand && command && (
               <button
                 onClick={copyCommand}
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 title="Copy command"
               >
-                <FiCopy className="text-gray-400" size={12} />
+                <FiCopy className="text-[var(--color-text-muted)]" size={12} />
                 {commandCopied && (
-                  <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                  <span style={{ fontSize: "10px", color: "var(--color-success-text)" }}>Copied!</span>
                 )}
               </button>
             )}
@@ -176,7 +186,7 @@ const LinkMoviesDashboard = () => {
               className="mt-2 overflow-x-auto font-mono"
               style={{
                 fontSize: '9px',
-                color: '#475569',
+                color: 'var(--color-text-secondary)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 lineHeight: '1.4'
@@ -189,26 +199,26 @@ const LinkMoviesDashboard = () => {
       </div>
 
       {/* Stats Card - Merged */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiLink className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Files Linked:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiLink className="text-gray-400 dark:text-slate-500" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Files Linked:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {linkedCount}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiFolder className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Destination:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }} title={results?.destination_folder}>
+            <FiFolder className="text-gray-400 dark:text-slate-500" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Destination:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }} title={results?.destination_folder}>
               {results?.destination_folder?.split("/").slice(-2).join("/") || "Movies"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiExternalLink className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Link Type:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiExternalLink className="text-gray-400 dark:text-slate-500" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Link Type:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {summary["Link Type"] || "Symlink"}
             </span>
           </div>
@@ -216,32 +226,32 @@ const LinkMoviesDashboard = () => {
       </div>
 
       {/* Linked Files List */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
-        <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+        <h3 className="font-bold text-gray-700 dark:text-slate-200 mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
           <FiFile className="text-blue-500" />
           Linked Files ({linkedFiles.length})
         </h3>
 
         {linkedFiles.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">
+          <div className="text-center py-8 text-gray-400 dark:text-slate-500">
             <FiFile className="text-4xl mx-auto mb-2" />
             <p>No files linked yet</p>
           </div>
         ) : (
           <div className="max-h-96 overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="bg-[var(--color-bg)] sticky top-0">
                 <tr>
-                  <th className="text-left p-2 font-medium text-gray-600">Name</th>
-                  <th className="text-left p-2 font-medium text-gray-600">Type</th>
-                  <th className="text-left p-2 font-medium text-gray-600">Target</th>
+                  <th className="text-left p-2 font-medium text-gray-600 dark:text-slate-300">Name</th>
+                  <th className="text-left p-2 font-medium text-gray-600 dark:text-slate-300">Type</th>
+                  <th className="text-left p-2 font-medium text-gray-600 dark:text-slate-300">Target</th>
                 </tr>
               </thead>
               <tbody>
                 {linkedFiles.map((file, idx) => (
-                  <tr key={idx} className="border-t hover:bg-gray-50">
+                  <tr key={idx} className="border-t dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800">
                     <td className="p-2 flex items-center gap-2">
-                      <FiFile className="text-gray-400" />
+                      <FiFile className="text-gray-400 dark:text-slate-500" />
                       <span className="truncate max-w-[200px]" title={file.name}>
                         {file.name}
                       </span>

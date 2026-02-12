@@ -28,14 +28,11 @@ module.exports = {
 
   // Project paths
   ROOT_PATH: process.env.ROOT_PATH || '/data/projects',
+  ARCHIVE_PATH: process.env.ARCHIVE_PATH || '',
 
   // SLURM settings
   SLURM_PARTITION: process.env.SLURM_PARTITION || 'default',
   SLURM_SUBMIT_COMMAND: process.env.SLURM_SUBMIT_COMMAND || 'sbatch',
-  SLURM_NODES: parseInt(process.env.SLURM_NODES, 10) || 1,
-  SLURM_CPUS_PER_TASK: parseInt(process.env.SLURM_CPUS_PER_TASK, 10) || 8,
-  SLURM_GPUS_PER_NODE: parseInt(process.env.SLURM_GPUS_PER_NODE, 10) || 1,
-  SLURM_TIME: process.env.SLURM_TIME || '24:00:00',
 
   // SSH Remote Cluster (run SLURM commands over SSH)
   SLURM_USE_SSH: process.env.SLURM_USE_SSH === 'true',
@@ -43,11 +40,6 @@ module.exports = {
   SLURM_SSH_USER: process.env.SLURM_SSH_USER || process.env.USER || '',
   SLURM_SSH_PORT: parseInt(process.env.SLURM_SSH_PORT, 10) || 22,
   SLURM_SSH_KEY_PATH: process.env.SLURM_SSH_KEY_PATH || '',
-
-  // MPI Launcher settings
-  // 'mpirun' - Standard MPI launcher, portable across clusters
-  // 'srun' - SLURM-native launcher (can cause issues with some setups)
-  MPI_LAUNCHER: process.env.MPI_LAUNCHER || 'mpirun',
 
   // Singularity container settings
   // Support both RELION_PATH (preferred) and SINGULARITY_IMAGE (legacy)
@@ -63,6 +55,15 @@ module.exports = {
 
   // CORS
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:3000',
+
+  // Email Notifications (Optional)
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  SMTP_FROM: process.env.SMTP_FROM || 'CryoProcess <noreply@example.com>',
+  EMAIL_NOTIFICATIONS_ENABLED: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
 
   // External Software Executables
   CTFFIND_EXE: process.env.CTFFIND_EXE || 'ctffind',

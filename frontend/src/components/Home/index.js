@@ -53,7 +53,6 @@ const BuilderSyncBridge = ({ selectedJob, onJobSelect, setActiveTab, builderRef 
 };
 
 const Home1 = ({
-  isLayoutSwitched,
   showJobTree,
   setShowJobTree,
 }) => {
@@ -91,19 +90,9 @@ const Home1 = ({
     setJobRefreshKey((k) => k + 1);
   };
 
-  const Icon = (() => {
-    if (isLayoutSwitched) {
-      // normal behavior
-      return expandedView
-        ? IoChevronForwardCircleOutline
-        : IoChevronBackCircleOutline;
-    } else {
-      // inverted behavior
-      return expandedView
-        ? IoChevronBackCircleOutline
-        : IoChevronForwardCircleOutline;
-    }
-  })();
+  const Icon = expandedView
+    ? IoChevronForwardCircleOutline
+    : IoChevronBackCircleOutline;
 
   // Tree node click: open job dashboard / status view
   const handleTreeJobSelect = useCallback((nodeId) => {
@@ -158,7 +147,7 @@ const Home1 = ({
     <BuilderContextProvider projectId={projectId} onJobSuccess={onJobSuccess}>
       {/* Sync context's selectedBuilder to App.js state */}
       <BuilderSyncBridge selectedJob={selectedJob} onJobSelect={handleJobSelect} setActiveTab={setActiveTab} builderRef={builderRef} />
-      <div className={`${isLayoutSwitched ? "App" : "App1"} ${!showJobTree ? "no-tree" : ""}`}>
+      <div className={`App ${!showJobTree ? "no-tree" : ""}`}>
         <div className="left-panel relative">
           {/* Tab Header - Same height as navbar */}
           <div className="panel-tabs">
@@ -207,7 +196,7 @@ const Home1 = ({
                 position: 'absolute',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                [isLayoutSwitched ? 'left' : 'right']: '-12px',
+                left: '-12px',
                 zIndex: 9999,
                 display: 'flex',
                 flexDirection: 'column',
@@ -219,8 +208,8 @@ const Home1 = ({
                 onClick={() => setExpandedView(!expandedView)}
                 style={{
                   padding: 0,
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
+                  background: 'var(--color-bg-card)',
+                  border: '1px solid var(--color-border)',
                   borderRadius: '50%',
                   width: '24px',
                   height: '24px',
@@ -231,15 +220,15 @@ const Home1 = ({
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                 }}
               >
-                <Icon style={{ fontSize: '16px', color: '#3b82f6' }} />
+                <Icon style={{ fontSize: '16px', color: 'var(--color-primary)' }} />
               </button>
               <button
                 onClick={() => setShowJobTree(false)}
                 title="Close job tree"
                 style={{
                   padding: 0,
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
+                  background: 'var(--color-bg-card)',
+                  border: '1px solid var(--color-border)',
                   borderRadius: '50%',
                   width: '24px',
                   height: '24px',
@@ -250,10 +239,10 @@ const Home1 = ({
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                 }}
               >
-                <IoCloseCircleOutline style={{ fontSize: '16px', color: '#ef4444' }} />
+                <IoCloseCircleOutline style={{ fontSize: '16px', color: 'var(--color-danger-text)' }} />
               </button>
             </div>
-            <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#94a3b8", fontSize: 13 }}>Loading tree...</div>}>
+            <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--color-text-muted)", fontSize: 13 }}>Loading tree...</div>}>
               <LazyTreeView
                 projectId={projectId}
                 expanded={expandedView}
@@ -272,8 +261,8 @@ const Home1 = ({
           gap: 4px;
           padding: 4px 8px;
           height: 36px;
-          background: #f1f5f9;
-          border-bottom: 1px solid #e2e8f0;
+          background: var(--color-bg-hover);
+          border-bottom: 1px solid var(--color-border);
           position: sticky;
           top: 0;
           z-index: 10;
@@ -286,7 +275,7 @@ const Home1 = ({
           padding: 4px 10px;
           font-size: 12px;
           font-weight: 500;
-          color: #64748b;
+          color: var(--color-text-secondary);
           background: transparent;
           border: none;
           border-radius: 6px;
@@ -296,13 +285,11 @@ const Home1 = ({
           box-sizing: border-box;
         }
         .panel-tab:hover {
-          color: #3b82f6;
-          background: rgba(255,255,255,0.5);
+          color: var(--color-primary);
         }
         .panel-tab-active {
-          color: #3b82f6;
-          background: #ffffff;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+          color: var(--color-primary);
+          font-weight: 600;
         }
         .panel-tab-icon {
           font-size: 12px;

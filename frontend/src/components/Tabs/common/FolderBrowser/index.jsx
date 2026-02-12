@@ -80,23 +80,23 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white w-[700px] max-h-[80vh] rounded-lg shadow-xl flex flex-col">
+      <div className="bg-[var(--color-bg-card)] w-[700px] max-h-[80vh] rounded-lg shadow-xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+        <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
+          <h3 className="text-lg font-semibold text-[var(--color-text-heading)]">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
+            className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] rounded hover:bg-[var(--color-bg-hover)]"
           >
             <FiX size={20} />
           </button>
         </div>
 
         {/* Navigation Bar */}
-        <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200">
+        <div className="flex items-center gap-2 px-4 py-2 bg-[var(--color-bg)] border-b border-[var(--color-border)]">
           <button
             onClick={handleGoHome}
-            className="p-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded"
+            className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-heading)] hover:bg-[var(--color-bg-hover)] rounded"
             title="Go to project root"
           >
             <FiHome size={16} />
@@ -106,8 +106,8 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
             disabled={!currentPath}
             className={`p-1.5 rounded ${
               currentPath
-                ? "text-gray-600 hover:text-gray-800 hover:bg-gray-200"
-                : "text-gray-300 cursor-not-allowed"
+                ? "text-[var(--color-text-secondary)] hover:text-[var(--color-text-heading)] hover:bg-[var(--color-bg-hover)]"
+                : "text-[var(--color-border)] cursor-not-allowed"
             }`}
             title="Go back"
           >
@@ -115,21 +115,21 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
           </button>
 
           {/* Breadcrumb */}
-          <div className="flex items-center gap-1 text-sm text-gray-600 overflow-x-auto flex-1">
+          <div className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] overflow-x-auto flex-1">
             <span
-              className="text-blue-600 hover:underline cursor-pointer font-medium"
+              className="text-[var(--color-primary)] hover:underline cursor-pointer font-medium"
               onClick={handleGoHome}
             >
               {projectRoot || "Project"}
             </span>
             {pathParts.map((part, idx) => (
               <React.Fragment key={idx}>
-                <FiChevronRight size={14} className="text-gray-400 flex-shrink-0" />
+                <FiChevronRight size={14} className="text-[var(--color-text-muted)] flex-shrink-0" />
                 <span
                   className={`${
                     idx === pathParts.length - 1
-                      ? "text-gray-800 font-medium"
-                      : "text-blue-600 hover:underline cursor-pointer"
+                      ? "text-[var(--color-text-heading)] font-medium"
+                      : "text-[var(--color-primary)] hover:underline cursor-pointer"
                   }`}
                   onClick={() => {
                     if (idx < pathParts.length - 1) {
@@ -148,15 +148,15 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
         <div className="flex-1 overflow-y-auto p-2 min-h-[300px]">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <BiLoader className="animate-spin text-blue-500 text-2xl mr-2" />
-              <span className="text-gray-600">Loading...</span>
+              <BiLoader className="animate-spin text-[var(--color-primary)] text-2xl mr-2" />
+              <span className="text-[var(--color-text-secondary)]">Loading...</span>
             </div>
           ) : error ? (
-            <div className="flex items-center justify-center h-full text-red-500">
+            <div className="flex items-center justify-center h-full text-[var(--color-danger-text)]">
               {error}
             </div>
           ) : items.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="flex items-center justify-center h-full text-[var(--color-text-secondary)]">
               {extensions ? `No files matching ${extensions} in this folder` : "This folder is empty"}
             </div>
           ) : (
@@ -165,25 +165,25 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
                 <div
                   key={idx}
                   onClick={() => handleItemClick(item)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer hover:bg-gray-100 ${
-                    item.is_dir ? "" : "hover:bg-blue-50"
+                  className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer hover:bg-[var(--color-bg-hover)] ${
+                    item.is_dir ? "" : "hover:bg-[var(--color-info-bg)]"
                   }`}
                 >
                   {item.is_dir ? (
-                    <FiFolder className="text-yellow-500 text-lg flex-shrink-0" />
+                    <FiFolder className="text-[var(--color-warning-text)] text-lg flex-shrink-0" />
                   ) : (
-                    <FiFile className="text-gray-400 text-lg flex-shrink-0" />
+                    <FiFile className="text-[var(--color-text-muted)] text-lg flex-shrink-0" />
                   )}
-                  <span className="flex-1 text-sm text-gray-800 truncate">
+                  <span className="flex-1 text-sm text-[var(--color-text-heading)] truncate">
                     {item.name}
                   </span>
                   {!item.is_dir && item.size !== undefined && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-[var(--color-text-secondary)]">
                       {formatFileSize(item.size)}
                     </span>
                   )}
                   {item.is_dir && (
-                    <FiChevronRight className="text-gray-400" />
+                    <FiChevronRight className="text-[var(--color-text-muted)]" />
                   )}
                 </div>
               ))}
@@ -192,13 +192,13 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-          <span className="text-xs text-gray-500">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--color-border)] bg-[var(--color-bg)]">
+          <span className="text-xs text-[var(--color-text-secondary)]">
             {extensions ? `Showing: ${extensions}` : "Showing all files"}
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded"
+            className="px-4 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-heading)] hover:bg-[var(--color-bg-hover)] rounded"
           >
             Cancel
           </button>

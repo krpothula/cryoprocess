@@ -4,7 +4,7 @@
    ============================================ */
 
 .joblist {
-  background: #ffffff;
+  background: var(--color-bg-card);
   padding: 0;
   flex: 1;
   min-height: 0;
@@ -12,7 +12,7 @@
   display: flex;
   flex-direction: column;
   scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
+  scrollbar-color: var(--color-scrollbar) transparent;
 }
 
 /* Job List Items Container */
@@ -38,7 +38,7 @@
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 500;
-  color: #475569;
+  color: var(--color-text-secondary);
   background: transparent;
   border: none;
   border-left: 3px solid transparent;
@@ -49,23 +49,23 @@
 }
 
 .joblist-item:hover {
-  background: #f1f5f9;
-  color: #1e293b;
-  border-left-color: #cbd5e1;
+  background: var(--color-bg-hover);
+  color: var(--color-text);
+  border-left-color: var(--color-border-hover);
 }
 
-/* Active State - Blue border + subtle background */
+/* Active State - Blue border, no background */
 .joblist-item-active {
-  background: #eff6ff;
-  color: #2563eb;
+  background: transparent;
+  color: var(--color-primary-hover);
   font-weight: 600;
-  border-left-color: #3b82f6;
+  border-left-color: var(--color-primary);
 }
 
 .joblist-item-active:hover {
-  background: #dbeafe;
-  color: #2563eb;
-  border-left-color: #3b82f6;
+  background: transparent;
+  color: var(--color-primary-hover);
+  border-left-color: var(--color-primary);
 }
 
 /* Label */
@@ -87,21 +87,21 @@
 }
 
 .joblist::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--color-scrollbar);
   border-radius: 3px;
 }
 
 .joblist::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: var(--color-scrollbar-hover);
 }
 
 /* Focus States for Accessibility */
 .joblist-item:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
 .joblist-item-active:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }

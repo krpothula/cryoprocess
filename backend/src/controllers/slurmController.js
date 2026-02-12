@@ -549,7 +549,7 @@ exports.getJobLogs = async (req, res) => {
   try {
     const { jobId } = req.params;
     const { tail = 500 } = req.query;
-    const tailNum = parseInt(tail) || 500;
+    const tailNum = Math.min(Math.max(parseInt(tail) || 500, 1), 10000);
 
     const job = await Job.findOne({ id: jobId }).lean();
     if (!job) {
@@ -844,6 +844,37 @@ exports.updateJobStatus = async (req, res) => {
     return response.success(res, { message: 'Job status updated' });
   } catch (error) {
     logger.error('[SLURM] updateJobStatus error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Toggle email notification for a job
+ * PATCH /api/slurm/jobs/:jobId/notify
+ */
+exports.toggleNotifyEmail = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    const job = await Job.findOne({ id: jobId });
+    if (!job) {
+      return response.notFound(res, 'Job not found');
+    }
+
+    // Check ownership
+    if (job.user_id !== req.user.id && !req.user.is_superuser) {
+      return response.forbidden(res, 'Not authorized to modify this job');
+    }
+
+    job.notify_email = !job.notify_email;
+    await job.save();
+
+    return response.success(res, {
+      notify_email: job.notify_email,
+      message: job.notify_email ? 'Email notification enabled' : 'Email notification disabled'
+    });
+  } catch (error) {
+    logger.error('[SLURM] toggleNotifyEmail error:', error);
     return response.serverError(res, error.message);
   }
 };

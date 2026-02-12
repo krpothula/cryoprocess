@@ -25,7 +25,7 @@ const ModelAngelo = React.lazy(() => import("./Tabs/ModelAngelo"));
 const ManualSelect = React.lazy(() => import("./Tabs/ManualSelect"));
 
 const LazyFallback = () => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "40px", color: "#94a3b8", fontSize: 13 }}>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "40px", color: "var(--color-text-muted)", fontSize: 13 }}>
     Loading...
   </div>
 );

@@ -32,7 +32,7 @@ const RangeSlider = ({
 
   // Create the gradient background: filled color up to thumb, gray after
   const trackStyle = {
-    background: `linear-gradient(to right, ${fillColor} 0%, ${fillColor} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`,
+    background: `linear-gradient(to right, ${fillColor} 0%, ${fillColor} ${percentage}%, var(--color-chart-grid) ${percentage}%, var(--color-chart-grid) 100%)`,
     height: "8px",
     borderRadius: "4px",
   };
@@ -46,7 +46,7 @@ const RangeSlider = ({
       height: 20px;
       border-radius: 50%;
       background: ${fillColor};
-      border: 3px solid #ffffff;
+      border: 3px solid var(--color-bg-card);
       cursor: pointer;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
       margin-top: -6px;
@@ -56,7 +56,7 @@ const RangeSlider = ({
       height: 20px;
       border-radius: 50%;
       background: ${fillColor};
-      border: 3px solid #ffffff;
+      border: 3px solid var(--color-bg-card);
       cursor: pointer;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
     }

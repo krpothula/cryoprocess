@@ -267,8 +267,8 @@ const CustomInput = ({
     if (isCustomUpload) {
       return (
         <button
-          style={{ width: "280px", height: "32px", fontSize: "12px", border: "1px solid #d1d5db", borderRadius: "6px" }}
-          className={`flex items-center px-4 text-black bg-white focus:outline-none ${
+          style={{ width: "280px", height: "32px", fontSize: "12px", border: "1px solid var(--color-border)", borderRadius: "6px" }}
+          className={`flex items-center px-4 text-[var(--color-text-heading)] bg-[var(--color-bg-card)] focus:outline-none ${
             disabled ? "cursor-not-allowed opacity-30" : ""
           }`}
           onClick={onChange}
@@ -297,17 +297,17 @@ const CustomInput = ({
           type="button"
           onClick={onBrowseClick}
           disabled={disabled}
-          style={{ width: "280px", height: "32px", fontSize: "12px", border: "1px solid #d1d5db", borderRadius: "6px" }}
-          className={`px-3 bg-white hover:bg-gray-50 flex items-center gap-2 transition-colors text-left ${
+          style={{ width: "280px", height: "32px", fontSize: "12px", border: "1px solid var(--color-border)", borderRadius: "6px" }}
+          className={`px-3 bg-[var(--color-bg-card)] hover:bg-[var(--color-bg)] flex items-center gap-2 transition-colors text-left ${
             disabled ? "opacity-30 cursor-not-allowed" : ""
           }`}
           title={value || "Browse project folder"}
         >
-          <PiBrowser className="text-gray-600 flex-shrink-0" style={{ fontSize: "14px" }} />
+          <PiBrowser className="text-[var(--color-text-secondary)] flex-shrink-0" style={{ fontSize: "14px" }} />
           {value ? (
-            <span className="text-gray-800 truncate flex-1" style={{ fontSize: "12px" }}>{value}</span>
+            <span className="text-[var(--color-text-heading)] truncate flex-1" style={{ fontSize: "12px" }}>{value}</span>
           ) : (
-            <span className="text-gray-500" style={{ fontSize: "12px" }}>{placeholder || "Browse..."}</span>
+            <span className="text-[var(--color-text-secondary)]" style={{ fontSize: "12px" }}>{placeholder || "Browse..."}</span>
           )}
         </button>
       );
@@ -332,14 +332,14 @@ const CustomInput = ({
             }}
             onFocus={() => { setShowDropdown(true); setActiveInputField(name); }}
             style={{ width: "280px", height: "32px", fontSize: "12px" }}
-            className={`border border-gray-300 rounded px-2 bg-white focus:outline-none ${
+            className={`border border-[var(--color-border)] rounded px-2 bg-[var(--color-bg-card)] focus:outline-none ${
               disabled ? "opacity-30 cursor-not-allowed" : ""
             }`}
           />
           {showDropdown && (
-            <div className="absolute z-10 w-full min-w-[400px] mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto no-scrollbar">
+            <div className="absolute z-10 w-full min-w-[400px] mt-1 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded shadow max-h-60 overflow-y-auto no-scrollbar">
               {filesLoading ? (
-                <p className="flex items-center text-black font-medium m-0 p-2" style={{ fontSize: "12px" }}>
+                <p className="flex items-center text-[var(--color-text-heading)] font-medium m-0 p-2" style={{ fontSize: "12px" }}>
                   <BiLoader className="mr-2 animate-spin" />
                   Loading {stageStarFiles} jobs...
                 </p>
@@ -347,34 +347,34 @@ const CustomInput = ({
                 fileList.map((group, groupIdx) => {
                   const isExpanded = expandedGroups[group.group];
                   return (
-                    <div key={groupIdx} className="border-b border-gray-100 last:border-b-0">
+                    <div key={groupIdx} className="border-b border-[var(--color-border-light)] last:border-b-0">
                       <div
-                        className="flex items-center gap-2 font-bold text-black py-1 px-2 cursor-pointer hover:bg-gray-50 select-none"
+                        className="flex items-center gap-2 font-bold text-[var(--color-text-heading)] py-1 px-2 cursor-pointer hover:bg-[var(--color-bg)] select-none"
                         style={{ fontSize: "12px" }}
                         onClick={() => toggleGroup(group.group)}
                       >
-                        {isExpanded ? <FiChevronDown size={14} className="text-gray-400" /> : <FiChevronRight size={14} className="text-gray-400" />}
+                        {isExpanded ? <FiChevronDown size={14} className="text-[var(--color-text-muted)]" /> : <FiChevronRight size={14} className="text-[var(--color-text-muted)]" />}
                         {group.job_status === "success" ? (
-                          <FiCheckCircle className="text-green-500" size={14} />
+                          <FiCheckCircle className="text-[var(--color-success-text)]" size={14} />
                         ) : group.job_status === "error" ? (
-                          <FiAlertCircle className="text-red-500" size={14} />
+                          <FiAlertCircle className="text-[var(--color-danger-text)]" size={14} />
                         ) : (
-                          <FiClock className="text-yellow-500" size={14} />
+                          <FiClock className="text-[var(--color-warning-text)]" size={14} />
                         )}
                         <span className="flex-1">{group.group}</span>
-                        <span className="text-xs text-gray-400 font-normal">{group.files.length}</span>
+                        <span className="text-xs text-[var(--color-text-muted)] font-normal">{group.files.length}</span>
                       </div>
                       {isExpanded && group.files.map((file, idx) => (
                         <div
                           key={idx}
                           onClick={() => handleOptionClick(file.path)}
-                          className="cursor-pointer px-2 py-1 hover:bg-gray-100 text-black"
+                          className="cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-hover)] text-[var(--color-text-heading)]"
                           style={{ fontSize: "12px", paddingLeft: "28px" }}
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="flex-1 min-w-0" title={file.name}>{file.name}</span>
                             {file.entry_count > 0 && (
-                              <span className="text-xs text-gray-500 flex-shrink-0">
+                              <span className="text-xs text-[var(--color-text-secondary)] flex-shrink-0">
                                 ({file.entry_count})
                               </span>
                             )}
@@ -385,7 +385,7 @@ const CustomInput = ({
                   );
                 })
               ) : (
-                <p className="text-xs text-gray-500 p-2">
+                <p className="text-xs text-[var(--color-text-secondary)] p-2">
                   {stageMessage || `No matching files found. Complete a ${stageStarFiles.split(',')[0]} job first.`}
                 </p>
               )}
@@ -415,7 +415,7 @@ const CustomInput = ({
               }}
               onFocus={() => { setShowDropdown(true); setActiveInputField(name); }}
               style={{ width: "280px", height: "32px", fontSize: "12px", paddingRight: showBrowseButton ? "32px" : "8px" }}
-              className={`border border-gray-300 rounded px-2 bg-white focus:outline-none ${
+              className={`border border-[var(--color-border)] rounded px-2 bg-[var(--color-bg-card)] focus:outline-none ${
                 disabled ? "opacity-30 cursor-not-allowed" : ""
               }`}
             />
@@ -424,7 +424,7 @@ const CustomInput = ({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onBrowseClick(); }}
                 disabled={disabled}
-                className="absolute right-0 top-0 h-full px-2 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                className="absolute right-0 top-0 h-full px-2 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
                 title="Browse project folder"
                 style={{ background: "transparent", border: "none", boxShadow: "none", minWidth: "auto" }}
               >
@@ -433,9 +433,9 @@ const CustomInput = ({
             )}
           </div>
           {showDropdown && (
-            <div className="absolute z-10 w-full min-w-[400px] mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto no-scrollbar">
+            <div className="absolute z-10 w-full min-w-[400px] mt-1 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded shadow max-h-60 overflow-y-auto no-scrollbar">
               {filesLoading ? (
-                <p className="flex items-center text-black font-medium m-0 p-2" style={{ fontSize: "12px" }}>
+                <p className="flex items-center text-[var(--color-text-heading)] font-medium m-0 p-2" style={{ fontSize: "12px" }}>
                   <BiLoader className="mr-2 animate-spin" />
                   Loading {stageMrcFiles} MRC files...
                 </p>
@@ -443,32 +443,32 @@ const CustomInput = ({
                 fileList.map((group, groupIdx) => {
                   const isExpanded = expandedGroups[group.group];
                   return (
-                    <div key={groupIdx} className="border-b border-gray-100 last:border-b-0">
+                    <div key={groupIdx} className="border-b border-[var(--color-border-light)] last:border-b-0">
                       <div
-                        className="flex items-center gap-2 font-bold text-black py-1 px-2 cursor-pointer hover:bg-gray-50 select-none"
+                        className="flex items-center gap-2 font-bold text-[var(--color-text-heading)] py-1 px-2 cursor-pointer hover:bg-[var(--color-bg)] select-none"
                         style={{ fontSize: "12px" }}
                         onClick={() => toggleGroup(group.group)}
                       >
-                        {isExpanded ? <FiChevronDown size={14} className="text-gray-400" /> : <FiChevronRight size={14} className="text-gray-400" />}
+                        {isExpanded ? <FiChevronDown size={14} className="text-[var(--color-text-muted)]" /> : <FiChevronRight size={14} className="text-[var(--color-text-muted)]" />}
                         {group.job_status === "success" ? (
-                          <FiCheckCircle className="text-green-500" size={14} />
+                          <FiCheckCircle className="text-[var(--color-success-text)]" size={14} />
                         ) : group.job_status === "error" ? (
-                          <FiAlertCircle className="text-red-500" size={14} />
+                          <FiAlertCircle className="text-[var(--color-danger-text)]" size={14} />
                         ) : (
-                          <FiClock className="text-yellow-500" size={14} />
+                          <FiClock className="text-[var(--color-warning-text)]" size={14} />
                         )}
                         <span className="flex-1">{group.group}</span>
-                        <span className="text-xs text-gray-400 font-normal">{group.files.length}</span>
+                        <span className="text-xs text-[var(--color-text-muted)] font-normal">{group.files.length}</span>
                       </div>
                       {isExpanded && group.files.map((file, idx) => (
                         <div
                           key={idx}
                           onClick={() => handleOptionClick(file.path)}
-                          className="cursor-pointer px-2 py-1 hover:bg-gray-100 text-black flex items-center justify-between gap-2"
+                          className="cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-hover)] text-[var(--color-text-heading)] flex items-center justify-between gap-2"
                           style={{ fontSize: "12px", paddingLeft: "28px" }}
                         >
                           <span className="flex-1 min-w-0" title={file.name || file.path}>{file.name || file.path}</span>
-                          <div className="flex items-center gap-2 flex-shrink-0 text-xs text-gray-500">
+                          <div className="flex items-center gap-2 flex-shrink-0 text-xs text-[var(--color-text-secondary)]">
                             {file.iteration && <span>iter {file.iteration}</span>}
                             {file.class_num && <span>class {file.class_num}</span>}
                           </div>
@@ -478,7 +478,7 @@ const CustomInput = ({
                   );
                 })
               ) : (
-                <p className="text-xs text-gray-500 p-2">
+                <p className="text-xs text-[var(--color-text-secondary)] p-2">
                   {stageMessage || `No ${stageMrcFiles} MRC files found. Run a ${stageMrcFiles} job first.`}
                 </p>
               )}
@@ -507,14 +507,14 @@ const CustomInput = ({
             }}
             onFocus={() => { setShowDropdown(true); setActiveInputField(name); }}
             style={{ width: "280px", height: "32px", fontSize: "12px" }}
-            className={`border border-gray-300 rounded px-2 bg-white focus:outline-none ${
+            className={`border border-[var(--color-border)] rounded px-2 bg-[var(--color-bg-card)] focus:outline-none ${
               disabled ? "opacity-30 cursor-not-allowed" : ""
             }`}
           />
           {showDropdown && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto no-scrollbar">
+            <div className="absolute z-10 w-full mt-1 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded shadow max-h-60 overflow-y-auto no-scrollbar">
               {filesLoading ? (
-                <p className="flex items-center text-black font-medium m-0 p-2" style={{ fontSize: "12px" }}>
+                <p className="flex items-center text-[var(--color-text-heading)] font-medium m-0 p-2" style={{ fontSize: "12px" }}>
                   <BiLoader className="mr-2 animate-spin" />
                   Loading {stageOptimiserFiles} optimiser files...
                 </p>
@@ -522,32 +522,32 @@ const CustomInput = ({
                 fileList.map((group, groupIdx) => {
                   const isExpanded = expandedGroups[group.group];
                   return (
-                    <div key={groupIdx} className="border-b border-gray-100 last:border-b-0">
+                    <div key={groupIdx} className="border-b border-[var(--color-border-light)] last:border-b-0">
                       <div
-                        className="flex items-center gap-2 font-bold text-black py-1 px-2 cursor-pointer hover:bg-gray-50 select-none"
+                        className="flex items-center gap-2 font-bold text-[var(--color-text-heading)] py-1 px-2 cursor-pointer hover:bg-[var(--color-bg)] select-none"
                         style={{ fontSize: "12px" }}
                         onClick={() => toggleGroup(group.group)}
                       >
-                        {isExpanded ? <FiChevronDown size={14} className="text-gray-400" /> : <FiChevronRight size={14} className="text-gray-400" />}
-                        <FiClock className="text-blue-500" size={14} />
+                        {isExpanded ? <FiChevronDown size={14} className="text-[var(--color-text-muted)]" /> : <FiChevronRight size={14} className="text-[var(--color-text-muted)]" />}
+                        <FiClock className="text-[var(--color-primary)]" size={14} />
                         <span className="flex-1">{group.group}</span>
-                        <span className="text-xs text-gray-400 font-normal">{group.files.length}</span>
+                        <span className="text-xs text-[var(--color-text-muted)] font-normal">{group.files.length}</span>
                       </div>
                       {isExpanded && group.files.map((file, idx) => (
                         <div
                           key={idx}
                           onClick={() => handleOptionClick(file.path)}
-                          className="cursor-pointer px-2 py-1 hover:bg-gray-100 text-black flex items-center justify-between"
+                          className="cursor-pointer px-2 py-1 hover:bg-[var(--color-bg-hover)] text-[var(--color-text-heading)] flex items-center justify-between"
                           style={{ fontSize: "12px", paddingLeft: "28px" }}
                         >
                           <span className="truncate">{file.name || file.path}</span>
-                          <div className="flex items-center gap-2 ml-2 text-xs text-gray-500">
+                          <div className="flex items-center gap-2 ml-2 text-xs text-[var(--color-text-secondary)]">
                             {file.iteration && <span>iter {file.iteration}</span>}
                             {file.job_status && (
                               <span className={`${
-                                file.job_status === "success" ? "text-green-500" :
-                                file.job_status === "error" ? "text-red-500" :
-                                "text-yellow-500"
+                                file.job_status === "success" ? "text-[var(--color-success-text)]" :
+                                file.job_status === "error" ? "text-[var(--color-danger-text)]" :
+                                "text-[var(--color-warning-text)]"
                               }`}>
                                 {file.job_status}
                               </span>
@@ -559,7 +559,7 @@ const CustomInput = ({
                   );
                 })
               ) : (
-                <p className="text-xs text-gray-500 p-2">
+                <p className="text-xs text-[var(--color-text-secondary)] p-2">
                   {stageMessage || `No ${stageOptimiserFiles} optimiser files found. Run a ${stageOptimiserFiles} job first.`}
                 </p>
               )}
@@ -581,7 +581,7 @@ const CustomInput = ({
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             disabled={disabled}
-            className="border border-gray-300 rounded px-2 bg-white focus:outline-none"
+            className="border border-[var(--color-border)] rounded px-2 bg-[var(--color-bg-card)] focus:outline-none"
             style={{
               width: "280px",
               height: "32px",
@@ -595,12 +595,12 @@ const CustomInput = ({
               type="button"
               onClick={onBrowseClick}
               disabled={disabled}
-              className={`h-9 px-2 border border-gray-300 rounded bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors ${
+              className={`h-9 px-2 border border-[var(--color-border)] rounded bg-[var(--color-bg)] hover:bg-[var(--color-bg-hover)] flex items-center justify-center transition-colors ${
                 disabled ? "opacity-30 cursor-not-allowed" : ""
               }`}
               title="Browse project folder"
             >
-              <PiBrowser className="text-gray-600 text-lg" />
+              <PiBrowser className="text-[var(--color-text-secondary)] text-lg" />
             </button>
           )}
         </div>
@@ -618,11 +618,11 @@ const CustomInput = ({
       <div className="flex items-center gap-[7px]">
         {renderInputField()}
         <div
-          className="bg-white p-[2px] rounded flex items-center justify-center cursor-pointer relative"
+          className="bg-[var(--color-bg-card)] p-[2px] rounded flex items-center justify-center cursor-pointer relative"
           onMouseEnter={() => setTooltipVisible(true)}
           onMouseLeave={() => setTooltipVisible(false)}
         >
-          <IoInformationCircleOutline className="text-gray-400 text-sm" />
+          <IoInformationCircleOutline className="text-[var(--color-text-muted)] text-sm" />
           {isTooltipVisible && (
             <div
               style={{
@@ -630,8 +630,8 @@ const CustomInput = ({
                 left: "calc(100% + 8px)",
                 top: "50%",
                 transform: "translateY(-50%)",
-                backgroundColor: "#1e293b",
-                color: "#f8fafc",
+                backgroundColor: "var(--color-text-heading)",
+                color: "var(--color-bg)",
                 padding: "8px 10px",
                 borderRadius: "6px",
                 fontSize: "11px",
@@ -652,7 +652,7 @@ const CustomInput = ({
                   height: "0",
                   borderTop: "6px solid transparent",
                   borderBottom: "6px solid transparent",
-                  borderRight: "6px solid #1e293b",
+                  borderRight: "6px solid var(--color-text-heading)",
                 }}
               />
             </div>

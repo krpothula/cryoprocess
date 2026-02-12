@@ -140,10 +140,10 @@ const Optimization = ({
             justifyContent: 'center'
           }}>
             <div>
-              <span style={{ color: '#6b7280' }}>Box:</span> {particleMetadata.image_size}px | <span style={{ color: '#6b7280' }}>Pixel:</span> {particleMetadata.pixel_size}Å
+              <span style={{ color: 'var(--color-text-secondary)' }}>Box:</span> {particleMetadata.image_size}px | <span style={{ color: 'var(--color-text-secondary)' }}>Pixel:</span> {particleMetadata.pixel_size}Å
             </div>
             <div>
-              <span style={{ color: '#6b7280' }}>Recommended:</span> <strong>{particleMetadata.suggested_mask_diameter}Å</strong> | <span style={{ color: '#6b7280' }}>Max:</span> {particleMetadata.max_safe_mask_diameter}Å
+              <span style={{ color: 'var(--color-text-secondary)' }}>Recommended:</span> <strong>{particleMetadata.suggested_mask_diameter}Å</strong> | <span style={{ color: 'var(--color-text-secondary)' }}>Max:</span> {particleMetadata.max_safe_mask_diameter}Å
             </div>
           </div>
         )}

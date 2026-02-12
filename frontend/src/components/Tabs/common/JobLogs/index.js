@@ -367,7 +367,7 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
       );
     }
     return (
-      <div className="jl-log-content" style={{ background: "#ffffff" }}>
+      <div className="jl-log-content" style={{ background: "var(--color-bg-card)" }}>
         <pre style={styles.logPre}>{content}<span ref={logEndRef} /></pre>
       </div>
     );
@@ -389,10 +389,8 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
       );
     }
     return (
-      <div className="jl-log-content" style={{ background: "#fff5f5" }}>
-        <pre style={{ ...styles.logPre, color: "#dc2626", background: "#fff5f5" }}>
-          {content}
-        </pre>
+      <div className="jl-log-content" style={{ background: "var(--color-bg-card)" }}>
+        <pre style={styles.logPre}>{content}</pre>
       </div>
     );
   };
@@ -514,7 +512,7 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
   };
 
   return (
-    <div className="jl-container" style={{ background: "#ffffff" }}>
+    <div className="jl-container" style={{ background: "var(--color-bg-card)" }}>
       {renderJobHeader()}
       {renderErrorBanner()}
 
@@ -527,7 +525,7 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
 
       {renderTabs()}
 
-      <div className="jl-content" style={{ background: "#ffffff" }}>
+      <div className="jl-content" style={{ background: "var(--color-bg-card)" }}>
         {activeTab === "output" && renderOutputTab()}
         {activeTab === "errors" && renderErrorsTab()}
         {activeTab === "issues" && renderIssuesTab()}
@@ -541,8 +539,8 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
 const styles = {
   header: {
     padding: "14px 18px 10px",
-    borderBottom: "1px solid #e2e8f0",
-    background: "#f8fafc",
+    borderBottom: "1px solid var(--color-border)",
+    background: "var(--color-bg)",
   },
   headerRow: {
     display: "flex",
@@ -554,15 +552,15 @@ const styles = {
   jobName: {
     fontSize: "14px",
     fontWeight: 700,
-    color: "#1e293b",
+    color: "var(--color-text)",
   },
   dot: {
-    color: "#94a3b8",
+    color: "var(--color-text-muted)",
     fontSize: "14px",
   },
   jobType: {
     fontSize: "13px",
-    color: "#64748b",
+    color: "var(--color-text-secondary)",
     fontWeight: 500,
   },
   statusPill: {
@@ -575,8 +573,8 @@ const styles = {
   },
   slurmBadge: {
     fontSize: "11px",
-    color: "#64748b",
-    background: "#e2e8f0",
+    color: "var(--color-text-secondary)",
+    background: "var(--color-border)",
     padding: "2px 8px",
     borderRadius: "4px",
     fontFamily: "'JetBrains Mono', 'Consolas', monospace",
@@ -586,7 +584,7 @@ const styles = {
     alignItems: "center",
     gap: "14px",
     fontSize: "12px",
-    color: "#64748b",
+    color: "var(--color-text-secondary)",
   },
   metaItem: {
     display: "flex",
@@ -601,9 +599,9 @@ const styles = {
     padding: "4px 10px",
     fontSize: "11px",
     fontWeight: 500,
-    color: "#64748b",
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
+    color: "var(--color-text-secondary)",
+    background: "var(--color-bg-card)",
+    border: "1px solid var(--color-border)",
     borderRadius: "6px",
     cursor: "pointer",
   },
@@ -612,11 +610,11 @@ const styles = {
     alignItems: "flex-start",
     gap: "10px",
     padding: "12px 18px",
-    background: "#fef2f2",
-    color: "#dc2626",
+    background: "var(--color-danger-bg)",
+    color: "var(--color-danger-text)",
     fontSize: "13px",
     lineHeight: 1.5,
-    borderBottom: "1px solid #fecaca",
+    borderBottom: "1px solid var(--color-danger-border)",
   },
   errorBannerText: {
     wordBreak: "break-word",
@@ -626,8 +624,8 @@ const styles = {
     display: "flex",
     alignItems: "center",
     padding: "0 18px",
-    background: "#ffffff",
-    borderBottom: "1px solid #e2e8f0",
+    background: "var(--color-bg-card)",
+    borderBottom: "1px solid var(--color-border)",
     gap: "0",
   },
   tab: {
@@ -638,7 +636,7 @@ const styles = {
     background: "transparent",
     border: "none",
     borderBottom: "2px solid transparent",
-    color: "#64748b",
+    color: "var(--color-text-secondary)",
     fontSize: "13px",
     fontWeight: 500,
     cursor: "pointer",
@@ -646,8 +644,8 @@ const styles = {
     transition: "color 0.15s ease",
   },
   tabActive: {
-    color: "#3b82f6",
-    borderBottomColor: "#3b82f6",
+    color: "var(--color-primary)",
+    borderBottomColor: "var(--color-primary)",
     fontWeight: 600,
   },
   tabBadgeError: {
@@ -677,15 +675,15 @@ const styles = {
     color: "#ffffff",
   },
   logPre: {
-    background: "#ffffff",
-    color: "#1e293b",
+    background: "var(--color-bg-card)",
+    color: "var(--color-text)",
     margin: 0,
     padding: "16px",
     fontFamily: "'JetBrains Mono', 'Consolas', monospace",
-    fontSize: "13px",
-    lineHeight: 1.8,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
+    fontSize: "12px",
+    lineHeight: 1.6,
+    whiteSpace: "pre",
+    overflowX: "auto",
   },
   issuesContainer: {
     padding: "0",
@@ -695,8 +693,8 @@ const styles = {
     alignItems: "center",
     gap: "10px",
     padding: "12px 18px",
-    background: "#f8fafc",
-    borderBottom: "1px solid #e2e8f0",
+    background: "var(--color-bg)",
+    borderBottom: "1px solid var(--color-border)",
     flexWrap: "wrap",
   },
   summaryChipError: {
@@ -705,8 +703,8 @@ const styles = {
     gap: "4px",
     fontSize: "12px",
     fontWeight: 600,
-    color: "#dc2626",
-    background: "#fef2f2",
+    color: "var(--color-danger-text)",
+    background: "var(--color-danger-bg)",
     padding: "4px 10px",
     borderRadius: "6px",
   },
@@ -716,14 +714,14 @@ const styles = {
     gap: "4px",
     fontSize: "12px",
     fontWeight: 600,
-    color: "#d97706",
-    background: "#fffbeb",
+    color: "var(--color-warning-strong, #d97706)",
+    background: "var(--color-warning-bg, #fffbeb)",
     padding: "4px 10px",
     borderRadius: "6px",
   },
   slurmInfo: {
     fontSize: "12px",
-    color: "#64748b",
+    color: "var(--color-text-secondary)",
     fontFamily: "'JetBrains Mono', 'Consolas', monospace",
     marginLeft: "auto",
   },

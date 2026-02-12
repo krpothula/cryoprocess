@@ -10,13 +10,20 @@ const CustomDropdown = ({
   onChange,
   tooltipText,
   disabled = false,
+  disabledHint,
+  autoFilled = false,
 }) => {
   const [isTooltipVisible, setTooltipVisible] = useState(false);
   return (
     <div className="flex items-center gap-2">
       <div className="w-[30%]">
-        <label style={{ textAlign: "left", opacity: disabled ? 0.3 : 1 }}>
+        <label style={{ textAlign: "left", opacity: disabled ? 0.5 : 1, display: "flex", alignItems: "center", gap: "6px" }}>
           {label}
+          {autoFilled && (
+            <span style={{ fontSize: "9px", fontWeight: 600, color: "var(--color-info-light-text, #0284c7)", backgroundColor: "var(--color-info-light-bg, #e0f2fe)", padding: "1px 5px", borderRadius: "3px", lineHeight: "1.4" }}>
+              AUTO
+            </span>
+          )}
         </label>
       </div>
       <div className="flex items-center gap-[7px]">
@@ -27,17 +34,21 @@ const CustomDropdown = ({
             style={{
               backgroundImage: "none",
               fontSize: "12px",
-              opacity: disabled ? 0.3 : 1,
+              opacity: disabled ? 0.5 : 1,
               borderRadius: "6px",
               cursor: disabled ? "not-allowed" : "auto",
               color: options?.find(o => o.value === value)?.color || "inherit",
               width: "280px",
               minWidth: "280px",
               maxWidth: "280px",
+              border: disabled ? "1px dashed var(--color-border-hover)" : undefined,
+              backgroundColor: disabled ? "var(--color-bg)" : undefined,
             }}
             disabled={disabled}
             value={value}
             onChange={onChange}
+            onFocus={() => setTooltipVisible(true)}
+            onBlur={() => setTooltipVisible(false)}
           >
             {options?.map((option, index) => (
               <option
@@ -51,29 +62,29 @@ const CustomDropdown = ({
             ))}
           </select>
 
-          {/* <BiSolidUpArrow
-            className="absolute text-black w-3 h-3 pointer-events-none right-5 top-1/4"
-            style={{
-              opacity: disabled ? 0.3 : 1,
-              cursor: disabled ? "not-allowed" : "auto",
-            }}
-          /> */}
-
           <BiSolidDownArrow
             className="absolute text-[#666] w-3 h-3 pointer-events-none right-5 top-3"
             style={{
-              opacity: disabled ? 0.3 : 1,
+              opacity: disabled ? 0.5 : 1,
               cursor: disabled ? "not-allowed" : "auto",
             }}
           />
+          {disabled && disabledHint && (
+            <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "1px", lineHeight: "1.3" }}>
+              {disabledHint}
+            </div>
+          )}
         </div>
         <div
-          className="bg-white p-[2px] rounded flex items-center justify-center cursor-pointer relative"
+          className="bg-[var(--color-bg-card)] p-[2px] rounded flex items-center justify-center cursor-pointer relative"
           onMouseEnter={() => setTooltipVisible(true)}
           onMouseLeave={() => setTooltipVisible(false)}
+          tabIndex={0}
+          onFocus={() => setTooltipVisible(true)}
+          onBlur={() => setTooltipVisible(false)}
         >
-          <IoInformationCircleOutline className="text-gray-400 text-sm" />
-          {isTooltipVisible && (
+          <IoInformationCircleOutline className="text-gray-400 dark:text-slate-500 text-sm" />
+          {isTooltipVisible && tooltipText && (
             <div
               style={{
                 position: "absolute",

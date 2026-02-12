@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { getSoftwareConfig } from "../services/softwareConfig";
 
 const BuilderContext = createContext();
 
@@ -97,6 +98,18 @@ export const BuilderContextProvider = ({ children, projectId, onJobSuccess }) =>
     setState((prev) => ({ ...prev, autoPopulateInputs: null, parentJobOutputs: null }));
   }, []);
 
+  // Email notifications enabled (fetched once from server config)
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(false);
+  useEffect(() => {
+    getSoftwareConfig()
+      .then((res) => {
+        if (res?.data?.email_notifications_enabled) {
+          setEmailNotificationsEnabled(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Resource validation error (set by SlurmRunningConfig, displayed by SubmitButton)
   const [resourceError, setResourceErrorState] = useState(null);
   const setResourceError = useCallback((error) => {
@@ -122,12 +135,13 @@ export const BuilderContextProvider = ({ children, projectId, onJobSuccess }) =>
     selectDownstreamJob,
     populateInputs,
     clearAutoPopulate,
+    emailNotificationsEnabled,
     resourceError,
     setResourceError,
     setActiveInputField,
     getActiveInputField,
     onJobSuccess
-  }), [builderState, resourceError, handleStateChange, setSelectedJob, setSelectedBuilder, setCopiedJobParams, clearCopiedJobParams, setParentJobOutputs, selectDownstreamJob, populateInputs, clearAutoPopulate, setResourceError, setActiveInputField, getActiveInputField, onJobSuccess]);
+  }), [builderState, emailNotificationsEnabled, resourceError, handleStateChange, setSelectedJob, setSelectedBuilder, setCopiedJobParams, clearCopiedJobParams, setParentJobOutputs, selectDownstreamJob, populateInputs, clearAutoPopulate, setResourceError, setActiveInputField, getActiveInputField, onJobSuccess]);
 
   return (
     <BuilderContext.Provider value={value}>

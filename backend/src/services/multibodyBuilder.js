@@ -1,7 +1,10 @@
 /**
  * Multi-Body Refinement Job Builder
  *
- * Builds RELION relion_refine commands for multi-body analysis.
+ * Builds RELION relion_refine commands for multi-body refinement.
+ * Multi-body refinement is a continuation of a completed auto-refine job,
+ * using --continue with the optimiser STAR file and --multibody_masks
+ * with a body definition STAR file.
  */
 
 const path = require('path');
@@ -27,10 +30,15 @@ class MultibodyBuilder extends BaseJobBuilder {
   validate() {
     const refinementStar = getParam(this.data, ['refinementStarFile', 'refinement_star_file'], null);
     if (!refinementStar) {
-      return { valid: false, error: 'Refinement STAR file is required' };
+      return { valid: false, error: 'Refinement optimiser STAR file is required' };
     }
 
-    logger.info(`[MultiBody] Validation passed | input: ${refinementStar}`);
+    const bodyMasks = getParam(this.data, ['multibodyMasks', 'multibody_masks', 'bodyMasks', 'body_masks'], null);
+    if (!bodyMasks) {
+      return { valid: false, error: 'Multi-body masks STAR file is required' };
+    }
+
+    logger.info(`[MultiBody] Validation passed | input: ${refinementStar}, masks: ${bodyMasks}`);
     return { valid: true, error: null };
   }
 
@@ -50,24 +58,35 @@ class MultibodyBuilder extends BaseJobBuilder {
     const cmd = this.buildMpiCommand('relion_refine', mpiProcs, gpuEnabled);
 
     const refinementStar = getParam(data, ['refinementStarFile', 'refinement_star_file'], null);
+    const bodyMasks = getParam(data, ['multibodyMasks', 'multibody_masks', 'bodyMasks', 'body_masks'], null);
 
-    cmd.push('--i', this.makeRelative(this.resolveInputPath(refinementStar)));
+    // Multi-body refinement uses --continue (not --i) with a completed auto-refine optimiser
+    cmd.push('--continue', this.makeRelative(this.resolveInputPath(refinementStar)));
     cmd.push('--o', path.join(relOutputDir, 'run'));
-    cmd.push('--auto_refine');
-    cmd.push('--split_random_halves');
-    cmd.push('--healpix_order', '2');
-    cmd.push('--offset_range', String(getFloatParam(data, ['offsetSearchRange', 'offset_search_range'], 5)));
-    cmd.push('--offset_step', String(getFloatParam(data, ['offsetStep', 'offset_step'], 0.75)));
+
+    // Multi-body masks STAR file (required for multi-body mode)
+    cmd.push('--multibody_masks', this.makeRelative(this.resolveInputPath(bodyMasks)));
+
+    // Reconstruct subtracted bodies (recommended)
+    if (getBoolParam(data, ['reconstructSubtractedBodies', 'reconstruct_subtracted_bodies'], true)) {
+      cmd.push('--reconstruct_subtracted_bodies');
+    }
+
+    // Solvent-correct FSC (recommended for multi-body)
+    if (getBoolParam(data, ['solventCorrectFsc', 'solvent_correct_fsc'], true)) {
+      cmd.push('--solvent_correct_fsc');
+    }
+
+    cmd.push('--healpix_order', String(getIntParam(data, ['healpixOrder', 'healpix_order'], 4)));
+    cmd.push('--offset_range', String(getFloatParam(data, ['offsetSearchRange', 'offset_search_range'], 3)));
+    cmd.push('--offset_step', String(getFloatParam(data, ['offsetStep', 'offset_step'], 1.5)));
     cmd.push('--auto_local_healpix_order', '4');
-    cmd.push('--flatten_solvent');
-    cmd.push('--norm');
-    cmd.push('--scale');
     cmd.push('--oversampling', '1');
     cmd.push('--pool', String(pooled));
     cmd.push('--pad', '2');
-    cmd.push('--low_resol_join_halves', '40');
+    cmd.push('--dont_combine_weights_via_disc');
     cmd.push('--j', String(threads));
-    cmd.push('--pipeline_control', relOutputDir);
+    cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     // Optional flags
     if (getBoolParam(data, ['useBlushRegularisation', 'use_blush_regularisation'], false)) {
@@ -83,9 +102,6 @@ class MultibodyBuilder extends BaseJobBuilder {
     // I/O options
     if (!getBoolParam(data, ['Useparalleldisc', 'useParallelIO', 'use_parallel_io'], true)) {
       cmd.push('--no_parallel_disc_io');
-    }
-    if (!getBoolParam(data, ['combineIterations', 'combine_iterations'], true)) {
-      cmd.push('--dont_combine_weights_via_disc');
     }
 
     // Additional arguments

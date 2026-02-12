@@ -8,49 +8,63 @@ const InputGroup = ({
   onChange,
   tooltipText,
   disabled = false,
+  disabledHint,
 }) => {
   const [isTooltipVisible, setTooltipVisible] = useState(false);
   return (
     <div className="flex items-center gap-2">
       <div style={{ width: "30%" }}>
-        <label style={{ textAlign: "left", opacity: disabled ? 0.3 : 1 }}>
+        <label style={{ textAlign: "left", opacity: disabled ? 0.5 : 1 }}>
           {label}
         </label>
       </div>
       <div className="flex items-center gap-[7px]">
-        <div className="input-group relative flex gap-2" style={{ width: "280px", minWidth: "280px", maxWidth: "280px" }}>
-          {inputs.map((input, index) => (
-            <input
-              key={index}
-              type={type}
-              name={input.name}
-              value={input.value}
-              onChange={onChange}
-              placeholder={input.placeholder}
-              disabled={disabled}
-              style={{
-                padding: "6px 10px",
-                flex: 1,
-                minWidth: 0,
-                border: "1px solid #e2e8f0",
-                borderRadius: "6px",
-                height: "32px",
-                opacity: disabled ? 0.3 : 1,
-                fontSize: "12px",
-                backgroundColor: "white",
-                cursor: disabled ? "not-allowed" : "text",
-              }}
-            />
-          ))}
+        <div>
+          <div className="input-group relative flex gap-2" style={{ width: "280px", minWidth: "280px", maxWidth: "280px" }}>
+            {inputs.map((input, index) => (
+              <input
+                key={index}
+                type={type}
+                name={input.name}
+                value={input.value}
+                onChange={onChange}
+                placeholder={input.placeholder}
+                disabled={disabled}
+                onFocus={() => setTooltipVisible(true)}
+                onBlur={() => setTooltipVisible(false)}
+                style={{
+                  padding: "6px 10px",
+                  flex: 1,
+                  minWidth: 0,
+                  border: disabled ? "1px dashed var(--color-border-hover)" : "1px solid var(--color-border)",
+                  borderRadius: "6px",
+                  height: "32px",
+                  opacity: disabled ? 0.5 : 1,
+                  fontSize: "12px",
+                  backgroundColor: disabled ? "var(--color-bg)" : "var(--color-bg-card)",
+                  color: "var(--color-text-heading)",
+                  cursor: disabled ? "not-allowed" : "text",
+                }}
+              />
+            ))}
+          </div>
+          {disabled && disabledHint && (
+            <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "1px", lineHeight: "1.3" }}>
+              {disabledHint}
+            </div>
+          )}
         </div>
 
         <div
-          className="bg-white p-[2px] rounded flex items-center justify-center cursor-pointer relative"
+          className="bg-[var(--color-bg-card)] p-[2px] rounded flex items-center justify-center cursor-pointer relative"
           onMouseEnter={() => setTooltipVisible(true)}
           onMouseLeave={() => setTooltipVisible(false)}
+          tabIndex={0}
+          onFocus={() => setTooltipVisible(true)}
+          onBlur={() => setTooltipVisible(false)}
         >
-          <IoInformationCircleOutline className="text-gray-400 text-sm" />
-          {isTooltipVisible && (
+          <IoInformationCircleOutline className="text-gray-400 dark:text-slate-500 text-sm" />
+          {isTooltipVisible && tooltipText && (
             <div
               style={{
                 position: "absolute",

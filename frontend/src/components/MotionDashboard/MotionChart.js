@@ -15,7 +15,7 @@ const MotionChart = ({ data = [], micrographs = [] }) => {
 
   if (chartData.length === 0) {
     return (
-      <div className="h-48 flex items-center justify-center text-gray-400 bg-gray-50 rounded">
+      <div className="h-48 flex items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900 rounded">
         <p>No motion data available yet</p>
       </div>
     );
@@ -66,7 +66,7 @@ const MotionChart = ({ data = [], micrographs = [] }) => {
                 y1={yScale(tick)}
                 x2={chartWidth}
                 y2={yScale(tick)}
-                stroke="#e5e7eb"
+                stroke="var(--color-chart-grid, #e5e7eb)"
                 strokeDasharray="4,4"
               />
               <text
@@ -74,7 +74,8 @@ const MotionChart = ({ data = [], micrographs = [] }) => {
                 y={yScale(tick)}
                 textAnchor="end"
                 alignmentBaseline="middle"
-                className="text-xs fill-gray-500"
+                className="text-xs"
+                style={{ fill: "var(--color-text-muted)" }}
               >
                 {tick.toFixed(1)}
               </text>
@@ -86,7 +87,8 @@ const MotionChart = ({ data = [], micrographs = [] }) => {
             x={chartWidth / 2}
             y={chartHeight + 25}
             textAnchor="middle"
-            className="text-xs fill-gray-500"
+            className="text-xs"
+            style={{ fill: "var(--color-text-muted)" }}
           >
             Micrograph Index
           </text>
@@ -97,7 +99,8 @@ const MotionChart = ({ data = [], micrographs = [] }) => {
             y={chartHeight / 2}
             textAnchor="middle"
             transform={`rotate(-90, -35, ${chartHeight / 2})`}
-            className="text-xs fill-gray-500"
+            className="text-xs"
+            style={{ fill: "var(--color-text-muted)" }}
           >
             Motion (A)
           </text>
@@ -143,15 +146,15 @@ const MotionChart = ({ data = [], micrographs = [] }) => {
       <div className="flex justify-center gap-6 mt-2">
         <div className="flex items-center gap-2">
           <div className="w-4 h-0.5 bg-blue-500" />
-          <span className="text-xs text-gray-600">Total Motion</span>
+          <span className="text-xs text-gray-600 dark:text-slate-300">Total Motion</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-0.5 bg-purple-500 border-dashed border-t-2 border-purple-500" />
-          <span className="text-xs text-gray-600">Early Motion</span>
+          <span className="text-xs text-gray-600 dark:text-slate-300">Early Motion</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-0.5 border-dotted border-t-2 border-orange-500" />
-          <span className="text-xs text-gray-600">Late Motion</span>
+          <span className="text-xs text-gray-600 dark:text-slate-300">Late Motion</span>
         </div>
       </div>
     </div>

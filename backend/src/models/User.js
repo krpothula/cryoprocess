@@ -66,6 +66,23 @@ const userSchema = new mongoose.Schema({
   last_login: {
     type: Date,
     default: null
+  },
+  cluster_username: {
+    type: String,
+    default: ''
+  },
+  cluster_ssh_key: {
+    type: String,
+    default: '',
+    select: false
+  },
+  cluster_connected: {
+    type: Boolean,
+    default: false
+  },
+  cluster_enabled: {
+    type: Boolean,
+    default: false
   }
 }, {
   collection: 'users',

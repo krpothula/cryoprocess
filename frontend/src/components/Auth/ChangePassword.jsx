@@ -174,12 +174,12 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+          background: linear-gradient(180deg, var(--color-bg) 0%, var(--color-border) 100%);
           padding: 20px;
         }
 
         .change-password-card {
-          background: white;
+          background: var(--color-bg-card);
           border-radius: 16px;
           padding: 40px;
           width: 100%;
@@ -190,35 +190,35 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
         .card-icon {
           width: 56px;
           height: 56px;
-          background: #f1f5f9;
+          background: var(--color-border-light);
           border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
           margin: 0 auto 20px;
           font-size: 24px;
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .change-password-card h1 {
           font-size: 24px;
           font-weight: 600;
-          color: #0f172a;
+          color: var(--color-text-heading);
           text-align: center;
           margin: 0 0 8px;
         }
 
         .forced-message {
           text-align: center;
-          color: #64748b;
+          color: var(--color-text-secondary);
           font-size: 14px;
           margin-bottom: 24px;
         }
 
         .error-message {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #dc2626;
+          background: var(--color-danger-bg);
+          border: 1px solid var(--color-danger-border);
+          color: var(--color-danger-text);
           padding: 12px 16px;
           border-radius: 8px;
           font-size: 14px;
@@ -234,7 +234,7 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
           display: block;
           font-size: 14px;
           font-weight: 500;
-          color: #334155;
+          color: var(--color-text-label);
           margin-bottom: 8px;
         }
 
@@ -245,16 +245,18 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
         .password-input input {
           width: 100%;
           padding: 12px 44px 12px 14px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--color-border);
           border-radius: 8px;
           font-size: 14px;
           box-sizing: border-box;
           transition: all 0.15s;
+          background: var(--color-bg-card);
+          color: var(--color-text-heading);
         }
 
         .password-input input:focus {
           outline: none;
-          border-color: #3b82f6;
+          border-color: var(--color-primary);
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
@@ -266,18 +268,18 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
           background: none;
           border: none;
           cursor: pointer;
-          color: #64748b;
+          color: var(--color-text-secondary);
           padding: 4px;
         }
 
         .toggle-password:hover {
-          color: #0f172a;
+          color: var(--color-text-heading);
         }
 
         .password-hint {
           display: block;
           font-size: 12px;
-          color: #94a3b8;
+          color: var(--color-text-muted);
           margin-top: 6px;
         }
 
@@ -290,17 +292,17 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
         }
 
         .match-indicator.match {
-          color: #16a34a;
+          color: var(--color-success-text);
         }
 
         .match-indicator.no-match {
-          color: #dc2626;
+          color: var(--color-danger-text);
         }
 
         .btn-submit {
           width: 100%;
           padding: 14px 20px;
-          background: #0f172a;
+          background: var(--color-text-heading);
           color: white;
           border: none;
           border-radius: 8px;
@@ -316,7 +318,7 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
         }
 
         .btn-submit:hover:not(:disabled) {
-          background: #1e293b;
+          background: var(--color-text);
         }
 
         .btn-submit:disabled {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import {
   getCTFResultsApi,
@@ -27,6 +27,7 @@ import {
 import MicrographList from "./MicrographList";
 import MicrographViewer from "./MicrographViewer";
 import CTFParameterHistogram from "./CTFParameterHistogram";
+import useJobNotification from "../../hooks/useJobNotification";
 
 const CtfDashboard = () => {
   const { selectedJob } = useBuilder();
@@ -126,12 +127,17 @@ const CtfDashboard = () => {
     }
   };
 
+  // Guard against state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const fetchResults = useCallback(async () => {
     if (!selectedJob?.id) return;
 
     try {
       setLoading(true);
       const response = await getCTFResultsApi(selectedJob.id);
+      if (!mountedRef.current) return;
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
@@ -140,7 +146,7 @@ const CtfDashboard = () => {
       setError("Failed to load CTF estimation results");
       console.error("Error fetching results:", err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [selectedJob?.id]);
 
@@ -324,12 +330,16 @@ const CtfDashboard = () => {
     }
   };
 
+  // Trigger immediate fetch on WebSocket job_update (supplements polling)
+  useJobNotification(selectedJob?.id, fetchResults);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "success":
         return <FiCheckCircle className="text-green-500 text-xl" />;
       case "running":
         return <FiActivity className="text-amber-500 text-xl animate-pulse" />;
+      case "failed":
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
@@ -341,7 +351,7 @@ const CtfDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black font-medium mt-4">
+        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
           Loading CTF estimation results...
         </p>
       </div>
@@ -350,9 +360,9 @@ const CtfDashboard = () => {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 dark:bg-red-900/30 m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-red-600 dark:text-red-400 font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -362,23 +372,23 @@ const CtfDashboard = () => {
   const totalMicrographs = allMicrographs.length;
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStatusIcon(selectedJob?.status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text)" }}>
                 CtfEstimation/{selectedJob?.job_name || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
-                  ? "#16a34a"
+                  ? "var(--color-success)"
                   : selectedJob?.status === "error"
-                  ? "#dc2626"
+                  ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
                   ? "#f59e0b"
                   : "#ca8a04"
@@ -400,29 +410,29 @@ const CtfDashboard = () => {
 
         {/* RELION Command Section */}
         {selectedJob?.command && (
-          <div className="mt-3 pt-3 border-t">
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setShowCommand(!showCommand)}
-                className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+                className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded px-1 py-0.5 transition-colors"
               >
-                <FiTerminal className="text-gray-400" size={12} />
-                <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>RELION Command</span>
+                <FiTerminal className="text-gray-400 dark:text-slate-500" size={12} />
+                <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>RELION Command</span>
                 {showCommand ? (
-                  <FiChevronUp className="text-gray-400" size={12} />
+                  <FiChevronUp className="text-gray-400 dark:text-slate-500" size={12} />
                 ) : (
-                  <FiChevronDown className="text-gray-400" size={12} />
+                  <FiChevronDown className="text-gray-400 dark:text-slate-500" size={12} />
                 )}
               </button>
               {showCommand && (
                 <button
                   onClick={copyCommand}
-                  className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
                   title="Copy command"
                 >
-                  <FiCopy className="text-gray-400" size={12} />
+                  <FiCopy className="text-gray-400 dark:text-slate-500" size={12} />
                   {commandCopied && (
-                    <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                    <span style={{ fontSize: "10px", color: "var(--color-success)" }}>Copied!</span>
                   )}
                 </button>
               )}
@@ -432,7 +442,7 @@ const CtfDashboard = () => {
                 className="mt-2 overflow-x-auto font-mono"
                 style={{
                   fontSize: '9px',
-                  color: '#475569',
+                  color: 'var(--color-text-label)',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                   lineHeight: '1.4'
@@ -446,30 +456,30 @@ const CtfDashboard = () => {
       </div>
 
       {/* Stats Card */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiImage className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Micrographs:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiImage className="text-gray-400 dark:text-slate-500" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {liveStats?.processed ?? results?.summary?.processed ?? 0}/{liveStats?.total ?? results?.summary?.total ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Dose-Weight:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Dose-Weight:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {selectedJob?.parameters?.useMicrographWithoutDoseWeighting === "Yes" ? "No" : "Yes"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Exhaustive Search:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Exhaustive Search:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {selectedJob?.parameters?.useExhaustiveSearch || "No"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ fontSize: "12px", color: "#64748b" }}>FFT Box Size:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>FFT Box Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
               {selectedJob?.parameters?.fftBoxSize || 512}
             </span>
           </div>
@@ -477,12 +487,12 @@ const CtfDashboard = () => {
       </div>
 
       {/* Main Content - Two Column Layout */}
-      <div className="flex border border-gray-200 rounded-lg overflow-hidden" style={{ height: "411px" }}>
+      <div className="flex border-b border-gray-200 dark:border-slate-700 overflow-hidden" style={{ height: "411px" }}>
           {/* Micrograph List */}
-          <div className="flex-1 min-w-0 border-r border-gray-200 flex flex-col">
-            <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
-              <FiList className="text-gray-400" size={13} />
-              <span className="text-xs font-bold text-gray-600">Processed Micrographs</span>
+          <div className="flex-1 min-w-0 border-r border-gray-200 dark:border-slate-700 flex flex-col">
+            <div className="px-3 py-2 border-b border-gray-100 dark:border-slate-700 flex items-center gap-2 flex-shrink-0">
+              <FiList className="text-gray-400 dark:text-slate-500" size={13} />
+              <span className="text-xs font-bold text-gray-600 dark:text-slate-300">Processed Micrographs</span>
             </div>
             <div className="flex-1 min-h-0">
               <MicrographList
@@ -498,25 +508,25 @@ const CtfDashboard = () => {
           </div>
 
           {/* Micrograph and Power Spectrum Viewer - Square */}
-          <div className="bg-white flex flex-col" style={{ width: "411px", flexShrink: 0 }}>
-            <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
-              <FiImage className="text-gray-400" size={13} />
-              <span className="text-xs font-bold text-gray-600">Viewer</span>
-              <button onClick={handleZoomOut} className="p-0.5 hover:bg-gray-100 rounded ml-1" title="Zoom Out">
-                <FiZoomOut className="text-gray-600" size={12} />
+          <div className="bg-[var(--color-bg-card)] flex flex-col" style={{ width: "411px", flexShrink: 0 }}>
+            <div className="px-3 py-2 border-b border-gray-100 dark:border-slate-700 flex items-center gap-2 flex-shrink-0">
+              <FiImage className="text-gray-400 dark:text-slate-500" size={13} />
+              <span className="text-xs font-bold text-gray-600 dark:text-slate-300">Viewer</span>
+              <button onClick={handleZoomOut} className="p-0.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded ml-1" title="Zoom Out">
+                <FiZoomOut className="text-gray-600 dark:text-slate-300" size={12} />
               </button>
-              <span className="text-[9px] text-gray-500">{Math.round(viewerZoom * 100)}%</span>
-              <button onClick={handleZoomIn} className="p-0.5 hover:bg-gray-100 rounded" title="Zoom In">
-                <FiZoomIn className="text-gray-600" size={12} />
+              <span className="text-[9px] text-gray-500 dark:text-slate-400">{Math.round(viewerZoom * 100)}%</span>
+              <button onClick={handleZoomIn} className="p-0.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded" title="Zoom In">
+                <FiZoomIn className="text-gray-600 dark:text-slate-300" size={12} />
               </button>
               {/* Image type tabs */}
-              <div className="flex bg-gray-100 rounded p-0.5 ml-auto">
+              <div className="flex bg-gray-100 dark:bg-slate-800 rounded p-0.5 ml-auto">
                 <button
                   onClick={() => setActiveImageTab("micrograph")}
                   className={`px-2 py-0.5 text-[10px] rounded transition-all ${
                     activeImageTab === "micrograph"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
                   }`}
                 >
                   Micrograph
@@ -525,8 +535,8 @@ const CtfDashboard = () => {
                   onClick={() => setActiveImageTab("spectrum")}
                   className={`px-2 py-0.5 text-[10px] rounded transition-all ${
                     activeImageTab === "spectrum"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200"
                   }`}
                 >
                   Power Spectrum
@@ -547,9 +557,9 @@ const CtfDashboard = () => {
       </div>
 
       {/* Select Best Micrographs Section */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-gray-700 flex items-center gap-2" style={{ fontSize: "12px" }}>
+          <h3 className="font-bold text-gray-700 dark:text-slate-200 flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiFilter className="text-green-500" size={13} />
             Select Best Micrographs
           </h3>
@@ -564,32 +574,32 @@ const CtfDashboard = () => {
         <div className="flex items-center justify-between">
           {/* Defocus Range Inputs */}
           <div className="flex items-center gap-2">
-            <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>Defocus (Å)</span>
+            <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>Defocus (Å)</span>
             <input
               type="number"
               placeholder="Min"
               value={filters.minDefocus != null ? Math.round(filters.minDefocus) : ""}
               onChange={(e) => setFilters({ ...filters, minDefocus: e.target.value ? parseFloat(e.target.value) : null })}
-              className="w-20 px-2 py-1 border border-gray-200 rounded focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+              className="w-20 px-2 py-1 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
               style={{ fontSize: '12px' }}
             />
-            <span style={{ fontSize: "11px", color: "#cbd5e1" }}>—</span>
+            <span style={{ fontSize: "11px", color: "var(--color-border-hover)" }}>—</span>
             <input
               type="number"
               placeholder="Max"
               value={filters.maxDefocus != null ? Math.round(filters.maxDefocus) : ""}
               onChange={(e) => setFilters({ ...filters, maxDefocus: e.target.value ? parseFloat(e.target.value) : null })}
-              className="w-20 px-2 py-1 border border-gray-200 rounded focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+              className="w-20 px-2 py-1 border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
               style={{ fontSize: '12px' }}
             />
           </div>
 
           {/* Micrograph Count */}
           <div className="flex items-center gap-1.5">
-            <span style={{ fontSize: "20px", fontWeight: 700, color: "#2563eb", lineHeight: 1 }}>{filteredMicrographs.length}</span>
-            <span style={{ fontSize: "13px", color: "#94a3b8", fontWeight: 500 }}>/</span>
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "#64748b", lineHeight: 1 }}>{totalMicrographs}</span>
-            <span style={{ fontSize: "11px", color: "#94a3b8", marginLeft: "2px" }}>micrographs</span>
+            <span style={{ fontSize: "20px", fontWeight: 700, color: "var(--color-primary)", lineHeight: 1 }}>{filteredMicrographs.length}</span>
+            <span style={{ fontSize: "13px", color: "var(--color-text-muted)", fontWeight: 500 }}>/</span>
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-secondary)", lineHeight: 1 }}>{totalMicrographs}</span>
+            <span style={{ fontSize: "11px", color: "var(--color-text-muted)", marginLeft: "2px" }}>micrographs</span>
           </div>
 
           {/* Save Button + Message */}
@@ -600,7 +610,7 @@ const CtfDashboard = () => {
               className={`flex items-center gap-2 px-5 py-1.5 font-semibold rounded-lg transition-all ${
                 filteredMicrographs.length > 0 && !isSaving
                   ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm"
-                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed"
               }`}
               style={{ fontSize: "12px" }}
               title="Save filtered micrographs to STAR file"

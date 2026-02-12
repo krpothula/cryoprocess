@@ -58,7 +58,7 @@ const ShiftTrajectory = ({ data }) => {
 
   if (!trajectoryData.length) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400">
+      <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
         <p>No shift data available</p>
       </div>
     );
@@ -112,7 +112,7 @@ const ShiftTrajectory = ({ data }) => {
     }
   };
 
-  const unit = stats?.pixelSize ? "Å" : "px";
+  const unit = stats?.pixelSize ? "A" : "px";
   const toUnit = (val) => {
     if (stats?.pixelSize) return (val * stats.pixelSize).toFixed(2);
     return val.toFixed(2);
@@ -129,28 +129,28 @@ const ShiftTrajectory = ({ data }) => {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Stats Grid - 2x2 */}
       {stats && (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 px-3 py-2 border-b border-gray-100 flex-shrink-0">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 px-3 py-2 border-b border-gray-100 dark:border-slate-700 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <span style={{ fontSize: "10px", color: "#94a3b8" }}>RMSD</span>
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "#1e293b" }}>
+            <span style={{ fontSize: "10px", color: "var(--color-text-muted)" }}>RMSD</span>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text)" }}>
               {toUnit(stats.rmsd)} {unit}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span style={{ fontSize: "10px", color: "#94a3b8" }}>Drift</span>
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "#1e293b" }}>
+            <span style={{ fontSize: "10px", color: "var(--color-text-muted)" }}>Drift</span>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text)" }}>
               {toUnit(stats.totalDrift)} {unit}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span style={{ fontSize: "10px", color: "#94a3b8" }}>Max Shift</span>
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "#1e293b" }}>
+            <span style={{ fontSize: "10px", color: "var(--color-text-muted)" }}>Max Shift</span>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text)" }}>
               {toUnit(stats.maxShift)} {unit}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span style={{ fontSize: "10px", color: "#94a3b8" }}>Frames</span>
-            <span style={{ fontSize: "11px", fontWeight: 600, color: "#1e293b" }}>
+            <span style={{ fontSize: "10px", color: "var(--color-text-muted)" }}>Frames</span>
+            <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text)" }}>
               {stats.numFrames}
             </span>
           </div>
@@ -171,8 +171,8 @@ const ShiftTrajectory = ({ data }) => {
             y={margin.top}
             width={size}
             height={size}
-            fill="white"
-            stroke="#e2e8f0"
+            fill="var(--color-bg-card)"
+            stroke="var(--color-border)"
             strokeWidth="1"
           />
 
@@ -184,7 +184,7 @@ const ShiftTrajectory = ({ data }) => {
                 y1={margin.top + size * ratio}
                 x2={margin.left + size}
                 y2={margin.top + size * ratio}
-                stroke="#f1f5f9"
+                stroke="var(--color-bg-hover)"
                 strokeWidth="1"
               />
               <line
@@ -192,7 +192,7 @@ const ShiftTrajectory = ({ data }) => {
                 y1={margin.top}
                 x2={margin.left + size * ratio}
                 y2={margin.top + size}
-                stroke="#f1f5f9"
+                stroke="var(--color-bg-hover)"
                 strokeWidth="1"
               />
             </g>
@@ -206,7 +206,7 @@ const ShiftTrajectory = ({ data }) => {
                 y1={margin.top}
                 x2={margin.left + scale(0, viewMinX, viewMaxX)}
                 y2={margin.top + size}
-                stroke="#cbd5e1"
+                stroke="var(--color-border-hover)"
                 strokeWidth="0.5"
                 strokeDasharray="3,3"
               />
@@ -215,7 +215,7 @@ const ShiftTrajectory = ({ data }) => {
                 y1={margin.top + size - scale(0, viewMinY, viewMaxY)}
                 x2={margin.left + size}
                 y2={margin.top + size - scale(0, viewMinY, viewMaxY)}
-                stroke="#cbd5e1"
+                stroke="var(--color-border-hover)"
                 strokeWidth="0.5"
                 strokeDasharray="3,3"
               />
@@ -224,7 +224,7 @@ const ShiftTrajectory = ({ data }) => {
                 cy={margin.top + size - scale(0, viewMinY, viewMaxY)}
                 r="3"
                 fill="none"
-                stroke="#94a3b8"
+                stroke="var(--color-text-muted)"
                 strokeWidth="1"
               />
             </g>
@@ -275,13 +275,13 @@ const ShiftTrajectory = ({ data }) => {
                 <line
                   x1={x} y1={margin.top + size}
                   x2={x} y2={margin.top + size + 4}
-                  stroke="#94a3b8" strokeWidth="1"
+                  stroke="var(--color-text-muted)" strokeWidth="1"
                 />
                 <text
                   x={x}
                   y={margin.top + size + 14}
                   textAnchor="middle"
-                  style={{ fontSize: "8px", fill: "#94a3b8" }}
+                  style={{ fontSize: "8px", fill: "var(--color-text-muted)" }}
                 >
                   {val.toFixed(1)}
                 </text>
@@ -297,13 +297,13 @@ const ShiftTrajectory = ({ data }) => {
                 <line
                   x1={margin.left - 4} y1={y}
                   x2={margin.left} y2={y}
-                  stroke="#94a3b8" strokeWidth="1"
+                  stroke="var(--color-text-muted)" strokeWidth="1"
                 />
                 <text
                   x={margin.left - 6}
                   y={y + 3}
                   textAnchor="end"
-                  style={{ fontSize: "8px", fill: "#94a3b8" }}
+                  style={{ fontSize: "8px", fill: "var(--color-text-muted)" }}
                 >
                   {val.toFixed(1)}
                 </text>
@@ -316,7 +316,7 @@ const ShiftTrajectory = ({ data }) => {
             x={margin.left + size / 2}
             y={margin.top + size + 26}
             textAnchor="middle"
-            style={{ fontSize: "9px", fill: "#64748b" }}
+            style={{ fontSize: "9px", fill: "var(--color-text-secondary)" }}
           >
             Shift X ({unit})
           </text>
@@ -325,7 +325,7 @@ const ShiftTrajectory = ({ data }) => {
             y={margin.top + size / 2}
             textAnchor="middle"
             transform={`rotate(-90, 10, ${margin.top + size / 2})`}
-            style={{ fontSize: "9px", fill: "#64748b" }}
+            style={{ fontSize: "9px", fill: "var(--color-text-secondary)" }}
           >
             Shift Y ({unit})
           </text>
@@ -333,7 +333,7 @@ const ShiftTrajectory = ({ data }) => {
       </div>
 
       {/* Legend */}
-      <div className="flex justify-center gap-4 text-xs text-gray-500 py-1.5 flex-shrink-0 border-t border-gray-100">
+      <div className="flex justify-center gap-4 text-xs text-gray-500 dark:text-slate-400 py-1.5 flex-shrink-0 border-t border-gray-100 dark:border-slate-700">
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full" style={{ background: "#3b82f6" }} />
           <span style={{ fontSize: "10px" }}>Frame 1</span>

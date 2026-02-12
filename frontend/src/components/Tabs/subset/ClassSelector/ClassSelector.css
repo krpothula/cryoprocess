@@ -1,15 +1,15 @@
 .class-selector {
   margin-top: 16px;
-  border: 1px solid #333;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #1a1a2e;
+  background: var(--color-bg);
   padding: 16px;
 }
 
 .class-selector-placeholder {
   text-align: center;
   padding: 40px;
-  color: #888;
+  color: var(--color-text-muted);
 }
 
 .class-selector-header {
@@ -23,7 +23,7 @@
 
 .class-selector-header h4 {
   margin: 0;
-  color: #fff;
+  color: var(--color-text);
 }
 
 .class-selector-controls {
@@ -41,24 +41,24 @@
 
 .iteration-selector label,
 .sort-controls label {
-  color: #aaa;
+  color: var(--color-text-muted);
   font-size: 13px;
 }
 
 .iteration-selector select,
 .sort-controls select {
-  background: #2a2a3e;
-  border: 1px solid #444;
-  color: #fff;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 13px;
 }
 
 .sort-order-btn {
-  background: #2a2a3e;
-  border: 1px solid #444;
-  color: #fff;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -66,7 +66,7 @@
 }
 
 .sort-order-btn:hover {
-  background: #3a3a4e;
+  background: var(--color-bg-hover);
 }
 
 .class-selector-actions {
@@ -77,9 +77,9 @@
 }
 
 .class-selector-actions button {
-  background: #2a2a3e;
-  border: 1px solid #444;
-  color: #fff;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -88,12 +88,12 @@
 }
 
 .class-selector-actions button:hover {
-  background: #3a3a4e;
-  border-color: #666;
+  background: var(--color-bg-hover);
+  border-color: var(--color-border);
 }
 
 .class-selector-error {
-  background: #ff4444;
+  background: var(--color-danger-text);
   color: #fff;
   padding: 8px 12px;
   border-radius: 4px;
@@ -103,7 +103,7 @@
 .class-selector-loading {
   text-align: center;
   padding: 40px;
-  color: #888;
+  color: var(--color-text-muted);
 }
 
 .class-grid {
@@ -113,7 +113,7 @@
   max-height: 400px;
   overflow-y: auto;
   padding: 8px;
-  background: #0d0d1a;
+  background: var(--color-bg);
   border-radius: 4px;
 }
 
@@ -123,18 +123,18 @@
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #1a1a2e;
+  background: var(--color-bg);
   overflow: hidden;
 }
 
 .class-item:hover {
-  border-color: #666;
+  border-color: var(--color-text-secondary);
   transform: scale(1.02);
 }
 
 .class-item.selected {
-  border-color: #4caf50;
-  background: #1a2e1a;
+  border-color: var(--color-success-text);
+  background: var(--color-success-bg);
 }
 
 .class-item img {
@@ -152,16 +152,16 @@
 }
 
 .class-number {
-  color: #fff;
+  color: var(--color-text);
   font-weight: bold;
 }
 
 .class-fraction {
-  color: #4caf50;
+  color: var(--color-success-text);
 }
 
 .class-resolution {
-  color: #2196f3;
+  color: var(--color-primary);
 }
 
 .class-checkbox {
@@ -182,18 +182,18 @@
   align-items: center;
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--color-border);
   flex-wrap: wrap;
   gap: 12px;
 }
 
 .selection-summary {
-  color: #aaa;
+  color: var(--color-text-muted);
   font-size: 13px;
 }
 
 .save-selection-btn {
-  background: #4caf50;
+  background: var(--color-success-text);
   border: none;
   color: #fff;
   padding: 10px 20px;
@@ -205,11 +205,11 @@
 }
 
 .save-selection-btn:hover:not(:disabled) {
-  background: #66bb6a;
+  background: var(--color-success-text);
 }
 
 .save-selection-btn:disabled {
-  background: #333;
-  color: #666;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
   cursor: not-allowed;
 }

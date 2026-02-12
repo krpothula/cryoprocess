@@ -9,13 +9,13 @@
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #ffffff;
-  color: #64748b;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
 }
 
 .job-action-btn svg {
@@ -23,26 +23,26 @@
 }
 
 .job-action-btn.logs-btn {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  color: #3b82f6;
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-primary);
 }
 
 .job-action-btn.logs-btn:hover {
-  background: #eff6ff;
-  border-color: #3b82f6;
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
 }
 
 .job-action-btn.more-btn {
   padding: 2px 4px;
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--color-text-muted);
 }
 
 .job-action-btn.more-btn:hover {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
   border-radius: 3px;
 }
 
@@ -65,8 +65,8 @@
 .job-actions-dropdown {
   position: fixed;
   margin-top: 4px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   z-index: 9999;
@@ -87,7 +87,7 @@
   padding: 8px 12px;
   border: none;
   background: transparent;
-  color: #374151;
+  color: var(--color-text-label);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
@@ -95,7 +95,7 @@
 }
 
 .job-menu-item:hover {
-  background: #f3f4f6;
+  background: var(--color-bg-hover);
 }
 
 .job-menu-item svg {
@@ -104,40 +104,66 @@
 }
 
 .job-menu-cancel {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .job-menu-cancel:hover {
-  background: #fffbeb;
+  background: var(--color-warning-bg);
 }
 
 .job-menu-finished {
-  color: #10b981;
+  color: var(--color-success);
 }
 
 .job-menu-finished:hover {
-  background: #ecfdf5;
+  background: var(--color-success-bg);
 }
 
 .job-menu-error {
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 .job-menu-error:hover {
-  background: #fef2f2;
+  background: var(--color-danger-bg);
 }
 
 .job-menu-delete {
-  color: #dc2626;
+  color: var(--color-danger-text);
 }
 
 .job-menu-delete:hover {
-  background: #fef2f2;
+  background: var(--color-danger-bg);
+}
+
+.job-menu-notify {
+  color: var(--color-text-label);
+}
+
+.job-menu-notify:hover {
+  background: var(--color-bg-hover);
+}
+
+.job-menu-notify.active {
+  color: var(--color-primary);
+}
+
+.job-menu-notify.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.job-menu-notify.disabled:hover {
+  background: transparent;
+}
+
+.job-menu-notify .notify-check {
+  margin-left: auto;
+  color: var(--color-primary);
 }
 
 .job-menu-divider {
   height: 1px;
-  background: #e5e7eb;
+  background: var(--color-border);
   margin: 4px 0;
 }
 
@@ -150,27 +176,27 @@
   padding: 12px 16px;
   font-size: 14px;
   font-weight: 600;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .job-confirm-delete {
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .job-confirm-finished {
-  background: #ecfdf5;
-  color: #059669;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .job-confirm-error {
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .job-confirm-cancel {
-  background: #fffbeb;
-  color: #d97706;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-strong);
 }
 
 .job-confirm-body {
@@ -180,17 +206,17 @@
 .job-confirm-instruction {
   margin: 0 0 8px 0;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .job-confirm-code {
   display: block;
   padding: 8px 10px;
-  background: #f3f4f6;
+  background: var(--color-bg-hover);
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Monaco', monospace;
   font-size: 12px;
-  color: #374151;
+  color: var(--color-text-label);
   margin-bottom: 12px;
   word-break: break-all;
 }
@@ -198,7 +224,7 @@
 .job-confirm-input {
   width: 100%;
   padding: 8px 10px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-scrollbar);
   border-radius: 4px;
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Monaco', monospace;
@@ -208,18 +234,18 @@
 }
 
 .job-confirm-input:focus {
-  border-color: #3b82f6;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 .job-confirm-error {
   margin: 8px 0 0 0;
   padding: 6px 10px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
   border-radius: 4px;
   font-size: 12px;
-  color: #dc2626;
+  color: var(--color-danger-text);
 }
 
 .job-confirm-actions {
@@ -227,8 +253,8 @@
   gap: 8px;
   justify-content: flex-end;
   padding: 12px 16px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
 }
 
 .job-confirm-btn {
@@ -250,44 +276,44 @@
 }
 
 .job-confirm-btn-cancel {
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  color: #374151;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-scrollbar);
+  color: var(--color-text-label);
 }
 
 .job-confirm-btn-cancel:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--color-bg-hover);
+  border-color: var(--color-scrollbar-hover);
 }
 
 .job-confirm-btn-delete {
-  background: #dc2626;
-  border: 1px solid #dc2626;
+  background: var(--color-danger-text);
+  border: 1px solid var(--color-danger-text);
   color: #ffffff;
 }
 
 .job-confirm-btn-delete:hover:not(:disabled) {
-  background: #b91c1c;
+  background: var(--color-danger);
 }
 
 .job-confirm-btn-finished {
-  background: #059669;
-  border: 1px solid #059669;
+  background: var(--color-success);
+  border: 1px solid var(--color-success);
   color: #ffffff;
 }
 
 .job-confirm-btn-finished:hover:not(:disabled) {
-  background: #047857;
+  background: var(--color-success-strong);
 }
 
 .job-confirm-btn-error {
-  background: #ef4444;
-  border: 1px solid #ef4444;
+  background: var(--color-danger);
+  border: 1px solid var(--color-danger);
   color: #ffffff;
 }
 
 .job-confirm-btn-error:hover:not(:disabled) {
-  background: #dc2626;
+  background: var(--color-danger-text);
 }
 
 /* Spin animation */
@@ -311,7 +337,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -320,8 +346,8 @@
 
 /* Modal Content */
 .modal-content {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   max-height: 90vh;

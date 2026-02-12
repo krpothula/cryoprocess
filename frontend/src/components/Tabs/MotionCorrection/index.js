@@ -11,6 +11,7 @@ import { FolderBrowserPopup } from "../common/FolderBrowser";
 import { DefaultMessages } from "../common/Data";
 import { JobTypes } from "../common/Data/jobs";
 import { getSoftwareConfig } from "../../../services/softwareConfig";
+import useToast from "../../../hooks/useToast";
 
 const MotionCorrection = () => {
   const initialFormData = {
@@ -61,6 +62,7 @@ const MotionCorrection = () => {
   const [message, setMessage] = useState("");
   const { projectId, onJobSuccess, copiedJobParams, clearCopiedJobParams, autoPopulateInputs, clearAutoPopulate } = useBuilder();
   const [softwareConfig, setSoftwareConfig] = useState({});
+  const showToast = useToast();
 
   // Load copied job parameters when available
   useEffect(() => {
@@ -145,7 +147,7 @@ const MotionCorrection = () => {
           float16Output: "No",      // MotionCor2 cannot write float16
           savePowerSpectra: "No",   // MotionCor2 doesn't support power spectra
         });
-        setMessage("Note: Float16 output and power spectra are disabled for MotionCor2");
+        showToast("Float16 output and power spectra have been disabled — not supported by MotionCor2", { autoClose: 4000 });
         return;
       }
 
@@ -170,7 +172,7 @@ const MotionCorrection = () => {
         // Handle error response from the API
         setMessage(
           `Error: ${
-            error.response.data.message || DefaultMessages.processError
+            error?.response?.data?.message || DefaultMessages.processError
           }`
         );
       })
@@ -194,7 +196,7 @@ const MotionCorrection = () => {
     //   // Resetting states
     //   setFormData(initialFormData);
     // } catch (error) {
-    //   // setMessage(`Error: ${error.response.data.message}`);
+    //   // setMessage(`Error: ${error?.response?.data?.message}`);
     // }
   };
 

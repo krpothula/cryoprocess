@@ -1,5 +1,5 @@
 // App.js
-import React, { Suspense, useContext, useEffect, useState, useCallback } from "react";
+import React, { Suspense, useContext, useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
   Route,
@@ -25,7 +25,7 @@ const Jobs = React.lazy(() => import("./components/Jobs"));
 const Meta = React.lazy(() => import("./components/Meta"));
 
 const RouteFallback = () => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "calc(100vh - 48px)", color: "#94a3b8", fontSize: 13 }}>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "calc(100vh - 48px)", color: "var(--color-text-muted)", fontSize: 13 }}>
     Loading...
   </div>
 );
@@ -60,19 +60,13 @@ function App() {
     }
   }, [setUser]);
 
-  const [isLayoutSwitched, setIsLayoutSwitched] = useState(true);
   const [showJobTree, setShowJobTree] = useState(false);
-
-  const handleLayoutSwitch = useCallback(() => {
-    setIsLayoutSwitched((prev) => !prev);
-  }, []);
 
   return (
     <Router>
       <div className="nav">
         {user && (
           <Navbar
-            onSwitchLayout={handleLayoutSwitch}
             setShowJobTree={setShowJobTree}
             showJobTree={showJobTree}
           />
@@ -108,7 +102,6 @@ function App() {
               <PrivateRoute
                 element={
                   <Home1
-                    isLayoutSwitched={isLayoutSwitched}
                     showJobTree={showJobTree}
                     setShowJobTree={setShowJobTree}
                   />
@@ -125,7 +118,7 @@ function App() {
             path="/jobs"
             element={
               user ? (
-                <Jobs isLayoutSwitched={isLayoutSwitched} />
+                <Jobs />
               ) : (
                 <Navigate to="/login" />
               )
@@ -135,7 +128,7 @@ function App() {
             path="/metadata"
             element={
               user ? (
-                <Meta isLayoutSwitched={isLayoutSwitched} />
+                <Meta />
               ) : (
                 <Navigate to="/login" />
               )

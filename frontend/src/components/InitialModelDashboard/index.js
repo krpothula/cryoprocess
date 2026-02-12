@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import {
   getInitialModelResultsApi,
@@ -22,6 +22,7 @@ import {
   FiDownload,
 } from "react-icons/fi";
 import MolstarViewer from "./MolstarViewer";
+import useJobNotification from "../../hooks/useJobNotification";
 
 const InitialModelDashboard = () => {
   const { selectedJob } = useBuilder();
@@ -62,12 +63,17 @@ const InitialModelDashboard = () => {
   };
 
   // Fetch results
+  // Guard against state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const fetchResults = useCallback(async () => {
     if (!selectedJob?.id) return;
 
     try {
       setLoading(true);
       const response = await getInitialModelResultsApi(selectedJob.id);
+      if (!mountedRef.current) return;
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
@@ -76,7 +82,7 @@ const InitialModelDashboard = () => {
       setError("Failed to load 3D initial model results");
       console.error("Error fetching results:", err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [selectedJob?.id]);
 
@@ -98,12 +104,16 @@ const InitialModelDashboard = () => {
     }
   }, [selectedJob?.status, fetchResults]);
 
+  // Trigger immediate fetch on WebSocket job_update (supplements polling)
+  useJobNotification(selectedJob?.id, fetchResults);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "success":
         return <FiCheckCircle className="text-green-500 text-xl" />;
       case "running":
         return <FiActivity className="text-amber-500 text-xl animate-pulse" />;
+      case "failed":
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
@@ -147,7 +157,7 @@ const InitialModelDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black font-medium mt-4">
+        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
           Loading 3D initial model results...
         </p>
       </div>
@@ -164,26 +174,26 @@ const InitialModelDashboard = () => {
   }
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStatusIcon(selectedJob?.status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
                 InitialModel/{selectedJob?.job_name || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
-                  ? "#16a34a"
+                  ? "var(--color-success-text)"
                   : selectedJob?.status === "error"
-                  ? "#dc2626"
+                  ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "#f59e0b"
-                  : "#ca8a04"
+                  ? "var(--color-warning-text)"
+                  : "var(--color-warning-text)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -200,29 +210,29 @@ const InitialModelDashboard = () => {
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+              className="flex items-center gap-2 hover:bg-[var(--color-bg)] rounded px-1 py-0.5 transition-colors"
             >
-              <FiTerminal className="text-gray-400" size={12} />
-              <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>RELION Command</span>
+              <FiTerminal className="text-[var(--color-text-muted)]" size={12} />
+              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>RELION Command</span>
               {showCommand ? (
-                <FiChevronUp className="text-gray-400" size={12} />
+                <FiChevronUp className="text-[var(--color-text-muted)]" size={12} />
               ) : (
-                <FiChevronDown className="text-gray-400" size={12} />
+                <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
             {showCommand && selectedJob?.command && (
               <button
                 onClick={copyCommand}
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 title="Copy command"
               >
-                <FiCopy className="text-gray-400" size={12} />
+                <FiCopy className="text-[var(--color-text-muted)]" size={12} />
                 {commandCopied && (
-                  <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                  <span style={{ fontSize: "10px", color: "var(--color-success-text)" }}>Copied!</span>
                 )}
               </button>
             )}
@@ -232,7 +242,7 @@ const InitialModelDashboard = () => {
               className="mt-2 overflow-x-auto font-mono"
               style={{
                 fontSize: '9px',
-                color: '#475569',
+                color: 'var(--color-text-secondary)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 lineHeight: '1.4'
@@ -245,34 +255,34 @@ const InitialModelDashboard = () => {
       </div>
 
       {/* Stats Card - Two Rows with aligned columns */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         {/* Row 1 */}
         <div className="grid grid-cols-4 gap-4 mb-3">
           <div className="flex items-center gap-2">
-            <FiLayers className="text-gray-400 flex-shrink-0" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Iteration:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiLayers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Iteration:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.latest_iteration !== null ? results.latest_iteration : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiGrid className="text-gray-400 flex-shrink-0" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Classes:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiGrid className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Classes:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.num_classes || 1}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiRotateCw className="text-gray-400 flex-shrink-0" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Symmetry:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiRotateCw className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Symmetry:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {selectedJob?.parameters?.symmetry || results?.symmetry || "C1"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiCircle className="text-gray-400 flex-shrink-0" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Mask:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiCircle className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Mask:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {selectedJob?.parameters?.maskDiameter || results?.mask_diameter || 0} Å
             </span>
           </div>
@@ -280,9 +290,9 @@ const InitialModelDashboard = () => {
       </div>
 
       {/* 3D Model Visualization with Molstar */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-700 flex items-center gap-2" style={{ fontSize: "12px" }}>
+          <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiBox className="text-blue-500" size={13} />
             Volume Viewer
           </h3>
@@ -294,7 +304,7 @@ const InitialModelDashboard = () => {
                 <select
                   value={selectedIteration}
                   onChange={handleIterationChange}
-                  className="px-3 py-1 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-300"
+                  className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-blue-300"
                   style={{ fontSize: "12px" }}
                 >
                   <option value="latest">Latest (Iteration {results.latest_iteration})</option>
@@ -310,7 +320,7 @@ const InitialModelDashboard = () => {
                   <select
                     value={selectedClass}
                     onChange={handleClassChange}
-                    className="px-3 py-1 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-300"
+                    className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-blue-300"
                     style={{ fontSize: "12px" }}
                   >
                     {getClassesForIteration().map((cls) => (
@@ -325,7 +335,7 @@ const InitialModelDashboard = () => {
 
             <button
               onClick={fetchResults}
-              className="flex items-center gap-1 px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className="flex items-center gap-1 px-3 py-1 bg-[var(--color-bg-hover)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
               style={{ fontSize: "12px" }}
             >
               <FiRefreshCw size={13} />
@@ -357,7 +367,7 @@ const InitialModelDashboard = () => {
             isoValue={1.5}
           />
         ) : (
-          <div className="h-[500px] flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
+          <div className="h-[500px] flex flex-col items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)] rounded-lg">
             <FiBox className="text-5xl mb-4" />
             <p className="text-lg font-medium">No 3D Model Yet</p>
             <p className="text-sm text-center mt-2">

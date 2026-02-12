@@ -15,14 +15,6 @@ const Io = ({
   const isEnable = formData.estimatePhaseShifts === "Yes";
   return (
     <div className="tab-content">
-      {/* <CustomInput
-        onChange={handleInputChange}
-        name="inputStarFile"
-        label="Input micrographs STAR file:"
-        placeholder=""
-        tooltipText="micrographs "
-      /> */}
-
       <CustomInput
         isCustomUpload={false}
         stageStarFiles="Import,MotionCorr"
@@ -45,6 +37,7 @@ const Io = ({
         onChange={handleInputChange}
         tooltipText="Use non-dose-weighted micrographs for CTF estimation. Recommended 'Yes' as dose-weighting reduces high-frequency signal needed for accurate CTF fitting."
       />
+
       <CustomDropdown
         label="Estimate phase shifts:"
         options={dropdownOptions}
@@ -63,6 +56,7 @@ const Io = ({
         onChange={handleInputChange}
         tooltipText="Search range for phase shift estimation (in degrees). Typical VPP range: 0-180°. Step determines accuracy vs speed tradeoff."
         disabled={!isEnable}
+        disabledHint="Enable 'Estimate phase shifts' first"
       />
       {/* <div className="label-box-container">
       <label style={{ font: "medium", fontSize: "16px" }}>Phase shift-Min,Max,Step(deg):</label>

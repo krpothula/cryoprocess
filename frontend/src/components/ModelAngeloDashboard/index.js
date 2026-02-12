@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import { BiLoader } from "react-icons/bi";
 import {
@@ -18,6 +18,7 @@ import {
   FiDatabase,
 } from "react-icons/fi";
 import axiosInstance from "../../services/config";
+import useJobNotification from "../../hooks/useJobNotification";
 
 const API_BASE_URL = process.env.REACT_APP_API_HOST || "";
 
@@ -41,12 +42,17 @@ const ModelAngeloDashboard = () => {
     }
   };
 
+  // Guard against state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const fetchResults = useCallback(async () => {
     if (!selectedJob?.id) return;
 
     try {
       setLoading(true);
       const response = await getModelAngeloResultsApi(selectedJob.id);
+      if (!mountedRef.current) return;
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
@@ -55,7 +61,7 @@ const ModelAngeloDashboard = () => {
       setError("Failed to load ModelAngelo results");
       console.error("Error fetching results:", err);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [selectedJob?.id]);
 
@@ -74,12 +80,16 @@ const ModelAngeloDashboard = () => {
     }
   }, [selectedJob?.status, fetchResults]);
 
+  // Trigger immediate fetch on WebSocket job_update (supplements polling)
+  useJobNotification(selectedJob?.id, fetchResults);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "success":
         return <FiCheckCircle className="text-green-500 text-xl" />;
       case "running":
         return <FiActivity className="text-amber-500 text-xl animate-pulse" />;
+      case "failed":
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
@@ -93,6 +103,7 @@ const ModelAngeloDashboard = () => {
         `${API_BASE_URL}/modelangelo/pdb/?job_id=${selectedJob.id}`,
         { responseType: "blob" }
       );
+      if (!mountedRef.current) return;
       const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -111,7 +122,7 @@ const ModelAngeloDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black font-medium mt-4">
+        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
           Loading ModelAngelo results...
         </p>
       </div>
@@ -128,26 +139,26 @@ const ModelAngeloDashboard = () => {
   }
 
   return (
-    <div className="pt-2 pb-4 space-y-2 bg-white min-h-screen">
+    <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStatusIcon(selectedJob?.status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "#1e293b" }}>
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
                 ModelAngelo/{selectedJob?.job_name || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
-                  ? "#16a34a"
+                  ? "var(--color-success-text)"
                   : selectedJob?.status === "error"
-                  ? "#dc2626"
+                  ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "#f59e0b"
-                  : "#ca8a04"
+                  ? "var(--color-warning-text)"
+                  : "var(--color-warning-text)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -164,29 +175,29 @@ const ModelAngeloDashboard = () => {
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded px-1 py-0.5 transition-colors"
+              className="flex items-center gap-2 hover:bg-[var(--color-bg)] rounded px-1 py-0.5 transition-colors"
             >
-              <FiTerminal className="text-gray-400" size={12} />
-              <span style={{ fontSize: "12px", fontWeight: 500, color: "#64748b" }}>ModelAngelo Command</span>
+              <FiTerminal className="text-[var(--color-text-muted)]" size={12} />
+              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>ModelAngelo Command</span>
               {showCommand ? (
-                <FiChevronUp className="text-gray-400" size={12} />
+                <FiChevronUp className="text-[var(--color-text-muted)]" size={12} />
               ) : (
-                <FiChevronDown className="text-gray-400" size={12} />
+                <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
             {showCommand && selectedJob?.command && (
               <button
                 onClick={copyCommand}
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 title="Copy command"
               >
-                <FiCopy className="text-gray-400" size={12} />
+                <FiCopy className="text-[var(--color-text-muted)]" size={12} />
                 {commandCopied && (
-                  <span style={{ fontSize: "10px", color: "#16a34a" }}>Copied!</span>
+                  <span style={{ fontSize: "10px", color: "var(--color-success-text)" }}>Copied!</span>
                 )}
               </button>
             )}
@@ -196,7 +207,7 @@ const ModelAngeloDashboard = () => {
               className="mt-2 overflow-x-auto font-mono"
               style={{
                 fontSize: '9px',
-                color: '#475569',
+                color: 'var(--color-text-secondary)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 lineHeight: '1.4'
@@ -209,33 +220,33 @@ const ModelAngeloDashboard = () => {
       </div>
 
       {/* Stats Card - Merged */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiLayers className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Chains:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiLayers className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Chains:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.num_chains || 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiDatabase className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>Residues:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiDatabase className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Residues:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.num_residues?.toLocaleString() || 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiFileText className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>PDB Output:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiFileText className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>PDB Output:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.has_pdb ? "Yes" : "No"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiSearch className="text-gray-400" size={14} />
-            <span style={{ fontSize: "12px", color: "#64748b" }}>HMMER:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+            <FiSearch className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>HMMER:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {results?.has_hmmer_results ? "Done" : results?.perform_hmmer === "Yes" ? "Pending" : "No"}
             </span>
           </div>
@@ -243,9 +254,9 @@ const ModelAngeloDashboard = () => {
       </div>
 
       {/* Model Info */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-700 flex items-center gap-2" style={{ fontSize: "12px" }}>
+          <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiFileText className="text-blue-500" />
             Model Output
           </h3>
@@ -262,7 +273,7 @@ const ModelAngeloDashboard = () => {
             )}
             <button
               onClick={fetchResults}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[var(--color-bg-hover)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
             >
               <FiRefreshCw />
               Refresh
@@ -271,46 +282,46 @@ const ModelAngeloDashboard = () => {
         </div>
 
         {results?.has_pdb ? (
-          <div className="bg-gray-50 rounded-lg p-6">
+          <div className="bg-[var(--color-bg)] rounded-lg p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="text-sm font-medium text-gray-600 mb-3">Model Statistics</h4>
+                <h4 className="text-sm font-medium text-[var(--color-text-secondary)] mb-3">Model Statistics</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Total Chains:</span>
+                    <span className="text-[var(--color-text-secondary)]">Total Chains:</span>
                     <span className="font-medium">{results?.num_chains || 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Total Residues:</span>
+                    <span className="text-[var(--color-text-secondary)]">Total Residues:</span>
                     <span className="font-medium">{results?.num_residues?.toLocaleString() || 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">PDB Available:</span>
+                    <span className="text-[var(--color-text-secondary)]">PDB Available:</span>
                     <span className="font-medium text-green-600">Yes</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">mmCIF Available:</span>
+                    <span className="text-[var(--color-text-secondary)]">mmCIF Available:</span>
                     <span className="font-medium">{results?.has_cif ? "Yes" : "No"}</span>
                   </div>
                 </div>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-600 mb-3">Input Sequences</h4>
+                <h4 className="text-sm font-medium text-[var(--color-text-secondary)] mb-3">Input Sequences</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Protein FASTA:</span>
+                    <span className="text-[var(--color-text-secondary)]">Protein FASTA:</span>
                     <span className="font-medium">{results?.has_protein_fasta ? "Provided" : "No"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">DNA FASTA:</span>
+                    <span className="text-[var(--color-text-secondary)]">DNA FASTA:</span>
                     <span className="font-medium">{results?.has_dna_fasta ? "Provided" : "No"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">RNA FASTA:</span>
+                    <span className="text-[var(--color-text-secondary)]">RNA FASTA:</span>
                     <span className="font-medium">{results?.has_rna_fasta ? "Provided" : "No"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">HMMER Search:</span>
+                    <span className="text-[var(--color-text-secondary)]">HMMER Search:</span>
                     <span className="font-medium">{results?.perform_hmmer || "No"}</span>
                   </div>
                 </div>
@@ -318,7 +329,7 @@ const ModelAngeloDashboard = () => {
             </div>
           </div>
         ) : (
-          <div className="h-[300px] flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
+          <div className="h-[300px] flex flex-col items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)] rounded-lg">
             <FiFileText className="text-5xl mb-4" />
             <p className="text-lg font-medium">No Model Yet</p>
             <p className="text-sm text-center mt-2">
@@ -332,22 +343,22 @@ const ModelAngeloDashboard = () => {
       </div>
 
       {/* Output Status */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
-        <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+        <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
           <FiCheckCircle className="text-green-500" />
           Output Status
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className={`p-3 rounded-lg ${results?.has_pdb ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
+          <div className={`p-3 rounded-lg ${results?.has_pdb ? 'bg-[var(--color-success-bg)] text-green-700' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
             PDB File: {results?.has_pdb ? "Available" : "Pending"}
           </div>
-          <div className={`p-3 rounded-lg ${results?.has_cif ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
+          <div className={`p-3 rounded-lg ${results?.has_cif ? 'bg-[var(--color-success-bg)] text-green-700' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
             mmCIF File: {results?.has_cif ? "Available" : "Pending"}
           </div>
-          <div className={`p-3 rounded-lg ${results?.has_hmmer_results ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
+          <div className={`p-3 rounded-lg ${results?.has_hmmer_results ? 'bg-[var(--color-success-bg)] text-green-700' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
             HMMER Results: {results?.has_hmmer_results ? "Available" : results?.perform_hmmer === "Yes" ? "Pending" : "N/A"}
           </div>
-          <div className={`p-3 rounded-lg ${results?.has_logfile_pdf ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
+          <div className={`p-3 rounded-lg ${results?.has_logfile_pdf ? 'bg-[var(--color-success-bg)] text-green-700' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
             Log File: {results?.has_logfile_pdf ? "Available" : "Pending"}
           </div>
         </div>

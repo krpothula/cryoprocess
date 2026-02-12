@@ -302,7 +302,7 @@ const ParticleSubstraction = () => {
       })
       .catch((error) => {
         // Handle error response from the API
-        setMessage(`Error: ${error.response.data.message}`);
+        setMessage(`Error: ${error?.response?.data?.message || 'An error occurred'}`);
       });
   };
 

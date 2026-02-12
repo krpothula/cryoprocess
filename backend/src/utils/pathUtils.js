@@ -122,6 +122,47 @@ const resolveMoviePath = (relativePath, projectPath) => {
 };
 
 /**
+ * Get project path in the archive location
+ * @param {Object} project - Project object
+ * @returns {string} Full archive path
+ */
+const getArchivedProjectPath = (project) => {
+  const folderName = project.folder_name || project.project_name.replace(/ /g, '_');
+  return path.join(settings.ARCHIVE_PATH, folderName);
+};
+
+/**
+ * Rewrite output_file_path for all jobs in a project.
+ * Replaces oldPrefix with newPrefix at the start of each path.
+ * @param {string} projectId
+ * @param {string} oldPrefix
+ * @param {string} newPrefix
+ * @returns {Promise<number>} Number of jobs updated
+ */
+const rewriteJobPaths = async (projectId, oldPrefix, newPrefix) => {
+  const Job = require('../models/Job');
+  const jobs = await Job.find({ project_id: projectId }).select('id output_file_path');
+
+  const ops = [];
+  for (const job of jobs) {
+    if (job.output_file_path && job.output_file_path.startsWith(oldPrefix)) {
+      const newPath = newPrefix + job.output_file_path.slice(oldPrefix.length);
+      ops.push({
+        updateOne: {
+          filter: { id: job.id },
+          update: { output_file_path: newPath }
+        }
+      });
+    }
+  }
+
+  if (ops.length > 0) {
+    await Job.bulkWrite(ops);
+  }
+  return ops.length;
+};
+
+/**
  * Sanitize filename for safe file operations
  * @param {string} filename - Filename to sanitize
  * @returns {string} Sanitized filename
@@ -140,6 +181,8 @@ module.exports = {
   validatePathSecurity,
   validateResolvedPath,
   getProjectPath,
+  getArchivedProjectPath,
+  rewriteJobPaths,
   resolveMoviePath,
   sanitizeFilename
 };
