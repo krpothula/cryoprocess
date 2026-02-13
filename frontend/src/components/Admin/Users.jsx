@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FiPlus, FiTrash2, FiKey, FiUser, FiShield, FiLoader, FiCopy, FiCheck, FiX } from "react-icons/fi";
+import { FiPlus, FiTrash2, FiKey, FiLink, FiUser, FiShield, FiLoader, FiCopy, FiCheck, FiX } from "react-icons/fi";
 import adminApi from "../../services/adminApi";
 import useToast from "../../hooks/useToast";
 
@@ -12,6 +12,9 @@ const AdminUsers = () => {
   const [resetConfirm, setResetConfirm] = useState(null);
   const [roleConfirm, setRoleConfirm] = useState(null);
   const [tempPassword, setTempPassword] = useState(null);
+  const [apiKeyConfirm, setApiKeyConfirm] = useState(null);
+  const [revokeConfirm, setRevokeConfirm] = useState(null);
+  const [tempApiKey, setTempApiKey] = useState(null);
   const [copied, setCopied] = useState(false);
   const showToast = useToast();
 
@@ -83,6 +86,28 @@ const AdminUsers = () => {
       showToast(`Admin rights ${user.is_superuser ? 'removed' : 'granted'}`, { type: "success" });
     } catch (error) {
       showToast(error.response?.data?.message || "Failed to update user", { type: "error" });
+    }
+  };
+
+  const handleGenerateApiKey = async (userId) => {
+    try {
+      const resp = await adminApi.generateApiKey(userId);
+      setTempApiKey(resp.data.data?.api_key);
+      loadUsers();
+      showToast("API key generated successfully", { type: "success" });
+    } catch (error) {
+      showToast(error.response?.data?.message || "Failed to generate API key", { type: "error" });
+    }
+  };
+
+  const handleRevokeApiKey = async (userId) => {
+    try {
+      await adminApi.revokeApiKey(userId);
+      setRevokeConfirm(null);
+      loadUsers();
+      showToast("API key revoked successfully", { type: "success" });
+    } catch (error) {
+      showToast(error.response?.data?.message || "Failed to revoke API key", { type: "error" });
     }
   };
 
@@ -158,6 +183,9 @@ const AdminUsers = () => {
                     {user.must_change_password && (
                       <span className="password-badge">Must change password</span>
                     )}
+                    {user.has_api_key && (
+                      <span className="api-key-badge">API Key</span>
+                    )}
                   </td>
                   <td className="last-login">
                     {user.last_login
@@ -174,6 +202,24 @@ const AdminUsers = () => {
                         <FiKey size={14} />
                         <span>Reset</span>
                       </button>
+                      <button
+                        className="action-btn api-key"
+                        onClick={() => setApiKeyConfirm(user)}
+                        title={user.has_api_key ? "Regenerate API Key" : "Generate API Key"}
+                      >
+                        <FiLink size={14} />
+                        <span>{user.has_api_key ? 'Regen Key' : 'API Key'}</span>
+                      </button>
+                      {user.has_api_key && (
+                        <button
+                          className="action-btn revoke"
+                          onClick={() => setRevokeConfirm(user)}
+                          title="Revoke API Key"
+                        >
+                          <FiX size={14} />
+                          <span>Revoke</span>
+                        </button>
+                      )}
                       <button
                         className={`action-btn role ${user.is_superuser ? 'is-admin' : ''}`}
                         onClick={() => setRoleConfirm(user)}
@@ -387,6 +433,78 @@ const AdminUsers = () => {
             <div className="modal-actions">
               <button className="btn-cancel" onClick={() => setDeleteConfirm(null)}>Cancel</button>
               <button className="btn-danger" onClick={() => handleDeleteUser(deleteConfirm.id)}>Delete User</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* API Key Display Modal */}
+      {tempApiKey && (
+        <div className="modal-overlay" role="presentation">
+          <div className="modal password-modal" role="dialog" aria-modal="true" aria-labelledby="api-key-title">
+            <div className="modal-header">
+              <h3 id="api-key-title">API Key Generated</h3>
+              <button className="modal-close" onClick={() => setTempApiKey(null)} aria-label="Close dialog">
+                <FiX aria-hidden="true" />
+              </button>
+            </div>
+            <div className="password-display">
+              <p>Copy this API key now. It will not be shown again.</p>
+              <div className="password-box">
+                <code>{tempApiKey}</code>
+                <button onClick={() => copyToClipboard(tempApiKey)} className="btn-copy" aria-label="Copy API key to clipboard">
+                  {copied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
+                </button>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn-submit" onClick={() => setTempApiKey(null)}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate API Key Confirm Modal */}
+      {apiKeyConfirm && (
+        <div className="modal-overlay" role="presentation">
+          <div className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-label="Generate API key confirmation">
+            <div className="confirm-icon promote-icon" aria-hidden="true">
+              <FiLink size={24} />
+            </div>
+            <h3>{apiKeyConfirm.has_api_key ? 'Regenerate API Key?' : 'Generate API Key?'}</h3>
+            <p>
+              {apiKeyConfirm.has_api_key
+                ? <>This will replace the existing API key for <strong>{apiKeyConfirm.email}</strong>. The old key will stop working immediately.</>
+                : <>Generate an API key for <strong>{apiKeyConfirm.email}</strong>?</>
+              }
+            </p>
+            <p className="confirm-note">The key will only be shown once. Store it securely.</p>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setApiKeyConfirm(null)}>Cancel</button>
+              <button className="btn-primary" onClick={() => {
+                handleGenerateApiKey(apiKeyConfirm.id);
+                setApiKeyConfirm(null);
+              }}>Generate Key</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revoke API Key Confirm Modal */}
+      {revokeConfirm && (
+        <div className="modal-overlay" role="presentation">
+          <div className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-label="Revoke API key confirmation">
+            <div className="confirm-icon delete-icon" aria-hidden="true">
+              <FiX size={24} />
+            </div>
+            <h3>Revoke API Key?</h3>
+            <p>Revoke the API key for <strong>{revokeConfirm.email}</strong>?</p>
+            <p className="confirm-note warning">Any integrations using this key will stop working immediately.</p>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setRevokeConfirm(null)}>Cancel</button>
+              <button className="btn-danger" onClick={() => handleRevokeApiKey(revokeConfirm.id)}>Revoke Key</button>
             </div>
           </div>
         </div>
@@ -620,6 +738,38 @@ const AdminUsers = () => {
         .action-btn.delete:hover {
           background: var(--color-danger-bg);
           border-color: var(--color-danger-border);
+        }
+
+        .action-btn.api-key {
+          color: var(--color-primary);
+          border-color: var(--color-border);
+          background: transparent;
+        }
+
+        .action-btn.api-key:hover {
+          background: var(--color-primary-bg);
+          border-color: var(--color-primary);
+        }
+
+        .action-btn.revoke {
+          color: var(--color-warning-text);
+          border-color: var(--color-border);
+          background: transparent;
+        }
+
+        .action-btn.revoke:hover {
+          background: var(--color-warning-bg);
+          border-color: var(--color-warning-text);
+        }
+
+        .api-key-badge {
+          display: inline-block;
+          margin-left: 8px;
+          padding: 2px 8px;
+          background: var(--color-primary-bg);
+          color: var(--color-primary);
+          border-radius: 8px;
+          font-size: 11px;
         }
 
         .admin-loading {

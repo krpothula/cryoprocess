@@ -16,6 +16,8 @@ import {
   FiRotateCw,
   FiMaximize2,
   FiTarget,
+  FiGrid,
+  FiCrosshair,
   FiDownload,
 } from "react-icons/fi";
 import MolstarViewer from "../InitialModelDashboard/MolstarViewer";
@@ -184,13 +186,14 @@ const Class3DDashboard = () => {
     );
   }
 
-  // Get stats from job parameters with fallback to results
-  const numClasses = selectedJob?.parameters?.numberOfClasses || selectedJob?.parameters?.numberClasses || results?.num_classes || 1;
-  const symmetry = selectedJob?.parameters?.symmetry || results?.symmetry || "C1";
-  const maskDiameter = selectedJob?.parameters?.maskDiameter || selectedJob?.parameters?.particleDiameter || results?.mask_diameter || 200;
-  const totalIterations = selectedJob?.parameters?.numberOfIterations || selectedJob?.parameters?.numberIterations || results?.total_iterations || 25;
-  const currentIteration = liveStats?.current_iteration ?? results?.latest_iteration ?? 0;
-  const particleCount = selectedJob?.pipeline_stats?.particle_count || 0;
+  // Get stats from pipeline_stats (single source of truth)
+  const stats = selectedJob?.pipeline_stats || {};
+  const numClasses = stats.class_count || 1;
+  const symmetry = stats.symmetry || "C1";
+  const maskDiameter = stats.mask_diameter || 0;
+  const totalIterations = stats.total_iterations || 0;
+  const currentIteration = stats.iteration_count || 0;
+  const particleCount = stats.particle_count || 0;
 
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
@@ -208,11 +211,11 @@ const Class3DDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -220,7 +223,7 @@ const Class3DDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -273,47 +276,72 @@ const Class3DDashboard = () => {
         </div>
       </div>
 
-      {/* Stats Card - Merged */}
+      {/* Stats Card - Two Rows */}
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-        <div className="flex items-center justify-between">
+        {/* Row 1: Iterations, Classes, Particles, Micrographs */}
+        <div className="grid grid-cols-4 gap-4 mb-3">
           <div className="flex items-center gap-2">
-            <FiLayers className="text-[var(--color-text-muted)]" size={14} />
+            <FiLayers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Iterations:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: selectedJob?.status === "running" ? "var(--color-warning-text)" : "var(--color-text-heading)" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: selectedJob?.status === "running" ? "var(--color-warning)" : "var(--color-text-heading)" }}>
               {currentIteration}/{totalIterations}
             </span>
             {selectedJob?.status === "running" && liveStats?.progress_percent && (
-              <span style={{ fontSize: "11px", color: "var(--color-warning-text)" }}>
+              <span style={{ fontSize: "11px", color: "var(--color-warning)" }}>
                 ({liveStats.progress_percent}%)
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <FiBox className="text-[var(--color-text-muted)]" size={14} />
+            <FiBox className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Classes:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {numClasses}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiRotateCw className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Symmetry:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {symmetry}
+            <FiTarget className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
+              {particleCount > 0 ? particleCount.toLocaleString() : 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiMaximize2 className="text-[var(--color-text-muted)]" size={14} />
+            <FiLayers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.micrograph_count || 0}
+            </span>
+          </div>
+        </div>
+        {/* Row 2: Pixel Size, Box Size, Mask, Symmetry */}
+        <div className="grid grid-cols-4 gap-4">
+          <div className="flex items-center gap-2">
+            <FiCrosshair className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiGrid className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.box_size || 0} px
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiMaximize2 className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Mask:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {maskDiameter} Å
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiTarget className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
+            <FiRotateCw className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Symmetry:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {particleCount > 0 ? particleCount.toLocaleString() : "N/A"}
+              {symmetry}
             </span>
           </div>
         </div>

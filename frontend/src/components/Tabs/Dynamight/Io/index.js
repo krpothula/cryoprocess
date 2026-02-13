@@ -13,14 +13,6 @@ const Io = ({
 }) => {
   return (
     <div className="tab-content">
-      {/* <CustomInput
-        onChange={handleInputChange}
-        name="inputStarFile"
-        label="Input micrographs STAR file:"
-        placeholder=""
-        tooltipText="micrographs "
-      /> */}
-
       <CustomInput
         stageStarFiles="Extract,Class2D,Subset,InitialModel,Class3D,AutoRefine,CtfRefine,Polish,ManualSelect,Subtract,JoinStar"
         stageRole="particlesStar"

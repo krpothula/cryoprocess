@@ -10,6 +10,7 @@ const Running = ({ formData, handleInputChange, handleRangeChange, dropdownOptio
         handleRangeChange={handleRangeChange}
         dropdownOptions={dropdownOptions}
         computeProfile={JOB_COMPUTE_PROFILES.auto_refine}
+        requireOddMpi
       />
     </div>
   );

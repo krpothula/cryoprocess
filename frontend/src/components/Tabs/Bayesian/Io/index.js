@@ -57,8 +57,8 @@ const Io = ({handleInputChange, formData, handleRangeChange, dropdownOptions, jo
       <PixelSizeInput
         label="Last movie frame:"
         placeholder=""
-        min={0}
-        max={50}
+        min={-1}
+        max={200}
         value={formData.lastMovieFrame}
         name="lastMovieFrame"
         onChange={handleRangeChange}
@@ -68,24 +68,26 @@ const Io = ({handleInputChange, formData, handleRangeChange, dropdownOptions, jo
       <PixelSizeInput
         label="Extraction size (pix in unbinned movie):"
         placeholder=""
-        min={0}
-        max={50}
+        min={-1}
+        max={1024}
         value={formData.extractionSize}
         name="extractionSize"
         onChange={handleRangeChange}
         handleInputChange={handleInputChange}
-        tooltipText="Box size for extraction from unbinned movies. Should be larger than your particle to capture surrounding motion information."
+        tooltipText="Box size for extraction from unbinned movies. Set to -1 for auto-detect. Should be larger than your particle to capture surrounding motion information."
+        step={2}
       />
       <PixelSizeInput
         label="Re-scaled size (pixels):"
         placeholder=""
-        min={0}
-        max={50}
+        min={-1}
+        max={1024}
         value={formData.rescaledSize}
         name="rescaledSize"
         onChange={handleRangeChange}
         handleInputChange={handleInputChange}
         tooltipText="Final box size after rescaling. Set to -1 to keep original size. Use smaller values to reduce file sizes for initial testing."
+        step={2}
       />
       <CustomDropdown
         label="Write output in float16?"

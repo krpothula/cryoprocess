@@ -22,8 +22,7 @@ const {
   getScratchDir,
   getIntParam,
   getFloatParam,
-  getBoolParam,
-  getParam
+  getBoolParam
 } = require('../utils/paramHelper');
 
 class Class2DBuilder extends BaseJobBuilder {
@@ -83,9 +82,9 @@ class Class2DBuilder extends BaseJobBuilder {
 
     // Get parameters using paramHelper for consistent naming
     const iterations = getIterations(data, 25);
-    const regularisation = getFloatParam(data, ['regularisationParameter', 'regularisationParam', 'tau2_fudge'], 2);
-    const offsetRange = getIntParam(data, ['initialOffsetRange', 'offsetSearchRange', 'offset_range'], 5);
-    const offsetStep = getIntParam(data, ['initialOffsetStep', 'offsetSearchStep', 'offset_step'], 1);
+    const regularisation = getFloatParam(data, ['regularisationParam'], 2);
+    const offsetRange = getIntParam(data, ['offsetSearchRange'], 5);
+    const offsetStep = getIntParam(data, ['offsetSearchStep'], 1);
 
     // If continuing from an optimiser file, use --continue instead of --i
     if (continueFrom) {
@@ -97,7 +96,7 @@ class Class2DBuilder extends BaseJobBuilder {
       cmd.push('--j', String(threads));
       cmd.push('--pipeline_control', relOutputDir + path.sep);
     } else {
-      const inputStar = data.inputStarFile || data.input_star_file || data.inputParticles;
+      const inputStar = data.inputStarFile;
       const relInput = this.makeRelative(this.resolveInputPath(inputStar));
 
       cmd.push('--o', relOutputDir + path.sep);
@@ -113,7 +112,7 @@ class Class2DBuilder extends BaseJobBuilder {
       cmd.push('--zero_mask');
       cmd.push('--center_classes');
       cmd.push('--oversampling', '1');
-      cmd.push('--psi_step', String(getFloatParam(data, ['inPlaneAngularSampling', 'psi_step'], 6)));
+      cmd.push('--psi_step', String(getFloatParam(data, ['angularSearchRange'], 6)));
       cmd.push('--offset_range', String(offsetRange));
       cmd.push('--offset_step', String(offsetStep));
       cmd.push('--norm');
@@ -125,7 +124,7 @@ class Class2DBuilder extends BaseJobBuilder {
     // The following options only apply to new jobs, not when continuing
     if (!continueFrom) {
       // CTF options
-      if (getBoolParam(data, ['ignoreCTFs', 'ctf_intact_first_peak'], false)) {
+      if (getBoolParam(data, ['ignoreCTFs'], false)) {
         cmd.push('--ctf_intact_first_peak');
       }
 
@@ -135,29 +134,29 @@ class Class2DBuilder extends BaseJobBuilder {
         cmd.push('--class_inactivity_threshold', '0.1');
         cmd.push('--grad_write_iter', '10');
 
-        const vdamMiniBatches = getIntParam(data, ['vdamMiniBatches', 'grad_ini_subset'], 200);
+        const vdamMiniBatches = getIntParam(data, ['vdamMiniBatches'], 200);
         if (vdamMiniBatches > 0) {
           cmd.push('--grad_ini_subset', String(vdamMiniBatches));
         }
       }
 
       // Limit resolution for E-step
-      const limitResEStep = getFloatParam(data, ['limitResolutionEStep', 'strict_highres_exp'], -1);
+      const limitResEStep = getFloatParam(data, ['limitResolutionEStep'], -1);
       if (limitResEStep > 0) {
         cmd.push('--strict_highres_exp', String(limitResEStep));
       }
 
       // Helical options
-      if (getBoolParam(data, ['classify2DHelical', 'helical'], false)) {
-        cmd.push('--helical_outer_diameter', String(getFloatParam(data, ['tubeDiameter', 'helical_outer_diameter'], 200)));
+      if (getBoolParam(data, ['classify2DHelical'], false)) {
+        cmd.push('--helical_outer_diameter', String(getFloatParam(data, ['tubeDiameter'], 200)));
 
-        if (getBoolParam(data, ['doBimodalAngular', 'bimodal_psi'], false)) {
+        if (getBoolParam(data, ['doBimodalAngular'], false)) {
           cmd.push('--bimodal_psi');
         }
 
-        cmd.push('--helical_rise', String(getFloatParam(data, ['helicalRise', 'helical_rise'], 4.75)));
+        cmd.push('--helical_rise', String(getFloatParam(data, ['helicalRise'], 4.75)));
 
-        if (getBoolParam(data, ['restrictHelicalOffsets'], false) || getParam(data, ['helical_offset_step'], null)) {
+        if (getBoolParam(data, ['restrictHelicalOffsets'], false)) {
           cmd.push('--helical_offset_step', String(offsetStep));
         }
       }
@@ -171,7 +170,7 @@ class Class2DBuilder extends BaseJobBuilder {
     }
 
     // Parallel I/O
-    if (getBoolParam(data, ['preReadAllParticles', 'preread_images'], false)) {
+    if (getBoolParam(data, ['preReadAllParticles'], false)) {
       cmd.push('--preread_images');
     }
 

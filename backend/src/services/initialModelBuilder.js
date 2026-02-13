@@ -72,16 +72,17 @@ class InitialModelBuilder extends BaseJobBuilder {
     const cmd = ['relion_refine'];
 
     // Get iteration count - frontend sends numberOfVdam
-    const iterations = getIntParam(data, ['numberOfVdam', 'numberOfMiniBatch', 'nr_iter'], 200);
+    const iterations = getIntParam(data, ['numberOfVdam'], 200);
 
     // Get input STAR file
     const inputStar = getInputStarFile(data);
+    const relInput = this.makeRelative(this.resolveInputPath(inputStar));
 
     cmd.push('--o', path.join(relOutputDir, 'run'));
     cmd.push('--iter', String(iterations));
     cmd.push('--grad');
     cmd.push('--denovo_3dref');
-    cmd.push('--i', inputStar);
+    cmd.push('--i', relInput);
     cmd.push('--K', String(getNumberOfClasses(data, 1)));
     cmd.push('--sym', getSymmetry(data));
     cmd.push('--zero_mask');
@@ -93,7 +94,7 @@ class InitialModelBuilder extends BaseJobBuilder {
     cmd.push('--offset_range', '6');
     cmd.push('--offset_step', '2');
     cmd.push('--auto_sampling');
-    cmd.push('--tau2_fudge', String(getFloatParam(data, ['regularisationParameter', 'regularisationParam', 'tau2_fudge'], 2)));
+    cmd.push('--tau2_fudge', String(getFloatParam(data, ['regularisationParameter'], 2)));
     cmd.push('--j', String(threads));
     cmd.push('--pipeline_control', relOutputDir + path.sep);
 
@@ -102,21 +103,21 @@ class InitialModelBuilder extends BaseJobBuilder {
       cmd.push('--ctf');
     }
 
-    if (getBoolParam(data, ['ignoreCTFs', 'ctf_intact_first_peak'], false)) {
+    if (getBoolParam(data, ['ignoreCTFs'], false)) {
       cmd.push('--ctf_intact_first_peak');
     }
 
     // Optimization options - frontend sends nonNegativeSolvent
-    if (getBoolParam(data, ['nonNegativeSolvent', 'flatterEnforceNonNegativeSolvent'], true)) {
+    if (getBoolParam(data, ['nonNegativeSolvent'], true)) {
       cmd.push('--flatten_solvent');
     }
 
     // I/O options
-    if (!getBoolParam(data, ['Useparalleldisc', 'useParallelIO'], true)) {
+    if (!getBoolParam(data, ['Useparalleldisc'], true)) {
       cmd.push('--no_parallel_disc_io');
     }
 
-    if (getBoolParam(data, ['preReadAllParticles', 'preread_images'], false)) {
+    if (getBoolParam(data, ['preReadAllParticles'], false)) {
       cmd.push('--preread_images');
     }
 

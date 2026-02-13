@@ -10,7 +10,6 @@ const CustomDropdown = ({
   onChange,
   tooltipText,
   disabled = false,
-  disabledHint,
   autoFilled = false,
 }) => {
   const [isTooltipVisible, setTooltipVisible] = useState(false);
@@ -69,11 +68,6 @@ const CustomDropdown = ({
               cursor: disabled ? "not-allowed" : "auto",
             }}
           />
-          {disabled && disabledHint && (
-            <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "1px", lineHeight: "1.3" }}>
-              {disabledHint}
-            </div>
-          )}
         </div>
         <div
           className="bg-[var(--color-bg-card)] p-[2px] rounded flex items-center justify-center cursor-pointer relative"

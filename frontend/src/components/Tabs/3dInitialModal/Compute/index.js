@@ -68,8 +68,8 @@ const Compute = ({
       <SimpleInput
         label="Which GPUs to use:"
         placeholder=""
-        name="gpuTouse"
-        value={formData.gpuTouse}
+        name="gpuToUse"
+        value={formData.gpuToUse}
         disabled={!isEnabled}
         onChange={handleInputChange}
       />

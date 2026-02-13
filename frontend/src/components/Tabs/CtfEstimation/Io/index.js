@@ -58,12 +58,6 @@ const Io = ({
         disabled={!isEnable}
         disabledHint="Enable 'Estimate phase shifts' first"
       />
-      {/* <div className="label-box-container">
-      <label style={{ font: "medium", fontSize: "16px" }}>Phase shift-Min,Max,Step(deg):</label>
-      <input style={{ width: "161.5px", backgroundColor: "#ffffe3", border: "1px solid gray", borderRadius: "4px", marginLeft: "6px", height: "36px" }} type="number" name="patchesX" value={formData.patchesX} onChange={handleInputChange} />
-      <input style={{ width: "162.5px", backgroundColor: "#ffffe3", border: "1px solid gray", borderRadius: "4px", height: "36px", margin: "5px" }} type="number" name="patchesX" value={formData.patchesX} onChange={handleInputChange} />
-      <input style={{ width: "162.5px", backgroundColor: "#ffffe3", border: "1px solid gray", borderRadius: "4px", height: "36px" }} type="number" name="patchesY" value={formData.patchesY} onChange={handleInputChange} />
-    </div> */}
 
       <PixelSizeInput
         label="Amount of astigmatism (A):"

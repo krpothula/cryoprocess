@@ -21,8 +21,11 @@ import ModelAngeloDashboard from "../ModelAngeloDashboard";
 import DynamightDashboard from "../DynamightDashboard";
 import ManualSelectDashboard from "../ManualSelectDashboard";
 import SubsetDashboard from "../SubsetDashboard";
+import LinkMoviesDashboard from "../LinkMoviesDashboard";
+import SubtractDashboard from "../SubtractDashboard";
+import JoinStarDashboard from "../JoinStarDashboard";
 
-const LogsArea = ({ isLayoutSwitched }) => {
+const JobDashboard = () => {
   const [files, setFiles] = useState([]);
   const [isLoading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("dashboard"); // "dashboard" or "issues"
@@ -50,9 +53,12 @@ const LogsArea = ({ isLayoutSwitched }) => {
   const isDynamightJob = jobType === "Dynamight";
   const isManualSelectJob = jobType === "ManualSelect";
   const isSubsetJob = jobType === "Subset";
+  const isLinkMoviesJob = jobType === "LinkMovies";
+  const isSubtractJob = jobType === "Subtract";
+  const isJoinStarJob = jobType === "JoinStar";
 
   // Check if this job type supports dashboard view
-  const hasDashboard = isMotionJob || isImportJob || isCtfJob || isAutoPickJob || isExtractJob || isClass2DJob || isInitialModelJob || isClass3DJob || isAutoRefineJob || isPostProcessJob || isPolishJob || isCTFRefineJob || isMaskCreateJob || isLocalResJob || isModelAngeloJob || isDynamightJob || isManualSelectJob || isSubsetJob;
+  const hasDashboard = isMotionJob || isImportJob || isCtfJob || isAutoPickJob || isExtractJob || isClass2DJob || isInitialModelJob || isClass3DJob || isAutoRefineJob || isPostProcessJob || isPolishJob || isCTFRefineJob || isMaskCreateJob || isLocalResJob || isModelAngeloJob || isDynamightJob || isManualSelectJob || isSubsetJob || isLinkMoviesJob || isSubtractJob || isJoinStarJob;
 
   useEffect(() => {
     if (selectedJob?.id) {
@@ -197,6 +203,15 @@ const LogsArea = ({ isLayoutSwitched }) => {
 
       {/* Subset Selection Dashboard View */}
       {isSubsetJob && viewMode === "dashboard" && <SubsetDashboard />}
+
+      {/* Link Movies Dashboard View */}
+      {isLinkMoviesJob && viewMode === "dashboard" && <LinkMoviesDashboard />}
+
+      {/* Particle Subtraction Dashboard View */}
+      {isSubtractJob && viewMode === "dashboard" && <SubtractDashboard />}
+
+      {/* Join Star Files Dashboard View */}
+      {isJoinStarJob && viewMode === "dashboard" && <JoinStarDashboard />}
 
       {/* Issues & Logs View - JobLogs component with Issues tab */}
       {viewMode === "issues" && selectedJob?.id && (
@@ -402,4 +417,4 @@ const LogsArea = ({ isLayoutSwitched }) => {
   );
 };
 
-export default LogsArea;
+export default JobDashboard;

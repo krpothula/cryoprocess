@@ -1,5 +1,5 @@
 // App.js
-import React, { Suspense, useContext, useEffect, useState } from "react";
+import React, { Component, Suspense, useContext, useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
   Route,
@@ -11,8 +11,28 @@ import { MyContext } from "./useContext/authContext";
 import Navbar from "./components/Navbar";
 import { isAuthenticated } from "./utils/auth";
 
+// Error boundary catches render errors in lazy-loaded route components
+class ErrorBoundary extends Component {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "calc(100vh - 48px)", color: "var(--color-text-muted)", fontSize: 13, gap: 12 }}>
+          <span style={{ fontSize: 18, fontWeight: 600, color: "var(--color-danger-text)" }}>Something went wrong</span>
+          <span>{this.state.error?.message || "An unexpected error occurred"}</span>
+          <button onClick={() => window.location.reload()} style={{ padding: "6px 16px", borderRadius: 4, background: "var(--color-primary)", color: "#fff", border: "none", cursor: "pointer", fontSize: 12 }}>
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Route-level code splitting — only load page components when navigated to
-const Home1 = React.lazy(() => import("./components/Home"));
+const ProjectWorkspace = React.lazy(() => import("./components/ProjectWorkspace"));
 const ProjectsHome = React.lazy(() => import("./components/Projects"));
 const CreateProject = React.lazy(() => import("./components/Projects/CreateProject"));
 const CreateLiveProject = React.lazy(() => import("./components/Projects/CreateLiveProject"));
@@ -22,7 +42,7 @@ const AdminUsers = React.lazy(() => import("./components/Admin/Users"));
 const ChangePassword = React.lazy(() => import("./components/Auth/ChangePassword"));
 const UserProfile = React.lazy(() => import("./components/Profile/UserProfile"));
 const Jobs = React.lazy(() => import("./components/Jobs"));
-const Meta = React.lazy(() => import("./components/Meta"));
+const JobMonitor = React.lazy(() => import("./components/JobMonitor"));
 
 const RouteFallback = () => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "calc(100vh - 48px)", color: "var(--color-text-muted)", fontSize: 13 }}>
@@ -40,7 +60,8 @@ const PrivateRoute = ({ element }) => {
 };
 
 const AdminRoute = ({ element }) => {
-  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+  let userInfo = {};
+  try { userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}"); } catch (_) { /* corrupted storage */ }
   if (!isAuthenticated()) {
     return <Navigate to="/login" />;
   }
@@ -72,6 +93,7 @@ function App() {
           />
         )}
       </div>
+      <ErrorBoundary>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route
@@ -101,7 +123,7 @@ function App() {
             element={
               <PrivateRoute
                 element={
-                  <Home1
+                  <ProjectWorkspace
                     showJobTree={showJobTree}
                     setShowJobTree={setShowJobTree}
                   />
@@ -128,7 +150,7 @@ function App() {
             path="/metadata"
             element={
               user ? (
-                <Meta />
+                <JobMonitor />
               ) : (
                 <Navigate to="/login" />
               )
@@ -156,6 +178,7 @@ function App() {
           />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </Router>
   );
 }

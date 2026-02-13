@@ -142,11 +142,11 @@ const MaskCreateDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -154,7 +154,7 @@ const MaskCreateDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -214,28 +214,28 @@ const MaskCreateDashboard = () => {
             <FiSettings className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Threshold:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.initial_threshold || 0.02}
+              {selectedJob?.parameters?.initialThreshold ?? 0.004}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiCircle className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Extension:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.extend_binary_mask || 3} px
+              {selectedJob?.parameters?.extendBinaryMask ?? 3} px
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiBox className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Soft Edge:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.soft_edge_width || 6} px
+              {selectedJob?.parameters?.softEdgeWidth ?? 6} px
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiCircle className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Lowpass:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.lowpass_filter || 15} Å
+              {selectedJob?.parameters?.lowpassFilter ?? 15} Å
             </span>
           </div>
         </div>

@@ -85,7 +85,7 @@ class AutoRefineBuilder extends BaseJobBuilder {
     const cmd = this.buildMpiCommand('relion_refine', mpiProcs, gpuEnabled);
 
     // Get parameters using paramHelper
-    const lowPass = getFloatParam(data, ['initialLowPassFilter', 'lowPassFilter', 'ini_high'], 60);
+    const lowPass = getFloatParam(data, ['initialLowPassFilter'], 60);
     const symmetry = getSymmetry(data);
 
     // Map angular sampling to healpix_order
@@ -99,13 +99,15 @@ class AutoRefineBuilder extends BaseJobBuilder {
 
     // Input and output
     const inputStar = getInputStarFile(data);
+    const relInput = this.makeRelative(this.resolveInputPath(inputStar));
     const referenceMap = getReference(data);
+    const relRef = this.makeRelative(this.resolveInputPath(referenceMap));
 
-    cmd.push('--i', inputStar);
+    cmd.push('--i', relInput);
     cmd.push('--o', relOutputDir + path.sep);
     cmd.push('--auto_refine');
     cmd.push('--split_random_halves');
-    cmd.push('--ref', referenceMap);
+    cmd.push('--ref', relRef);
     cmd.push('--ini_high', String(lowPass));
     cmd.push('--sym', symmetry);
     cmd.push('--particle_diameter', String(getMaskDiameter(data, 200)));
@@ -127,14 +129,14 @@ class AutoRefineBuilder extends BaseJobBuilder {
     }
 
     // Reference mask if provided
-    const refMask = getParam(data, ['referenceMask', 'solvent_mask'], null);
+    const refMask = getParam(data, ['referenceMask'], null);
     if (refMask) {
-      cmd.push('--solvent_mask', refMask);
+      cmd.push('--solvent_mask', this.makeRelative(this.resolveInputPath(refMask)));
     }
 
     // Auto-sampling parameters
-    const offsetRange = getIntParam(data, ['initialOffsetRange', 'offSetRange', 'offset_range'], 5);
-    const offsetStep = getIntParam(data, ['initialOffsetStep', 'offSetStep', 'offset_step'], 1);
+    const offsetRange = getIntParam(data, ['offSetRange'], 5);
+    const offsetStep = getIntParam(data, ['offSetStep'], 1);
     cmd.push('--offset_range', String(offsetRange));
     cmd.push('--offset_step', String(offsetStep));
 
@@ -145,13 +147,13 @@ class AutoRefineBuilder extends BaseJobBuilder {
     }
 
     // Relax symmetry
-    const relaxSym = getParam(data, ['RelaxSymmetry', 'relaxSymmetry'], null);
+    const relaxSym = getParam(data, ['RelaxSymmetry'], null);
     if (relaxSym) {
       cmd.push('--relax_sym', relaxSym);
     }
 
     // Optional flags
-    if (!getBoolParam(data, ['referenceMapAbsolute', 'absoluteGreyscale'], false)) {
+    if (!getBoolParam(data, ['referenceMapAbsolute'], false)) {
       cmd.push('--firstiter_cc');
     }
 
@@ -160,26 +162,27 @@ class AutoRefineBuilder extends BaseJobBuilder {
     }
 
     // Ignore CTFs
-    if (getBoolParam(data, ['igonreCtf', 'ignoreCTFs', 'ctf_intact_first_peak'], false)) {
+    if (getBoolParam(data, ['igonreCtf'], false)) {
       cmd.push('--ctf_intact_first_peak');
     }
 
     // Mask particles
-    if (getBoolParam(data, ['maskIndividualparticles', 'maskParticlesWithZeros'], true)) {
+    if (getBoolParam(data, ['maskIndividualparticles'], true)) {
       cmd.push('--zero_mask');
     }
 
-    if (getBoolParam(data, ['useBlushRegularisation'], false)) {
+    // Blush regularisation requires GPU — only add if GPU is enabled
+    if (getBoolParam(data, ['useBlushRegularisation'], false) && gpuEnabled) {
       cmd.push('--blush');
     }
 
-    // Solvent-flattened FSCs
-    if (getBoolParam(data, ['useSolventFlattenedFscs', 'solvent_correct_fsc'], false)) {
+    // Solvent-flattened FSCs requires a solvent mask
+    if (getBoolParam(data, ['useSolventFlattenedFscs'], false) && refMask) {
       cmd.push('--solvent_correct_fsc');
     }
 
     // I/O options
-    if (!getBoolParam(data, ['Useparalleldisc', 'useParallelIO'], true)) {
+    if (!getBoolParam(data, ['Useparalleldisc'], true)) {
       cmd.push('--no_parallel_disc_io');
     }
     if (!getBoolParam(data, ['combineIterations'], false)) {
@@ -194,21 +197,21 @@ class AutoRefineBuilder extends BaseJobBuilder {
     }
 
     // Helix parameters
-    if (getBoolParam(data, ['helicalReconstruction', 'helix'], false)) {
+    if (getBoolParam(data, ['helicalReconstruction'], false)) {
       cmd.push('--helix');
 
-      const tubeInner = getFloatParam(data, ['tubeDiameter1', 'innerDiameter'], -1);
-      const tubeOuter = getFloatParam(data, ['tubeDiameter2', 'outerDiameter'], -1);
+      const tubeInner = getFloatParam(data, ['tubeDiameter1'], -1);
+      const tubeOuter = getFloatParam(data, ['tubeDiameter2'], -1);
       if (tubeInner > 0) {
         cmd.push('--helical_inner_diameter', String(tubeInner));
       }
       cmd.push('--helical_outer_diameter', String(tubeOuter));
 
-      const nrAsu = getIntParam(data, ['numberOfUniqueAsymmetrical', 'uniqueAsymmetricalUnits'], 1);
+      const nrAsu = getIntParam(data, ['numberOfUniqueAsymmetrical'], 1);
       cmd.push('--helical_nr_asu', String(nrAsu));
 
       const initialTwist = getFloatParam(data, ['initialTwist'], 0);
-      const rise = getFloatParam(data, ['rise', 'initialRise'], 0);
+      const rise = getFloatParam(data, ['rise'], 0);
       cmd.push('--helical_twist_initial', String(initialTwist));
       cmd.push('--helical_rise_initial', String(rise));
 
@@ -229,31 +232,31 @@ class AutoRefineBuilder extends BaseJobBuilder {
         cmd.push('--sigma_rot', String(sigmaRot / 3.0 / 5.0));
       }
 
-      const localAvg = getFloatParam(data, ['rangeFactorOfLocal', 'localAveraging'], -1);
+      const localAvg = getFloatParam(data, ['rangeFactorOfLocal'], -1);
       if (localAvg > 0) {
         cmd.push('--helical_sigma_distance', String(localAvg / 3.0));
       }
 
-      if (getBoolParam(data, ['keepTiltPriorFixed', 'tiltPrior'], true)) {
+      if (getBoolParam(data, ['keepTiltPriorFixed'], true)) {
         cmd.push('--helical_keep_tilt_prior_fixed');
       }
 
       if (getBoolParam(data, ['helicalSymmetry'], true)) {
-        if (getBoolParam(data, ['localSearches', 'localSearchSymmetry'], false)) {
+        if (getBoolParam(data, ['localSearches'], false)) {
           cmd.push('--helical_symmetry_search');
 
-          const twistMin = getFloatParam(data, ['twistSearch1', 'twistMin'], 0);
-          const twistMax = getFloatParam(data, ['twistSearch2', 'twistMax'], 0);
-          const twistStep = getFloatParam(data, ['twistSearch3', 'twistStep'], 0);
+          const twistMin = getFloatParam(data, ['twistSearch1'], 0);
+          const twistMax = getFloatParam(data, ['twistSearch2'], 0);
+          const twistStep = getFloatParam(data, ['twistSearch3'], 0);
           cmd.push('--helical_twist_min', String(twistMin));
           cmd.push('--helical_twist_max', String(twistMax));
           if (twistStep > 0) {
             cmd.push('--helical_twist_inistep', String(twistStep));
           }
 
-          const riseMin = getFloatParam(data, ['riseSearchMin', 'riseMin'], 0);
-          const riseMax = getFloatParam(data, ['riseSearchMax', 'riseMax'], 0);
-          const riseStep = getFloatParam(data, ['riseSearchStep', 'riseStep'], 0);
+          const riseMin = getFloatParam(data, ['riseSearchMin'], 0);
+          const riseMax = getFloatParam(data, ['riseSearchMax'], 0);
+          const riseStep = getFloatParam(data, ['riseSearchStep'], 0);
           cmd.push('--helical_rise_min', String(riseMin));
           cmd.push('--helical_rise_max', String(riseMax));
           if (riseStep > 0) {

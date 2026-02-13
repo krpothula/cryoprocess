@@ -56,23 +56,12 @@ const getJobColor = (jobType) => {
   return jobTypeColors.default;
 };
 
-// Status colors for the indicator dot
-const STATUS_COLORS = {
-  success: "#10b981",    // Green
-  completed: "#10b981",  // Green
-  running: "#f59e0b",    // Amber/Orange - matches sidebar
-  pending: "#f59e0b",    // Amber
-  queued: "#f59e0b",     // Amber
-  failed: "#ef4444",     // Red
-  error: "#ef4444",      // Red
-  cancelled: "#94a3b8",  // Gray
-  aborted: "#94a3b8",    // Gray
-  default: "#94a3b8",    // Gray
-};
+// Status colors — uses shared utility for canonical status values
+import { getStatusColor as getSharedStatusColor } from './jobStatus';
 
 const getStatusColor = (status) => {
-  if (!status) return STATUS_COLORS.default;
-  return STATUS_COLORS[status.toLowerCase()] || STATUS_COLORS.default;
+  if (!status) return '#94a3b8';
+  return getSharedStatusColor(status);
 };
 
 export const transformApiResponseToTree = (apiResponse) => {

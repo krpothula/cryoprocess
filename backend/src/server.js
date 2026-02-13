@@ -22,6 +22,7 @@ const { connectDB } = require('./config/database');
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
 const authMiddleware = require('./middleware/auth');
+const { smartscopeAuth } = require('./middleware/auth');
 const { getMonitor } = require('./services/slurmMonitor');
 const { getWebSocketServer } = require('./services/websocket');
 const { onJobStatusChange } = require('./services/thumbnailGenerator');
@@ -40,6 +41,7 @@ const slurmRoutes = require('./routes/slurm');
 const dashboardRoutes = require('./routes/dashboard');
 const userRoutes = require('./routes/users');
 const liveSessionRoutes = require('./routes/liveSession');
+const smartscopeRoutes = require('./routes/smartscope');
 
 const app = express();
 const server = http.createServer(app);
@@ -164,6 +166,7 @@ app.use('/api/slurm', authMiddleware, slurmRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/live-sessions', authMiddleware, liveSessionRoutes);
+app.use('/api/smartscope', smartscopeAuth, smartscopeRoutes);
 
 // Legacy routes (Django-style URLs used by frontend)
 const jobController = require('./controllers/jobController');
@@ -220,6 +223,7 @@ app.get('/class3d/live-stats/', authMiddleware, dashboardController.getClass3dLi
 app.get('/autorefine/results/', authMiddleware, dashboardController.getAutoRefineResults);
 app.get('/autorefine/mrc/', authMiddleware, dashboardController.getAutoRefineMrc);
 app.get('/autorefine/live-stats/', authMiddleware, dashboardController.getAutoRefineLiveStats);
+app.get('/autorefine/fsc/', authMiddleware, dashboardController.getAutoRefineFsc);
 
 // Mask Creation dashboard legacy routes
 app.get('/maskcreate/results/', authMiddleware, dashboardController.getMaskCreateResults);
@@ -232,6 +236,12 @@ app.get('/ctfrefine/pdf/', authMiddleware, dashboardController.getCtfRefinePdf);
 // Bayesian Polishing dashboard legacy routes
 app.get('/polish/results/', authMiddleware, dashboardController.getPolishResults);
 app.get('/polish/output/', authMiddleware, dashboardController.getPolishOutput);
+
+// Particle Subtraction dashboard routes
+app.get('/subtract/results/', authMiddleware, dashboardController.getSubtractResults);
+
+// Join Star Files dashboard routes
+app.get('/joinstar/results/', authMiddleware, dashboardController.getJoinStarResults);
 
 // Post Processing dashboard legacy routes
 app.get('/postprocess/results/', authMiddleware, dashboardController.getPostProcessResults);

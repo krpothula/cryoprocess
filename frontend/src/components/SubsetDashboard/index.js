@@ -104,11 +104,15 @@ const SubsetDashboard = () => {
     return { name: "Subset Selection", icon: FiFilter };
   };
 
+  // Distance for duplicate removal
+  const duplicateDistance = isDuplicateRemoval ? (params.minParticleDistance || null) : null;
+
   const operationInfo = getOperationInfo();
 
-  // Calculate stats
+  // Calculate stats from pipeline_stats
+  const stats = selectedJob?.pipeline_stats || {};
   const particlesBefore = results?.particles_before || 0;
-  const particlesAfter = results?.particle_count || 0;
+  const particlesAfter = stats.particle_count || 0;
   const particlesRemoved = particlesBefore - particlesAfter;
   const retentionPercent = particlesBefore > 0 ? ((particlesAfter / particlesBefore) * 100).toFixed(1) : 0;
   const removalPercent = particlesBefore > 0 ? ((particlesRemoved / particlesBefore) * 100).toFixed(1) : 0;
@@ -151,11 +155,11 @@ const SubsetDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error" || selectedJob?.status === "failed"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -163,7 +167,7 @@ const SubsetDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error" || selectedJob?.status === "failed"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -216,7 +220,7 @@ const SubsetDashboard = () => {
         </div>
       </div>
 
-      {/* Stats Card - Merged */}
+      {/* Stats Card */}
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -226,20 +230,21 @@ const SubsetDashboard = () => {
               {operationInfo.name}
             </span>
           </div>
+          {duplicateDistance && (
+            <div className="flex items-center gap-2">
+              <FiSliders className="text-[var(--color-text-muted)]" size={14} />
+              <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Distance:</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+                {duplicateDistance} Å
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Input:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {particlesBefore > 0 ? particlesBefore.toLocaleString() : "—"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FiFilter className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Output:</span>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
               {particlesAfter.toLocaleString()}
             </span>
-            <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>({retentionPercent}%)</span>
           </div>
           <div className="flex items-center gap-2">
             <FiTrash2 className="text-[var(--color-text-muted)]" size={14} />
@@ -247,7 +252,9 @@ const SubsetDashboard = () => {
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-danger-text)" }}>
               {particlesBefore > 0 ? particlesRemoved.toLocaleString() : "—"}
             </span>
-            <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>({removalPercent}%)</span>
+            {particlesBefore > 0 && (
+              <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>({removalPercent}%)</span>
+            )}
           </div>
         </div>
       </div>

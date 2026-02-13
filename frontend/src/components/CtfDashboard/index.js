@@ -387,7 +387,7 @@ const CtfDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
                   ? "#f59e0b"
@@ -399,7 +399,7 @@ const CtfDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -462,7 +462,7 @@ const CtfDashboard = () => {
             <FiImage className="text-gray-400 dark:text-slate-500" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {liveStats?.processed ?? results?.summary?.processed ?? 0}/{liveStats?.total ?? results?.summary?.total ?? 0}
+              {selectedJob?.pipeline_stats?.micrograph_count || liveStats?.processed || 0}/{liveStats?.total ?? results?.summary?.total ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">

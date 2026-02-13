@@ -2,7 +2,7 @@
  * Pipeline Metadata Helper
  *
  * Stores pipeline metadata when jobs complete.
- * Node.js equivalent of Python's common/pipeline_metadata.py
+ * Node.js equivalent of Python's common pipeline stats extraction
  *
  * PIXEL SIZE TRACKING:
  * pixel_size changes at specific pipeline stages:
@@ -17,6 +17,8 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
 const Job = require('../models/Job');
+const Project = require('../models/Project');
+const settings = require('../config/settings');
 
 /**
  * Calculate pixel_size by traversing the pipeline from Import to current job.
@@ -148,13 +150,7 @@ function getPixelSizeSafe(job) {
     return job.pixel_size;
   }
 
-  // 3. Try pipeline_metadata.original_pixel_size (for Import jobs)
-  const meta = job.pipeline_metadata || {};
-  if (meta.original_pixel_size && !isNaN(meta.original_pixel_size)) {
-    return meta.original_pixel_size;
-  }
-
-  // 4. Try parameters.angpix (for Import jobs)
+  // 3. Try parameters.angpix (for Import jobs)
   const params = job.parameters || {};
   if (params.angpix) {
     const angpix = parseFloat(params.angpix);
@@ -165,29 +161,55 @@ function getPixelSizeSafe(job) {
 }
 
 /**
- * Build a complete pipeline_stats + pipeline_metadata update for Job.findOneAndUpdate.
+ * Build a pipeline_stats update for Job.findOneAndUpdate.
  *
- * pipeline_stats: Uniform per-job statistics (always writes ALL 7 fields).
- * pipeline_metadata: Derivation context only (HOW values were computed, no duplicate counts).
+ * Uses $set with dot notation so ONLY the fields passed in `stats` are overwritten.
+ * Fields not passed are preserved (e.g. submission-time fields like voltage, symmetry).
  *
- * @param {Object} stats - Partial stats object (defaults applied for missing fields)
- * @param {Object} context - Derivation context for pipeline_metadata
- * @returns {Object} MongoDB update document
+ * @param {Object} stats - Partial stats object (only provided fields are updated)
+ * @returns {Object} MongoDB $set update document
  */
-function buildStatsUpdate(stats, context) {
-  return {
-    pipeline_stats: {
-      pixel_size: stats.pixel_size ?? null,
-      micrograph_count: stats.micrograph_count ?? 0,
-      particle_count: stats.particle_count ?? 0,
-      box_size: stats.box_size ?? null,
-      resolution: stats.resolution ?? null,
-      class_count: stats.class_count ?? 0,
-      iteration_count: stats.iteration_count ?? 0
-    },
-    pipeline_metadata: context,
-    updated_at: new Date()
+function buildStatsUpdate(stats) {
+  // Use dot-notation $set so only provided fields are overwritten.
+  // Submission-time fields (voltage, symmetry, etc.) are preserved.
+  const update = { 'updated_at': new Date() };
+
+  const fields = {
+    pixel_size: stats.pixel_size ?? null,
+    micrograph_count: stats.micrograph_count ?? 0,
+    particle_count: stats.particle_count ?? 0,
+    box_size: stats.box_size ?? null,
+    resolution: stats.resolution ?? null,
+    bfactor: stats.bfactor ?? null,
+    class_count: stats.class_count ?? 0,
+    iteration_count: stats.iteration_count ?? 0,
+    movie_count: stats.movie_count ?? 0,
+    defocus_mean: stats.defocus_mean ?? null,
+    astigmatism_mean: stats.astigmatism_mean ?? null,
+    beam_tilt_x: stats.beam_tilt_x ?? null,
+    beam_tilt_y: stats.beam_tilt_y ?? null,
+    ctf_fitting: stats.ctf_fitting ?? null,
+    beam_tilt_enabled: stats.beam_tilt_enabled ?? null,
+    aniso_mag: stats.aniso_mag ?? null,
   };
+
+  // Only set fields that were explicitly provided in stats
+  for (const [key, value] of Object.entries(fields)) {
+    if (key in stats) {
+      update[`pipeline_stats.${key}`] = value;
+    }
+  }
+
+  // Parameter-derived fields: only set if explicitly provided (don't overwrite submission-time values)
+  const paramFields = ['total_iterations', 'voltage', 'cs', 'import_type', 'symmetry',
+    'mask_diameter', 'bin_factor', 'pick_method', 'rescaled_size'];
+  for (const key of paramFields) {
+    if (key in stats) {
+      update[`pipeline_stats.${key}`] = stats[key];
+    }
+  }
+
+  return update;
 }
 
 /**
@@ -310,16 +332,13 @@ async function storeImportMetadata(job) {
     }
   }
 
-  // Build derivation context (no duplicate counts)
-  const context = { import_type: importType || 'unknown' };
-  if (originalPixelSize) context.original_pixel_size = originalPixelSize;
-  if (params.kV) context.voltage_kv = parseFloat(params.kV);
-  if (params.spherical) context.spherical_aberration = parseFloat(params.spherical);
-
-  const updateData = buildStatsUpdate(
-    { pixel_size: originalPixelSize, micrograph_count: micrographCount },
-    context
-  );
+  const updateData = buildStatsUpdate({
+    pixel_size: originalPixelSize,
+    micrograph_count: micrographCount,
+    voltage: params.kV ? parseFloat(params.kV) : null,
+    cs: params.Cs ? parseFloat(params.Cs) : null,
+    import_type: importType
+  });
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
   logger.info(`[PipelineMetadata] Import ${job.job_name} | pixels: ${originalPixelSize}Å | micrographs: ${micrographCount} | type: ${importType}`);
@@ -357,17 +376,11 @@ async function storeMotionMetadata(job) {
     }
   }
 
-  // Build derivation context
-  const context = {};
-  if (originalPixelSize) context.original_pixel_size = originalPixelSize;
-  context.binning_factor = binningFactor;
-  const dosePerFrame = parseFloat(params.dosePerFrame) || parseFloat(params.dose_per_frame);
-  if (dosePerFrame && !isNaN(dosePerFrame)) context.dose_per_frame = dosePerFrame;
-
-  const updateData = buildStatsUpdate(
-    { pixel_size: pixelSize, micrograph_count: micrographCount },
-    context
-  );
+  const updateData = buildStatsUpdate({
+    pixel_size: pixelSize,
+    micrograph_count: micrographCount,
+    bin_factor: binningFactor
+  });
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
   logger.info(`[PipelineMetadata] Motion ${job.job_name} | pixels: ${pixelSize}Å | micrographs: ${micrographCount} | binning: ${binningFactor}`);
@@ -380,14 +393,9 @@ async function storeMotionMetadata(job) {
 async function storeCTFMetadata(job) {
   // Get pixel size from upstream Motion job
   let pixelSize = null;
-  const context = {};
   const motionJob = await findUpstreamJob(job, ['MotionCorr', 'Motion']);
   if (motionJob) {
     pixelSize = getPixelSizeSafe(motionJob);
-    const motionMeta = motionJob.pipeline_metadata || {};
-    if (motionMeta.original_pixel_size) {
-      context.original_pixel_size = motionMeta.original_pixel_size;
-    }
   }
 
   // Count micrographs from CTF star file
@@ -402,8 +410,7 @@ async function storeCTFMetadata(job) {
   }
 
   const updateData = buildStatsUpdate(
-    { pixel_size: pixelSize, micrograph_count: micrographCount },
-    context
+    { pixel_size: pixelSize, micrograph_count: micrographCount }
   );
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
@@ -519,10 +526,9 @@ async function storeAutoPickMetadata(job) {
     pixelSize = getPixelSizeSafe(ctfJob);
   }
 
-  // Count micrographs from autopick.star (async I/O to avoid blocking event loop)
-  // NOTE: We only count micrographs here, NOT particles from each coordinate file.
-  // Particle counts come from the Extract job later.
+  // Count micrographs and particles from autopick.star + coordinate files
   let micrographCount = 0;
+  let particleCount = 0;
   const outputDir = job.output_file_path;
 
   if (outputDir) {
@@ -531,13 +537,47 @@ async function storeAutoPickMetadata(job) {
       const content = await fs.promises.readFile(starPath, 'utf-8');
       const lines = content.split('\n');
       let inDataSection = false;
+      let columnNames = [];
+      let coordColIdx = -1;
+      const coordFiles = [];
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed.startsWith('loop_')) { inDataSection = true; continue; }
-        if (inDataSection && trimmed.startsWith('_')) continue;
+        if (trimmed.startsWith('loop_')) { inDataSection = true; columnNames = []; continue; }
+        if (inDataSection && trimmed.startsWith('_')) {
+          const colName = trimmed.split(/\s+/)[0].replace(/^_/, '');
+          columnNames.push(colName);
+          if (colName === 'rlnMicrographCoordinates') coordColIdx = columnNames.length - 1;
+          continue;
+        }
         if (inDataSection && trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('data_')) {
           micrographCount++;
+          if (coordColIdx >= 0) {
+            const fields = trimmed.split(/\s+/);
+            if (fields[coordColIdx]) coordFiles.push(fields[coordColIdx]);
+          }
+        }
+      }
+
+      // Count particles from each coordinate file
+      const projectRoot = path.dirname(path.dirname(outputDir));
+      for (const coordFile of coordFiles) {
+        const fullPath = path.join(projectRoot, coordFile);
+        try {
+          const coordContent = await fs.promises.readFile(fullPath, 'utf-8');
+          const coordLines = coordContent.split('\n');
+          let inCoordData = false;
+
+          for (const cl of coordLines) {
+            const ct = cl.trim();
+            if (ct.startsWith('loop_')) { inCoordData = true; continue; }
+            if (inCoordData && ct.startsWith('_')) continue;
+            if (inCoordData && ct && !ct.startsWith('#') && !ct.startsWith('data_')) {
+              particleCount++;
+            }
+          }
+        } catch (e) {
+          // Coordinate file missing or unreadable — skip
         }
       }
     } catch (error) {
@@ -547,13 +587,19 @@ async function storeAutoPickMetadata(job) {
     }
   }
 
-  const updateData = buildStatsUpdate(
-    { pixel_size: pixelSize, micrograph_count: micrographCount },
-    {}
-  );
+  // Determine picking method
+  const pickMethod = params.useTopaz === 'Yes' ? 'Topaz'
+    : params.useTemplateMatching === 'Yes' ? 'Template' : 'LoG';
+
+  const updateData = buildStatsUpdate({
+    pixel_size: pixelSize,
+    micrograph_count: micrographCount,
+    particle_count: particleCount,
+    pick_method: pickMethod
+  });
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
-  logger.info(`[PipelineMetadata] AutoPick ${job.job_name} | pixels: ${pixelSize}Å | micrographs: ${micrographCount}`);
+  logger.info(`[PipelineMetadata] AutoPick ${job.job_name} | pixels: ${pixelSize}Å | micrographs: ${micrographCount} | particles: ${particleCount} | method: ${pickMethod}`);
 }
 
 /**
@@ -609,6 +655,71 @@ async function countParticlesInStar(starPath) {
   } catch (error) {
     if (error.code !== 'ENOENT') {
       logger.warn(`[PipelineMetadata] Failed to count particles in ${starPath}: ${error.message}`);
+    }
+    return 0;
+  }
+}
+
+/**
+ * Count unique micrographs in a STAR file by parsing _rlnMicrographName column
+ * @param {string} starPath - Path to the STAR file
+ * @returns {Promise<number>} Unique micrograph count
+ */
+async function countMicrographsInStar(starPath) {
+  try {
+    const content = await fs.promises.readFile(starPath, 'utf-8');
+    const lines = content.split('\n');
+
+    let inParticlesBlock = false;
+    let inDataSection = false;
+    let micColumnIndex = -1;
+    let columnCounter = 0;
+    const micrographs = new Set();
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith('data_particles')) {
+        inParticlesBlock = true;
+        inDataSection = false;
+        columnCounter = 0;
+        micColumnIndex = -1;
+        continue;
+      }
+
+      if (trimmed.startsWith('data_') && !trimmed.startsWith('data_particles')) {
+        inParticlesBlock = false;
+        inDataSection = false;
+        continue;
+      }
+
+      if (inParticlesBlock && trimmed.startsWith('loop_')) {
+        inDataSection = true;
+        continue;
+      }
+
+      // Track column headers to find _rlnMicrographName index
+      if (inDataSection && trimmed.startsWith('_')) {
+        if (trimmed.startsWith('_rlnMicrographName')) {
+          micColumnIndex = columnCounter;
+        }
+        columnCounter++;
+        continue;
+      }
+
+      // Parse data rows
+      if (inParticlesBlock && inDataSection && trimmed && !trimmed.startsWith('#') && micColumnIndex >= 0) {
+        const fields = trimmed.split(/\s+/);
+        if (fields.length > micColumnIndex) {
+          micrographs.add(fields[micColumnIndex]);
+        }
+      }
+    }
+
+    return micrographs.size;
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      logger.warn(`[PipelineMetadata] Failed to count micrographs in ${starPath}: ${error.message}`);
     }
     return 0;
   }
@@ -732,46 +843,28 @@ async function countClassFiles(outputDir) {
 async function storeExtractMetadata(job) {
   const params = job.parameters || {};
 
-  // Get pixel size from upstream job - try multiple sources
-  let upstreamJob = await findUpstreamJob(job, ['CtfFind', 'CTF', 'CtfEstimation']);
-  if (!upstreamJob) upstreamJob = await findUpstreamJob(job, ['AutoPick']);
+  // Get pixel size from upstream AutoPick job (inherits micrograph pixel size from CTF/Motion)
+  let upstreamJob = await findUpstreamJob(job, ['AutoPick']);
+  if (!upstreamJob) upstreamJob = await findUpstreamJob(job, ['CtfFind', 'CTF', 'CtfEstimation']);
   if (!upstreamJob) upstreamJob = await findUpstreamJob(job, ['MotionCorr', 'Motion']);
 
-  // Get the micrograph pixel size (before extraction)
-  let micrographPixelSize = null;
-  if (upstreamJob) {
-    micrographPixelSize = getPixelSizeSafe(upstreamJob);
-  }
+  // Micrograph pixel size (before extraction/rescaling)
+  let micrographPixelSize = upstreamJob ? getPixelSizeSafe(upstreamJob) : null;
 
-  // If no upstream pixel_size, try to calculate from scratch
-  if (!micrographPixelSize) {
-    const pixelCalc = await calculatePixelSizeFromPipeline(job);
-    if (pixelCalc.current_pixel_size) {
-      micrographPixelSize = pixelCalc.current_pixel_size;
-    }
-  }
+  // Box size and rescaling from job parameters
+  const boxSize = parseInt(params.particleBoxSize) || parseInt(params.boxSize) || 0;
+  const rescale = params.rescaleParticles === 'Yes';
+  const rescaledSize = parseInt(params.rescaledSize) || 0;
 
-  // Check for rescaling
-  const rescale = params.rescale === 'Yes' || params.rescale === true ||
-                  params.doRescale === 'Yes' || params.do_rescale === 'Yes';
-
-  const boxSize = parseInt(params.boxSize) || parseInt(params.extractSize) ||
-                  parseInt(params.extract_size) || parseInt(params.box_size) || 0;
-
-  const rescaledSize = parseInt(params.rescaledSize) || parseInt(params.rescaled_size) ||
-                       parseInt(params.rescale_size) || 0;
-
-  // Calculate pixel_size (may change with rescaling)
+  // Effective pixel size: if rescale, multiply by (boxSize / rescaledSize)
   let pixelSize = micrographPixelSize;
-  const context = {};
-  if (micrographPixelSize) context.micrograph_pixel_size = micrographPixelSize;
-
   if (rescale && micrographPixelSize && boxSize > 0 && rescaledSize > 0 && boxSize !== rescaledSize) {
-    context.rescaled_size = rescaledSize;
-    context.rescale_factor = boxSize / rescaledSize;
     pixelSize = micrographPixelSize * (boxSize / rescaledSize);
     logger.info(`[PixelSize] Extract ${job.job_name}: ${micrographPixelSize.toFixed(3)} × (${boxSize}/${rescaledSize}) = ${pixelSize.toFixed(3)} Å`);
   }
+
+  // Effective box size: rescaled if rescaling, otherwise original
+  const effectiveBoxSize = (rescale && rescaledSize > 0) ? rescaledSize : boxSize;
 
   // Count particles from particles.star file
   let particleCount = 0;
@@ -785,9 +878,54 @@ async function storeExtractMetadata(job) {
   }
 
   // Inherit micrograph_count from upstream
+  const micrographCount = upstreamJob?.pipeline_stats?.micrograph_count || 0;
+
+  const updateData = buildStatsUpdate({
+    pixel_size: pixelSize,
+    micrograph_count: micrographCount,
+    particle_count: particleCount,
+    box_size: effectiveBoxSize || null,
+    rescaled_size: (rescale && rescaledSize > 0) ? rescaledSize : null
+  });
+
+  await Job.findOneAndUpdate({ id: job.id }, updateData);
+  logger.info(`[PipelineMetadata] Extract ${job.job_name} | pixels: ${micrographPixelSize}→${pixelSize}Å | box: ${boxSize}→${effectiveBoxSize} | particles: ${particleCount} | micrographs: ${micrographCount}`);
+}
+
+/**
+ * Store pipeline metadata for Bayesian Polishing job
+ * Counts actual output particles from shiny.star
+ *
+ * @param {Object} job - The job document
+ */
+async function storePolishMetadata(job) {
+  const outputDir = job.output_file_path;
+
+  // Inherit from upstream
+  let pixelSize = null;
+  let boxSize = null;
   let micrographCount = 0;
+
+  const upstreamJob = await findUpstreamJobDirect(job);
   if (upstreamJob) {
-    micrographCount = upstreamJob.pipeline_stats?.micrograph_count || upstreamJob.micrograph_count || 0;
+    const us = upstreamJob.pipeline_stats || {};
+    pixelSize = getPixelSizeSafe(upstreamJob);
+    boxSize = us.box_size || upstreamJob.box_size || null;
+    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+  }
+
+  if (!pixelSize) {
+    const pixelCalc = await calculatePixelSizeFromPipeline(job);
+    if (pixelCalc.current_pixel_size) pixelSize = pixelCalc.current_pixel_size;
+  }
+
+  // Count actual output particles from shiny.star
+  let particleCount = 0;
+  if (outputDir) {
+    const starPath = path.join(outputDir, 'shiny.star');
+    if (fs.existsSync(starPath)) {
+      particleCount = await countParticlesInStar(starPath);
+    }
   }
 
   const updateData = buildStatsUpdate(
@@ -795,13 +933,416 @@ async function storeExtractMetadata(job) {
       pixel_size: pixelSize,
       micrograph_count: micrographCount,
       particle_count: particleCount,
-      box_size: boxSize || null
+      box_size: boxSize
     },
-    context
+    {}
   );
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
-  logger.info(`[PipelineMetadata] Extract ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | particles: ${particleCount} | micrographs: ${micrographCount}`);
+  logger.info(`[PipelineMetadata] Polish ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | particles: ${particleCount} | mics: ${micrographCount}`);
+}
+
+/**
+ * Store pipeline metadata for CTF Refinement job
+ * Counts output particles and extracts defocus/astigmatism/beam tilt stats
+ * from particles_ctf_refine.star
+ *
+ * @param {Object} job - The job document
+ */
+async function storeCtfRefineMetadata(job) {
+  const outputDir = job.output_file_path;
+
+  // Inherit from upstream
+  let pixelSize = null;
+  let boxSize = null;
+  let micrographCount = 0;
+
+  const upstreamJob = await findUpstreamJobDirect(job);
+  if (upstreamJob) {
+    const us = upstreamJob.pipeline_stats || {};
+    pixelSize = getPixelSizeSafe(upstreamJob);
+    boxSize = us.box_size || upstreamJob.box_size || null;
+    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+  }
+
+  if (!pixelSize) {
+    const pixelCalc = await calculatePixelSizeFromPipeline(job);
+    if (pixelCalc.current_pixel_size) pixelSize = pixelCalc.current_pixel_size;
+  }
+
+  // Parse output star file for particle count, defocus stats, and beam tilt
+  let particleCount = 0;
+  let defocusMean = null;
+  let astigmatismMean = null;
+  let beamTiltX = null;
+  let beamTiltY = null;
+
+  if (outputDir) {
+    const starPath = path.join(outputDir, 'particles_ctf_refine.star');
+    if (fs.existsSync(starPath)) {
+      const stats = await parseCtfRefineStats(starPath);
+      particleCount = stats.particleCount;
+      defocusMean = stats.defocusMean;
+      astigmatismMean = stats.astigmatismMean;
+      beamTiltX = stats.beamTiltX;
+      beamTiltY = stats.beamTiltY;
+    }
+  }
+
+  // Extract refinement mode flags from job parameters
+  const params = job.parameters || {};
+  const ctfFitting = params.ctfParameter === 'Yes' || params.doDefocusRefine === 'Yes';
+  const beamTiltEnabled = params.estimateBeamtilt === 'Yes' || params.doBeamTilt === 'Yes';
+  const anisoMag = params.estimateMagnification === 'Yes' || params.doAnisoMag === 'Yes';
+
+  const updateData = buildStatsUpdate({
+    pixel_size: pixelSize,
+    micrograph_count: micrographCount,
+    particle_count: particleCount,
+    box_size: boxSize,
+    defocus_mean: defocusMean,
+    astigmatism_mean: astigmatismMean,
+    beam_tilt_x: beamTiltX,
+    beam_tilt_y: beamTiltY,
+    ctf_fitting: ctfFitting,
+    beam_tilt_enabled: beamTiltEnabled,
+    aniso_mag: anisoMag
+  });
+
+  await Job.findOneAndUpdate({ id: job.id }, updateData);
+  logger.info(`[PipelineMetadata] CtfRefine ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | particles: ${particleCount} | mics: ${micrographCount} | defocus: ${defocusMean?.toFixed(0)}Å | astig: ${astigmatismMean?.toFixed(0)}Å | tiltX: ${beamTiltX} | tiltY: ${beamTiltY}`);
+}
+
+/**
+ * Parse CTF Refine output star file for defocus/astigmatism/beam tilt stats.
+ * Lightweight line-by-line parser — does NOT load full rows into memory.
+ *
+ * @param {string} starPath - Path to particles_ctf_refine.star
+ * @returns {Promise<Object>} { particleCount, defocusMean, astigmatismMean, beamTiltX, beamTiltY }
+ */
+async function parseCtfRefineStats(starPath) {
+  const result = {
+    particleCount: 0,
+    defocusMean: null,
+    astigmatismMean: null,
+    beamTiltX: null,
+    beamTiltY: null
+  };
+
+  try {
+    const content = await fs.promises.readFile(starPath, 'utf-8');
+    const lines = content.split('\n');
+
+    // --- Pass 1: Extract beam tilt from data_optics block ---
+    let inOpticsBlock = false;
+    let inOpticsData = false;
+    let opticsColumns = [];
+    let tiltXIdx = -1;
+    let tiltYIdx = -1;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed === 'data_optics') { inOpticsBlock = true; inOpticsData = false; opticsColumns = []; continue; }
+      if (trimmed.startsWith('data_') && trimmed !== 'data_optics') {
+        if (inOpticsBlock) break; // Done with optics
+        continue;
+      }
+      if (inOpticsBlock && trimmed.startsWith('loop_')) { inOpticsData = true; continue; }
+      if (inOpticsBlock && inOpticsData && trimmed.startsWith('_')) {
+        opticsColumns.push(trimmed.split(/\s+/)[0]);
+        continue;
+      }
+      if (inOpticsBlock && inOpticsData && trimmed && !trimmed.startsWith('#')) {
+        // First data row of optics
+        const vals = trimmed.split(/\s+/);
+        tiltXIdx = opticsColumns.indexOf('_rlnBeamTiltX');
+        tiltYIdx = opticsColumns.indexOf('_rlnBeamTiltY');
+        if (tiltXIdx >= 0 && tiltXIdx < vals.length) result.beamTiltX = parseFloat(vals[tiltXIdx]) || null;
+        if (tiltYIdx >= 0 && tiltYIdx < vals.length) result.beamTiltY = parseFloat(vals[tiltYIdx]) || null;
+        break; // Only need first optics row
+      }
+    }
+
+    // --- Pass 2: Extract defocus stats from data_particles block ---
+    let inParticlesBlock = false;
+    let inParticlesData = false;
+    let particleColumns = [];
+    let defUIdx = -1;
+    let defVIdx = -1;
+
+    let defocusSum = 0;
+    let astigSum = 0;
+    let count = 0;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed === 'data_particles') { inParticlesBlock = true; inParticlesData = false; particleColumns = []; continue; }
+      if (inParticlesBlock && trimmed.startsWith('data_') && trimmed !== 'data_particles') { break; }
+      if (inParticlesBlock && trimmed.startsWith('loop_')) { inParticlesData = true; continue; }
+      if (inParticlesBlock && inParticlesData && trimmed.startsWith('_')) {
+        particleColumns.push(trimmed.split(/\s+/)[0]);
+        continue;
+      }
+      if (inParticlesBlock && inParticlesData && trimmed && !trimmed.startsWith('#')) {
+        count++;
+        // Only resolve column indices once
+        if (defUIdx < 0) {
+          defUIdx = particleColumns.indexOf('_rlnDefocusU');
+          defVIdx = particleColumns.indexOf('_rlnDefocusV');
+        }
+        if (defUIdx >= 0 && defVIdx >= 0) {
+          const vals = trimmed.split(/\s+/);
+          const defU = parseFloat(vals[defUIdx]) || 0;
+          const defV = parseFloat(vals[defVIdx]) || 0;
+          defocusSum += (defU + defV) / 2;
+          astigSum += Math.abs(defU - defV);
+        }
+      }
+    }
+
+    result.particleCount = count;
+    if (count > 0 && defUIdx >= 0) {
+      result.defocusMean = defocusSum / count;
+      result.astigmatismMean = astigSum / count;
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      logger.warn(`[PipelineMetadata] Failed to parse CTF refine stats from ${starPath}: ${error.message}`);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Store pipeline metadata for Particle Subtraction job
+ * Counts actual output particles from particles_subtracted.star
+ *
+ * @param {Object} job - The job document
+ */
+async function storeSubtractMetadata(job) {
+  const outputDir = job.output_file_path;
+
+  // Inherit from upstream
+  let pixelSize = null;
+  let boxSize = null;
+  let micrographCount = 0;
+
+  const upstreamJob = await findUpstreamJobDirect(job);
+  if (upstreamJob) {
+    const us = upstreamJob.pipeline_stats || {};
+    pixelSize = getPixelSizeSafe(upstreamJob);
+    boxSize = us.box_size || upstreamJob.box_size || null;
+    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+  }
+
+  if (!pixelSize) {
+    const pixelCalc = await calculatePixelSizeFromPipeline(job);
+    if (pixelCalc.current_pixel_size) pixelSize = pixelCalc.current_pixel_size;
+  }
+
+  // Check for re-boxing: new box size changes particle pixel size
+  const params = job.parameters || {};
+  const newBoxSize = parseInt(params.newBoxSize) || 0;
+  if (newBoxSize > 0) {
+    boxSize = newBoxSize;
+  }
+
+  // Count actual output particles from particles_subtracted.star
+  let particleCount = 0;
+  if (outputDir) {
+    const starPath = path.join(outputDir, 'particles_subtracted.star');
+    if (fs.existsSync(starPath)) {
+      particleCount = await countParticlesInStar(starPath);
+    }
+  }
+
+  const updateData = buildStatsUpdate(
+    {
+      pixel_size: pixelSize,
+      micrograph_count: micrographCount,
+      particle_count: particleCount,
+      box_size: boxSize
+    },
+    {}
+  );
+
+  await Job.findOneAndUpdate({ id: job.id }, updateData);
+  logger.info(`[PipelineMetadata] Subtract ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | particles: ${particleCount}`);
+}
+
+/**
+ * Store pipeline metadata for Join Star Files job
+ * Counts actual output particles/micrographs from join_*.star files
+ *
+ * @param {Object} job - The job document
+ */
+async function storeJoinStarMetadata(job) {
+  const outputDir = job.output_file_path;
+
+  // Inherit pixel_size and box_size from upstream
+  let pixelSize = null;
+  let boxSize = null;
+
+  const upstreamJob = await findUpstreamJobDirect(job);
+  if (upstreamJob) {
+    pixelSize = getPixelSizeSafe(upstreamJob);
+    boxSize = upstreamJob.pipeline_stats?.box_size || upstreamJob.box_size || null;
+  }
+
+  if (!pixelSize) {
+    const pixelCalc = await calculatePixelSizeFromPipeline(job);
+    if (pixelCalc.current_pixel_size) pixelSize = pixelCalc.current_pixel_size;
+  }
+
+  // Count actual output from join_*.star files
+  let particleCount = 0;
+  let micrographCount = 0;
+  let movieCount = 0;
+  if (outputDir) {
+    const particlesPath = path.join(outputDir, 'join_particles.star');
+    if (fs.existsSync(particlesPath)) {
+      particleCount = await countParticlesInStar(particlesPath);
+    }
+    const micrographsPath = path.join(outputDir, 'join_micrographs.star');
+    if (fs.existsSync(micrographsPath)) {
+      micrographCount = await countStarFileEntries(micrographsPath);
+    }
+    const moviesPath = path.join(outputDir, 'join_movies.star');
+    if (fs.existsSync(moviesPath)) {
+      movieCount = await countStarFileEntries(moviesPath);
+    }
+  }
+
+  const updateData = buildStatsUpdate({
+    pixel_size: pixelSize,
+    micrograph_count: micrographCount,
+    particle_count: particleCount,
+    movie_count: movieCount,
+    box_size: boxSize
+  });
+
+  await Job.findOneAndUpdate({ id: job.id }, updateData);
+  logger.info(`[PipelineMetadata] JoinStar ${job.job_name} | pixels: ${pixelSize}Å | particles: ${particleCount} | mics: ${micrographCount} | movies: ${movieCount}`);
+}
+
+/**
+ * Store pipeline metadata for Local Resolution job
+ * Parses run.out for mean resolution stats and stores in pipeline_stats.resolution
+ *
+ * @param {Object} job - The job document
+ */
+async function storeLocalResMetadata(job) {
+  const outputDir = job.output_file_path;
+
+  // Inherit from upstream
+  let pixelSize = null;
+  let boxSize = null;
+
+  const upstreamJob = await findUpstreamJobDirect(job);
+  if (upstreamJob) {
+    const us = upstreamJob.pipeline_stats || {};
+    pixelSize = getPixelSizeSafe(upstreamJob);
+    boxSize = us.box_size || null;
+  }
+
+  if (!pixelSize) {
+    const pixelCalc = await calculatePixelSizeFromPipeline(job);
+    if (pixelCalc.current_pixel_size) pixelSize = pixelCalc.current_pixel_size;
+  }
+
+  // Parse mean resolution from run.out
+  let resolution = null;
+  if (outputDir) {
+    const runOutPath = path.join(outputDir, 'run.out');
+    if (fs.existsSync(runOutPath)) {
+      try {
+        const runOut = fs.readFileSync(runOutPath, 'utf-8');
+        const meanMatch = runOut.match(/Mean:\s+([\d.]+)/);
+        if (meanMatch) {
+          resolution = parseFloat(meanMatch[1]);
+        }
+      } catch (err) {
+        logger.debug(`[PipelineMetadata] Could not parse LocalRes run.out: ${err.message}`);
+      }
+    }
+  }
+
+  const updateData = buildStatsUpdate({
+    pixel_size: pixelSize,
+    box_size: boxSize,
+    resolution: resolution
+  });
+
+  await Job.findOneAndUpdate({ id: job.id }, updateData);
+  logger.info(`[PipelineMetadata] LocalRes ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | resolution: ${resolution}Å`);
+}
+
+/**
+ * Resolve a job's output_file_path to an absolute directory path.
+ * If the path is already absolute, returns it directly.
+ * If relative, resolves via project directory (ROOT_PATH + folder_name).
+ *
+ * @param {Object} job - The job document (needs project_id and output_file_path)
+ * @returns {Promise<string|null>} Absolute output directory path, or null
+ */
+async function resolveOutputDir(job) {
+  const outputDir = job.output_file_path;
+  if (!outputDir) return null;
+  if (path.isAbsolute(outputDir)) return outputDir;
+  if (!job.project_id) return null;
+  try {
+    const project = await Project.findOne({ id: job.project_id });
+    if (!project) return null;
+    return path.join(settings.ROOT_PATH, project.folder_name || project.project_name, outputDir);
+  } catch (err) {
+    logger.warn(`[PipelineMetadata] Could not resolve project path for ${job.job_name}: ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Find the latest iteration *_data.star file in a directory.
+ * Matches patterns: run_it{NNN}_data.star or _it{NNN}_data.star
+ * Returns the file with the highest iteration number.
+ *
+ * @param {string} absDir - Absolute directory path
+ * @returns {string|null} Absolute path to the latest data.star file, or null
+ */
+function findLatestDataStar(absDir) {
+  if (!absDir || !fs.existsSync(absDir)) return null;
+  try {
+    const files = fs.readdirSync(absDir);
+    const dataStarPattern = /_it(\d+)_data\.star$/;
+    let maxIter = -1;
+    let bestFile = null;
+
+    for (const file of files) {
+      const match = file.match(dataStarPattern);
+      if (match) {
+        const iter = parseInt(match[1], 10);
+        if (iter > maxIter) {
+          maxIter = iter;
+          bestFile = file;
+        }
+      }
+    }
+
+    // Also check for run_data.star or _data.star (AutoRefine final output)
+    if (!bestFile) {
+      if (files.includes('run_data.star')) {
+        bestFile = 'run_data.star';
+      } else {
+        const dataStarFinal = files.find(f => f.endsWith('_data.star') && !dataStarPattern.test(f));
+        if (dataStarFinal) bestFile = dataStarFinal;
+      }
+    }
+
+    return bestFile ? path.join(absDir, bestFile) : null;
+  } catch (err) {
+    logger.warn(`[PipelineMetadata] Could not scan directory ${absDir}: ${err.message}`);
+    return null;
+  }
 }
 
 /**
@@ -823,7 +1364,6 @@ async function storeGenericMetadata(job) {
   let resolution = null;
   let classCount = 0;
   let iterationCount = 0;
-  const context = {};
 
   if (upstreamJob) {
     const us = upstreamJob.pipeline_stats || {};
@@ -841,8 +1381,32 @@ async function storeGenericMetadata(job) {
     const pixelCalc = await calculatePixelSizeFromPipeline(job);
     if (pixelCalc.current_pixel_size) {
       pixelSize = pixelCalc.current_pixel_size;
-      context.original_pixel_size = pixelCalc.original_pixel_size;
     }
+  }
+
+  // Count particles and micrographs from output star file
+  const absOutputDir = await resolveOutputDir(job);
+  if (absOutputDir) {
+    const starPath = path.join(absOutputDir, 'particles.star');
+    if (fs.existsSync(starPath)) {
+      const count = await countParticlesInStar(starPath);
+      if (count > 0) particleCount = count;
+      const micCount = await countMicrographsInStar(starPath);
+      if (micCount > 0) micrographCount = micCount;
+    } else if (job.output_files?.length > 0) {
+      // Fallback: use entryCount from output_files (set by builders like ManualSelect)
+      const particleFile = job.output_files.find(f => f.fileName === 'particles.star' || f.role === 'particlesStar');
+      if (particleFile?.entryCount > 0) particleCount = particleFile.entryCount;
+    }
+  }
+
+  // ManualSelect-specific: class_count = selected classes, iteration_count = total classes from upstream
+  const params = job.parameters || {};
+  if (params.selected_classes || params.num_classes_selected) {
+    // iteration_count = total classes from upstream (inherited as classCount above)
+    iterationCount = classCount;
+    // class_count = number of selected classes
+    classCount = parseInt(params.num_classes_selected) || (Array.isArray(params.selected_classes) ? params.selected_classes.length : 0);
   }
 
   const updateData = buildStatsUpdate(
@@ -854,12 +1418,11 @@ async function storeGenericMetadata(job) {
       resolution,
       class_count: classCount,
       iteration_count: iterationCount
-    },
-    context
+    }
   );
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
-  logger.info(`[PipelineMetadata] Generic ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | mics: ${micrographCount} | parts: ${particleCount}`);
+  logger.info(`[PipelineMetadata] Generic ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | mics: ${micrographCount} | parts: ${particleCount} | classes: ${classCount}/${iterationCount}`);
 }
 
 /**
@@ -900,26 +1463,45 @@ async function storeClassificationMetadata(job) {
     classCount = await countClassFiles(outputDir);
   }
 
-  // Count iterations from output files
+  // Get iteration count from user-submitted parameters (EM or VDAM)
   let iterationCount = 0;
-  if (outputDir) {
-    iterationCount = await countIterations(outputDir);
+  if (params.useVDAM === 'Yes') {
+    iterationCount = parseInt(params.vdamMiniBatches) || parseInt(params.nr_iter_grad) || 0;
+  } else {
+    iterationCount = parseInt(params.numberEMIterations) || parseInt(params.numberOfIterations) ||
+                     parseInt(params.nr_iter) || 0;
   }
 
-  const updateData = buildStatsUpdate(
-    {
-      pixel_size: pixelSize,
-      micrograph_count: micrographCount,
-      particle_count: particleCount,
-      box_size: boxSize,
-      class_count: classCount,
-      iteration_count: iterationCount
-    },
-    {}
-  );
+  // Count particles and micrographs from latest output data.star
+  const absOutputDir = await resolveOutputDir(job);
+  if (absOutputDir) {
+    const latestStar = findLatestDataStar(absOutputDir);
+    if (latestStar) {
+      const pc = await countParticlesInStar(latestStar);
+      if (pc > 0) particleCount = pc;
+      const mc = await countMicrographsInStar(latestStar);
+      if (mc > 0) micrographCount = mc;
+    }
+  }
+
+  // Parameter-derived fields
+  const maskDiameter = parseFloat(params.maskDiameter) || null;
+  const symmetry = params.symmetry || null;
+
+  const updateData = buildStatsUpdate({
+    pixel_size: pixelSize,
+    micrograph_count: micrographCount,
+    particle_count: particleCount,
+    box_size: boxSize,
+    class_count: classCount,
+    iteration_count: iterationCount,
+    total_iterations: iterationCount, // total requested = same value since job completed all
+    mask_diameter: maskDiameter,
+    symmetry: symmetry
+  });
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
-  logger.info(`[PipelineMetadata] Classification ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | classes: ${classCount} | iters: ${iterationCount} | mics: ${micrographCount}`);
+  logger.info(`[PipelineMetadata] Classification ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | classes: ${classCount} | iters: ${iterationCount} | mics: ${micrographCount} | parts: ${particleCount}`);
 }
 
 /**
@@ -955,32 +1537,50 @@ async function storeRefinementMetadata(job) {
   // Count iterations and extract resolution
   let iterationCount = 0;
   let resolution = null;
-  if (outputDir) {
-    iterationCount = await countIterations(outputDir);
+  const absOutputDir = await resolveOutputDir(job);
+  const effectiveDir = absOutputDir || outputDir;
 
-    const modelStar = path.join(outputDir, 'run_model.star');
+  if (effectiveDir) {
+    iterationCount = await countIterations(effectiveDir);
+
+    const modelStar = path.join(effectiveDir, 'run_model.star');
     resolution = await extractResolutionFromStar(modelStar);
 
     if (!resolution && iterationCount > 0) {
-      const iterModelStar = path.join(outputDir, `run_it${String(iterationCount).padStart(3, '0')}_model.star`);
+      const iterModelStar = path.join(effectiveDir, `run_it${String(iterationCount).padStart(3, '0')}_model.star`);
       resolution = await extractResolutionFromStar(iterModelStar);
+    }
+
+    // Fallback to --ini_high (starting resolution) if no model.star resolution yet
+    if (!resolution) {
+      const iniHigh = parseFloat(job.parameters?.initialLowPassFilter || job.parameters?.lowPassFilter || job.parameters?.ini_high);
+      if (iniHigh > 0) resolution = iniHigh;
+    }
+
+    // Count particles and micrographs from output data.star
+    const latestStar = findLatestDataStar(effectiveDir);
+    if (latestStar) {
+      const pc = await countParticlesInStar(latestStar);
+      if (pc > 0) particleCount = pc;
+      const mc = await countMicrographsInStar(latestStar);
+      if (mc > 0) micrographCount = mc;
     }
   }
 
-  const updateData = buildStatsUpdate(
-    {
-      pixel_size: pixelSize,
-      micrograph_count: micrographCount,
-      particle_count: particleCount,
-      box_size: boxSize,
-      resolution,
-      iteration_count: iterationCount
-    },
-    {}
-  );
+  const symmetry = job.parameters?.symmetry || null;
+
+  const updateData = buildStatsUpdate({
+    pixel_size: pixelSize,
+    micrograph_count: micrographCount,
+    particle_count: particleCount,
+    box_size: boxSize,
+    resolution,
+    iteration_count: iterationCount,
+    symmetry: symmetry
+  });
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
-  logger.info(`[PipelineMetadata] Refinement ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | res: ${resolution}Å | iters: ${iterationCount} | mics: ${micrographCount}`);
+  logger.info(`[PipelineMetadata] Refinement ${job.job_name} | pixels: ${pixelSize}Å | box: ${boxSize} | res: ${resolution}Å | iters: ${iterationCount} | mics: ${micrographCount} | parts: ${particleCount}`);
 }
 
 /**
@@ -1013,14 +1613,22 @@ async function storePostProcessMetadata(job) {
     if (pixelCalc.current_pixel_size) pixelSize = pixelCalc.current_pixel_size;
   }
 
-  // Extract resolution from postprocess.star
+  // Extract resolution and B-factor from postprocess.star
   let resolution = null;
-  const context = {};
+  let bfactor = null;
   if (outputDir) {
     const postprocessStar = path.join(outputDir, 'postprocess.star');
     resolution = await extractResolutionFromStar(postprocessStar);
-    if (resolution && resolution > 0) {
-      context.final_resolution = resolution; // Marks as final FSC-based resolution
+
+    // Extract B-factor using regex
+    try {
+      const content = await fs.promises.readFile(postprocessStar, 'utf-8');
+      const bfactorMatch = content.match(/_rlnBfactorUsedForSharpening\s+(-?[\d.]+)/);
+      if (bfactorMatch) {
+        bfactor = parseFloat(bfactorMatch[1]);
+      }
+    } catch (e) {
+      // Star file not found or unreadable — bfactor stays null
     }
   }
 
@@ -1030,13 +1638,13 @@ async function storePostProcessMetadata(job) {
       micrograph_count: micrographCount,
       particle_count: particleCount,
       box_size: boxSize,
-      resolution
-    },
-    context
+      resolution,
+      bfactor
+    }
   );
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
-  logger.info(`[PipelineMetadata] PostProcess ${job.job_name} | pixels: ${pixelSize}Å | res: ${resolution}Å | mics: ${micrographCount}`);
+  logger.info(`[PipelineMetadata] PostProcess ${job.job_name} | pixels: ${pixelSize}Å | res: ${resolution}Å | bfac: ${bfactor} | mics: ${micrographCount}`);
 }
 
 /**
@@ -1287,26 +1895,46 @@ async function storeJobMetadata(jobId) {
         await storePostProcessMetadata(job);
         break;
 
+      // CTF Refinement - counts output particles from particles_ctf_refine.star
+      case 'ctfrefine':
+      case 'ctfrefinement':
+        await storeCtfRefineMetadata(job);
+        break;
+
+      // Bayesian Polishing - counts output particles from shiny.star
+      case 'polish':
+      case 'bayesianpolishing':
+        await storePolishMetadata(job);
+        break;
+
+      // Particle Subtraction - counts output from particles_subtracted.star
+      case 'subtract':
+      case 'particlesubtraction':
+        await storeSubtractMetadata(job);
+        break;
+
+      // Join Star Files - counts output from join_*.star files
+      case 'joinstarfiles':
+      case 'joinstar':
+        await storeJoinStarMetadata(job);
+        break;
+
+      // Local Resolution - parses mean resolution from run.out
+      case 'localresolution':
+      case 'localres':
+        await storeLocalResMetadata(job);
+        break;
+
       // Jobs that inherit from upstream without special processing
       case 'manualselect':
       case 'manualpick':
       case 'manualpicking':
-      case 'ctfrefine':
-      case 'ctfrefinement':
-      case 'polish':
-      case 'bayesianpolishing':
       case 'maskcreate':
       case 'maskcreation':
-      case 'subtract':
-      case 'particlesubtraction':
-      case 'localresolution':
-      case 'localres':
       case '3dmultibody':
       case 'multibody':
       case 'subset':
       case 'subsetselection':
-      case 'joinstarfiles':
-      case 'joinstar':
       case 'dynamight':
       case 'dynamightflexibility':
       case 'modelangelo':
@@ -1341,6 +1969,11 @@ module.exports = {
   storeClassificationMetadata,
   storeRefinementMetadata,
   storePostProcessMetadata,
+  storePolishMetadata,
+  storeCtfRefineMetadata,
+  storeSubtractMetadata,
+  storeJoinStarMetadata,
+  storeLocalResMetadata,
 
   // Stats utilities
   buildStatsUpdate,
@@ -1356,6 +1989,7 @@ module.exports = {
   // STAR file utilities
   countStarFileEntries,
   countParticlesInStar,
+  countMicrographsInStar,
   extractResolutionFromStar,
   countIterations,
   countClassFiles

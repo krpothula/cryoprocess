@@ -7,7 +7,6 @@ const SimpleInput = ({
   placeholder = "",
   tooltipText,
   disabled = false,
-  disabledHint,
   autoFilled = false,
   name,
   value,
@@ -50,11 +49,6 @@ const SimpleInput = ({
               cursor: disabled ? "not-allowed" : "auto",
             }}
           />
-          {disabled && disabledHint && (
-            <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "1px", lineHeight: "1.3" }}>
-              {disabledHint}
-            </div>
-          )}
         </div>
 
         <div

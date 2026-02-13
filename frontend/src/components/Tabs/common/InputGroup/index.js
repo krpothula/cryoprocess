@@ -8,7 +8,6 @@ const InputGroup = ({
   onChange,
   tooltipText,
   disabled = false,
-  disabledHint,
 }) => {
   const [isTooltipVisible, setTooltipVisible] = useState(false);
   return (
@@ -48,11 +47,6 @@ const InputGroup = ({
               />
             ))}
           </div>
-          {disabled && disabledHint && (
-            <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "1px", lineHeight: "1.3" }}>
-              {disabledHint}
-            </div>
-          )}
         </div>
 
         <div

@@ -230,7 +230,7 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
 
   const statusCfg = STATUS_CONFIG[jobMeta?.status] || STATUS_CONFIG.pending;
   const duration = formatDuration(jobMeta?.start_time, jobMeta?.end_time);
-  const isFailed = jobMeta?.status === "failed" || jobMeta?.status === "error";
+  const isFailed = jobMeta?.status === "failed";
 
   // ─── Render helpers ──────────────────────────────────────────
 

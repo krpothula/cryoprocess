@@ -20,8 +20,12 @@ class PostProcessBuilder extends BaseJobBuilder {
     this.stageName = 'PostProcess';
   }
 
-  // Post-processing is CPU-only
+  // Post-processing is CPU-only, no MPI support
   get supportsGpu() {
+    return false;
+  }
+
+  get supportsMpi() {
     return false;
   }
 
@@ -52,9 +56,9 @@ class PostProcessBuilder extends BaseJobBuilder {
 
   validate() {
     // Support both 'halfMap' (single input, auto-derive second) and 'halfMap1'/'halfMap2' (explicit)
-    let halfMap1 = getParam(this.data, ['halfMap1', 'half_map_1'], '');
-    let halfMap2 = getParam(this.data, ['halfMap2', 'half_map_2'], '');
-    const inputHalfMap = getParam(this.data, ['halfMap', 'inputMap'], '');
+    let halfMap1 = getParam(this.data, ['halfMap1'], '');
+    let halfMap2 = getParam(this.data, ['halfMap2'], '');
+    const inputHalfMap = getParam(this.data, ['halfMap'], '');
 
     // If only halfMap provided, derive both half1 and half2 from naming convention
     if (inputHalfMap && !halfMap1 && !halfMap2) {
@@ -98,61 +102,62 @@ class PostProcessBuilder extends BaseJobBuilder {
     const relOutputDir = this.makeRelative(outputDir);
 
     // Get half-maps (validation already set them in this.data)
-    const halfMap1 = getParam(data, ['halfMap1', 'half_map_1'], null);
-    const halfMap2 = getParam(data, ['halfMap2', 'half_map_2'], null);
+    const halfMap1 = getParam(data, ['halfMap1'], null);
+    const halfMap2 = getParam(data, ['halfMap2'], null);
 
-    // Build command
+    // Build command — resolve and relativize all input paths for consistency
     const cmd = [
       'relion_postprocess',
-      '--i', halfMap1,
-      '--i2', halfMap2,
+      '--i', this.makeRelative(this.resolveInputPath(halfMap1)),
+      '--i2', this.makeRelative(this.resolveInputPath(halfMap2)),
       '--o', path.join(relOutputDir, 'postprocess'),
-      '--angpix', String(getFloatParam(data, ['calibratedPixelSize', 'angpix', 'pixelSize'], 1.0)),
+      '--angpix', String(getFloatParam(data, ['calibratedPixelSize'], 1.0)),
     ];
 
-    // Masking options
-    const solventMask = getParam(data, ['solventMask', 'mask'], null);
+    // Masking options — explicit mask and auto_mask are mutually exclusive
+    const solventMask = getParam(data, ['solventMask'], null);
     if (solventMask) {
-      cmd.push('--mask', solventMask);
-    }
-
-    if (getBoolParam(data, ['autoMask', 'auto_mask'], false)) {
+      cmd.push('--mask', this.makeRelative(this.resolveInputPath(solventMask)));
+    } else if (getBoolParam(data, ['autoMask'], false)) {
       cmd.push('--auto_mask');
-      cmd.push('--inimask_threshold', String(getFloatParam(data, ['initialMaskThreshold', 'inimask_threshold'], 0.02)));
-      cmd.push('--extend_inimask', String(getFloatParam(data, ['extendMaskBinaryMap', 'extend_inimask'], 3)));
-      cmd.push('--width_mask_edge', String(getFloatParam(data, ['addMaskEdge', 'width_mask_edge'], 6)));
+      cmd.push('--inimask_threshold', String(getFloatParam(data, ['initialMaskThreshold'], 0.02)));
+      cmd.push('--extend_inimask', String(getFloatParam(data, ['extendMaskBinaryMap'], 3)));
+      cmd.push('--width_mask_edge', String(getFloatParam(data, ['addMaskEdge'], 6)));
     }
 
     // B-factor sharpening
-    if (getBoolParam(data, ['autoB', 'auto_bfac'], true)) {
+    // Frontend sends 'bFactor' ("Yes"/"No") for auto-B toggle
+    if (getBoolParam(data, ['bFactor'], true)) {
       cmd.push('--auto_bfac');
-      cmd.push('--autob_lowres', String(getFloatParam(data, ['lowResolutionForAutoB', 'autob_lowres'], 10)));
-      cmd.push('--autob_highres', String(getFloatParam(data, ['highResolutionForAutoB', 'autob_highres'], 0)));
+      cmd.push('--autob_lowres', String(getFloatParam(data, ['lowestResolution'], 10)));
+      cmd.push('--autob_highres', String(getFloatParam(data, ['highestResolution'], 0)));
     } else {
-      cmd.push('--adhoc_bfac', String(getFloatParam(data, ['adHocBfactor', 'adhoc_bfac'], 0)));
+      cmd.push('--adhoc_bfac', String(getFloatParam(data, ['providedBFactor'], 0)));
     }
 
     // MTF correction
-    const mtfFile = getParam(data, ['mtfFile', 'mtf_file'], null);
+    // Frontend sends 'mtfDetector' for MTF file path
+    const mtfFile = getParam(data, ['mtfDetector'], null);
     if (mtfFile) {
-      cmd.push('--mtf', mtfFile);
+      cmd.push('--mtf', this.makeRelative(this.resolveInputPath(mtfFile)));
     }
 
     // Low-pass filter
-    if (getBoolParam(data, ['skipFSCWeighting', 'skip_fsc_weighting'], false)) {
+    // Frontend sends 'skipFSC' ("Yes"/"No") for skip FSC toggle
+    if (getBoolParam(data, ['skipFSC'], false)) {
       cmd.push('--skip_fsc_weighting');
-      cmd.push('--low_pass', String(getFloatParam(data, ['lowPassFilter', 'low_pass'], 5)));
+      cmd.push('--low_pass', String(getFloatParam(data, ['adHoc'], 5)));
     }
 
     // Local resolution estimation
-    if (getBoolParam(data, ['estimateLocalResolution', 'locres'], false)) {
+    if (getBoolParam(data, ['estimateLocalResolution'], false)) {
       cmd.push('--locres');
-      cmd.push('--locres_sampling', String(getFloatParam(data, ['localResSampling', 'locres_sampling'], 25)));
-      cmd.push('--locres_minres', String(getFloatParam(data, ['localResMinRes', 'locres_minres'], 50)));
+      cmd.push('--locres_sampling', String(getFloatParam(data, ['localResSampling'], 25)));
+      cmd.push('--locres_minres', String(getFloatParam(data, ['localResMinRes'], 50)));
     }
 
     // Pipeline control
-    cmd.push('--pipeline_control', path.resolve(outputDir) + path.sep);
+    cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     // Additional arguments
     this.addAdditionalArguments(cmd);

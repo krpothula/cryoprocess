@@ -236,11 +236,11 @@ const MotionDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -248,7 +248,7 @@ const MotionDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -303,27 +303,30 @@ const MotionDashboard = () => {
       </div>
 
       {/* Stats Card - Merged */}
+      {(() => {
+        const stats = selectedJob?.pipeline_stats || {};
+        return (
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FiFilm className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Movies:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {liveStats?.processed ?? results?.summary_stats?.processed ?? 0}/{liveStats?.total ?? results?.summary_stats?.total ?? 0}
+              {stats.micrograph_count || liveStats?.processed || 0}/{stats.movie_count || liveStats?.total || results?.summary_stats?.total || 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiMaximize2 className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.pixel_size ? `${results.pixel_size.toFixed(3)} Å/px` : "N/A"}
+              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Bin Factor:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {selectedJob?.parameters?.binningFactor || 1}
+              {stats.bin_factor || 1}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -342,6 +345,8 @@ const MotionDashboard = () => {
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* Three Column Layout */}
       <div className="flex border-b border-[var(--color-border)] overflow-hidden" style={{ height: "411px" }}>

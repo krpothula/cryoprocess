@@ -1,8 +1,8 @@
 /**
  * Parameter Helper Utilities
  *
- * Simplifies parameter extraction from data objects with multiple naming conventions.
- * Handles camelCase, snake_case, and various frontend/backend field name variations.
+ * Simplifies parameter extraction from data objects.
+ * Uses canonical camelCase field names matching the frontend form fields.
  */
 
 const { DEFAULTS } = require('../config/constants');
@@ -74,11 +74,8 @@ function getBoolParam(data, names, defaultValue = false) {
  */
 function getMpiProcs(data) {
   return Math.max(1, getIntParam(data, [
-    'runningmpi',      // Frontend SlurmRunningConfig uses this - check first
-    'numberOfMpiProcs',
-    'mpi_procs',
-    'nr_mpi'
-    // Note: removed 'mpiProcs' as it conflicts with default values
+    'runningmpi',
+    'numberOfMpiProcs'
   ], DEFAULTS.MPI_PROCS));
 }
 
@@ -90,18 +87,13 @@ function getMpiProcs(data) {
 function getThreads(data) {
   return Math.max(1, getIntParam(data, [
     'numberOfThreads',
-    'threads',
-    'nr_threads',
-    'j'
+    'threads'
   ], DEFAULTS.THREADS));
 }
 
 /**
  * Check if GPU acceleration is enabled
- * Handles multiple parameter formats:
- * - gpuAcceleration: "Yes"/"No" (primary toggle)
- * - useGPU: "0" or "0,1" (GPU device IDs - presence indicates GPU is requested)
- * - use_gpu/gpu: boolean or string
+ * Checks GpuAcceleration/gpuAcceleration toggle, then useGPU/gpuToUse device IDs
  * @param {Object} data - Job data object
  * @returns {boolean}
  */
@@ -116,21 +108,17 @@ function isGpuEnabled(data) {
   }
 
   // Check if useGPU contains a valid GPU ID (number or comma-separated list)
-  // useGPU: "0" means use GPU device 0, not "no GPU"
-  const useGpu = getParam(data, ['useGPU', 'gpuToUse', 'gpu_ids'], null);
+  const useGpu = getParam(data, ['useGPU', 'gpuToUse'], null);
   if (useGpu !== null && useGpu !== '' && useGpu !== 'No') {
-    // If it's a number or comma-separated list of numbers, GPU is enabled
     if (/^[\d,]+$/.test(String(useGpu))) {
       return true;
     }
-    // If it's "Yes", GPU is enabled
     if (String(useGpu).toLowerCase() === 'yes') {
       return true;
     }
   }
 
-  // Fallback to generic boolean check for use_gpu/gpu fields
-  return getBoolParam(data, ['use_gpu', 'gpu'], false);
+  return false;
 }
 
 /**
@@ -141,10 +129,7 @@ function isGpuEnabled(data) {
 function getGpuIds(data) {
   let gpuIds = getParam(data, [
     'useGPU',
-    'gpuToUse',
-    'gpuTouse',
-    'gpu_ids',
-    'gpu'
+    'gpuToUse'
   ], '0');
 
   // Handle 'Yes'/'No' values from frontend
@@ -163,13 +148,7 @@ function getGpuIds(data) {
  */
 function getInputStarFile(data) {
   return getParam(data, [
-    'inputStarFile',
-    'input_star_file',
-    'inputParticles',
-    'input_particles',
-    'inputFile',
-    'input_file',
-    'i'
+    'inputStarFile'
   ], null);
 }
 
@@ -180,9 +159,7 @@ function getInputStarFile(data) {
  */
 function getContinueFrom(data) {
   return getParam(data, [
-    'continueFrom',
-    'continue_from',
-    'continue'
+    'continueFrom'
   ], null);
 }
 
@@ -194,10 +171,7 @@ function getContinueFrom(data) {
  */
 function getMaskDiameter(data, defaultValue = 200) {
   return getIntParam(data, [
-    'maskDiameter',
-    'mask_diameter',
-    'particle_diameter',
-    'particleDiameter'
+    'maskDiameter'
   ], defaultValue);
 }
 
@@ -209,10 +183,7 @@ function getMaskDiameter(data, defaultValue = 200) {
  */
 function getNumberOfClasses(data, defaultValue = 1) {
   return getIntParam(data, [
-    'numberOfClasses',
-    'number_of_classes',
-    'nr_classes',
-    'K'
+    'numberOfClasses'
   ], defaultValue);
 }
 
@@ -225,10 +196,7 @@ function getNumberOfClasses(data, defaultValue = 1) {
 function getIterations(data, defaultValue = 25) {
   return getIntParam(data, [
     'numberOfIterations',
-    'number_of_iterations',
-    'numberEMIterations',
-    'nr_iter',
-    'iter'
+    'numberEMIterations'
   ], defaultValue);
 }
 
@@ -241,9 +209,7 @@ function getIterations(data, defaultValue = 25) {
 function getPooledParticles(data, defaultValue = DEFAULTS.POOL_SIZE) {
   return Math.max(1, getIntParam(data, [
     'numberOfPooledParticle',
-    'pooledParticles',
-    'pooled_particles',
-    'pool'
+    'pooledParticles'
   ], defaultValue));
 }
 
@@ -256,9 +222,7 @@ function getPooledParticles(data, defaultValue = DEFAULTS.POOL_SIZE) {
 function getAngpix(data, defaultValue = 1.0) {
   return getFloatParam(data, [
     'angpix',
-    'pixel_size',
-    'pixelSize',
-    'apix'
+    'calibratedPixelSize'
   ], defaultValue);
 }
 
@@ -269,12 +233,7 @@ function getAngpix(data, defaultValue = 1.0) {
  */
 function getReference(data) {
   return getParam(data, [
-    'reference',
-    'ref',
-    'reference_map',
-    'referenceMap',
-    'ref3d_fn',
-    'refFile'
+    'referenceMap'
   ], null);
 }
 
@@ -286,10 +245,7 @@ function getReference(data) {
  */
 function getSymmetry(data, defaultValue = 'C1') {
   return getParam(data, [
-    'symmetry',
-    'sym',
-    'symmetryGroup',
-    'symmetry_group'
+    'Symmetry'
   ], defaultValue);
 }
 
@@ -300,9 +256,8 @@ function getSymmetry(data, defaultValue = 'C1') {
  */
 function getScratchDir(data) {
   return getParam(data, [
-    'scratch_dir',
-    'scratchDir',
     'copyParticlesToScratch',
+    'copyParticles',
     'copyParticle'
   ], null);
 }

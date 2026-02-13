@@ -32,8 +32,8 @@ import { getProjectByIdApi } from "../../services/projects/projects";
 // ---------- helpers ----------
 
 const STATUS_COLORS = {
-  running: "var(--color-warning-text)",
-  paused: "var(--color-warning-text)",
+  running: "var(--color-warning)",
+  paused: "var(--color-warning)",
   stopped: "var(--color-text-secondary)",
   completed: "var(--color-success-text)",
   error: "var(--color-danger-text)",
@@ -56,8 +56,11 @@ const PIPELINE_STAGES = [
   { key: "class2d", label: "2D Class", icon: FiImage },
 ];
 
-// WebSocket URL matches Meta/index.js pattern (same port as existing WS server)
-const WS_URL = `ws://${window.location.hostname}:8001/ws`;
+// WebSocket URL — configurable via env vars, auto-detects wss for HTTPS
+const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const wsHost = process.env.REACT_APP_WS_HOST || window.location.hostname;
+const wsPort = process.env.REACT_APP_WS_PORT || '8001';
+const WS_URL = `${wsProtocol}://${wsHost}:${wsPort}/ws`;
 
 // Map orchestrator stage types (stored in DB) to dashboard stage keys
 const STAGE_TYPE_TO_KEY = {
@@ -231,7 +234,9 @@ const LiveDashboard = () => {
           wsReconnectRef.current = setTimeout(connectWebSocket, 5000);
         };
 
-        wsRef.current.onerror = () => {};
+        wsRef.current.onerror = () => {
+          console.warn('[LiveDashboard WS] Connection error — will retry');
+        };
       } catch (err) {
         wsReconnectRef.current = setTimeout(connectWebSocket, 5000);
       }

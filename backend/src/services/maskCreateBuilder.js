@@ -31,7 +31,7 @@ class MaskCreateBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    const inputMap = getParam(this.data, ['inputMap', 'input_map'], null);
+    const inputMap = getParam(this.data, ['inputMap'], null);
     const result = this.validateFileExists(inputMap, 'Input map');
     if (!result.valid) {
       return result;
@@ -45,7 +45,7 @@ class MaskCreateBuilder extends BaseJobBuilder {
     const relOutputDir = this.makeRelative(outputDir);
     const data = this.data;
 
-    const inputMap = getParam(data, ['inputMap', 'input_map'], null);
+    const inputMap = getParam(data, ['inputMap'], null);
 
     const cmd = [
       'relion_mask_create',
@@ -80,7 +80,7 @@ class MaskCreateBuilder extends BaseJobBuilder {
     }
 
     // Pipeline control
-    cmd.push('--pipeline_control', path.resolve(outputDir) + path.sep);
+    cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     // Additional arguments
     this.addAdditionalArguments(cmd);

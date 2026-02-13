@@ -12,17 +12,16 @@ const initialFormData = {
   calibratedPixelSize: -1,
   numberOfMpiProcs: 1,
   pValue: 0.05,
-  highestResolution: 0,
-  lowestResolution: 10,
+  highestResolution: 0,       // Highest resolution for auto-B fit (0 = Nyquist)
+  lowestResolution: 10,       // Lowest resolution for auto-B fit (A)
   resolutionStepSize: 1,
-  bFactor: -100,
+  bFactor: "Yes",             // Estimate B-factor automatically? (Yes/No dropdown)
   minDedicatedcores: 1,
-  providedBFactor: -1000,
-  Adhoc: 5,
-  originalDetector: 1,
-  bFactorOption: "Yes",
-  ownBfactor: "No",
-  skipFSC: "No",
+  providedBFactor: 0,         // User-provided B-factor (negative for sharpening)
+  adHoc: 5,                   // Ad-hoc low-pass filter (A) when FSC skipped
+  originalDetector: 1,        // Original detector pixel size
+  ownBfactor: "No",           // Use your own B-factor?
+  skipFSC: "No",              // Skip FSC-weighting?
   submitToQueue: "No",
   queuename: "",
   queueSubmitCommand: "",

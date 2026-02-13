@@ -167,7 +167,7 @@ const CustomInput = ({
         if (groups?.length > 0) setGroupedFiles(groups);
         if (message && groups.length === 0) setStageMessage(message);
       })
-      .catch(() => {})
+      .catch(() => { setStageMessage('Failed to load files'); })
       .finally(() => setFilesLoading(false));
 
     const handleClickOutside = (event) => {
@@ -199,7 +199,7 @@ const CustomInput = ({
         if (groups?.length > 0) setGroupedFiles(groups);
         if (message && groups.length === 0) setStageMessage(message);
       })
-      .catch(() => {})
+      .catch(() => { setStageMessage('Failed to load files'); })
       .finally(() => setFilesLoading(false));
 
     const handleClickOutside = (event) => {
@@ -230,7 +230,7 @@ const CustomInput = ({
         if (groups?.length > 0) setGroupedFiles(groups);
         if (message && groups.length === 0) setStageMessage(message);
       })
-      .catch(() => {})
+      .catch(() => { setStageMessage('Failed to load files'); })
       .finally(() => setFilesLoading(false));
 
     const handleClickOutside = (event) => {
@@ -267,7 +267,7 @@ const CustomInput = ({
     if (isCustomUpload) {
       return (
         <button
-          style={{ width: "280px", height: "32px", fontSize: "12px", border: "1px solid var(--color-border)", borderRadius: "6px" }}
+          style={{ width: "280px", minWidth: "280px", maxWidth: "280px", height: "32px", fontSize: "12px", border: "1px solid var(--color-border)", borderRadius: "6px" }}
           className={`flex items-center px-4 text-[var(--color-text-heading)] bg-[var(--color-bg-card)] focus:outline-none ${
             disabled ? "cursor-not-allowed opacity-30" : ""
           }`}
@@ -297,7 +297,7 @@ const CustomInput = ({
           type="button"
           onClick={onBrowseClick}
           disabled={disabled}
-          style={{ width: "280px", height: "32px", fontSize: "12px", border: "1px solid var(--color-border)", borderRadius: "6px" }}
+          style={{ width: "280px", minWidth: "280px", maxWidth: "280px", height: "32px", fontSize: "12px", border: "1px solid var(--color-border)", borderRadius: "6px" }}
           className={`px-3 bg-[var(--color-bg-card)] hover:bg-[var(--color-bg)] flex items-center gap-2 transition-colors text-left ${
             disabled ? "opacity-30 cursor-not-allowed" : ""
           }`}
@@ -317,7 +317,7 @@ const CustomInput = ({
     // Works for any stage: Import, Motion, CTF, etc.
     else if (stageStarFiles) {
       return (
-        <div className="relative" style={{ width: "280px" }} ref={dropdownRef}>
+        <div className="relative" style={{ width: "280px", minWidth: "280px", maxWidth: "280px" }} ref={dropdownRef}>
           <input
             id={name}
             name={name}
@@ -331,7 +331,7 @@ const CustomInput = ({
               onChange(e.target.value);
             }}
             onFocus={() => { setShowDropdown(true); setActiveInputField(name); }}
-            style={{ width: "280px", height: "32px", fontSize: "12px" }}
+            style={{ width: "280px", maxWidth: "280px", height: "32px", fontSize: "12px" }}
             className={`border border-[var(--color-border)] rounded px-2 bg-[var(--color-bg-card)] focus:outline-none ${
               disabled ? "opacity-30 cursor-not-allowed" : ""
             }`}
@@ -356,7 +356,7 @@ const CustomInput = ({
                         {isExpanded ? <FiChevronDown size={14} className="text-[var(--color-text-muted)]" /> : <FiChevronRight size={14} className="text-[var(--color-text-muted)]" />}
                         {group.job_status === "success" ? (
                           <FiCheckCircle className="text-[var(--color-success-text)]" size={14} />
-                        ) : group.job_status === "error" ? (
+                        ) : group.job_status === "failed" ? (
                           <FiAlertCircle className="text-[var(--color-danger-text)]" size={14} />
                         ) : (
                           <FiClock className="text-[var(--color-warning-text)]" size={14} />
@@ -386,7 +386,7 @@ const CustomInput = ({
                 })
               ) : (
                 <p className="text-xs text-[var(--color-text-secondary)] p-2">
-                  {stageMessage || `No matching files found. Complete a ${stageStarFiles.split(',')[0]} job first.`}
+                  {stageMessage || `No matching files found. Complete a ${stageStarFiles?.split(',')[0] || 'required'} job first.`}
                 </p>
               )}
             </div>
@@ -399,7 +399,7 @@ const CustomInput = ({
     // Works for any stage: InitialModel, Class3D, AutoRefine, etc.
     else if (stageMrcFiles) {
       return (
-        <div className="relative" style={{ width: "280px" }} ref={dropdownRef}>
+        <div className="relative" style={{ width: "280px", minWidth: "280px", maxWidth: "280px" }} ref={dropdownRef}>
           <div className="relative">
             <input
               id={name}
@@ -414,7 +414,7 @@ const CustomInput = ({
                 onChange(e.target.value);
               }}
               onFocus={() => { setShowDropdown(true); setActiveInputField(name); }}
-              style={{ width: "280px", height: "32px", fontSize: "12px", paddingRight: showBrowseButton ? "32px" : "8px" }}
+              style={{ width: "280px", maxWidth: "280px", height: "32px", fontSize: "12px", paddingRight: showBrowseButton ? "32px" : "8px" }}
               className={`border border-[var(--color-border)] rounded px-2 bg-[var(--color-bg-card)] focus:outline-none ${
                 disabled ? "opacity-30 cursor-not-allowed" : ""
               }`}
@@ -452,7 +452,7 @@ const CustomInput = ({
                         {isExpanded ? <FiChevronDown size={14} className="text-[var(--color-text-muted)]" /> : <FiChevronRight size={14} className="text-[var(--color-text-muted)]" />}
                         {group.job_status === "success" ? (
                           <FiCheckCircle className="text-[var(--color-success-text)]" size={14} />
-                        ) : group.job_status === "error" ? (
+                        ) : group.job_status === "failed" ? (
                           <FiAlertCircle className="text-[var(--color-danger-text)]" size={14} />
                         ) : (
                           <FiClock className="text-[var(--color-warning-text)]" size={14} />
@@ -492,7 +492,7 @@ const CustomInput = ({
     // Shows _optimiser.star files from Class2D, Class3D, AutoRefine, InitialModel jobs
     else if (stageOptimiserFiles) {
       return (
-        <div className="relative" style={{ width: "280px" }} ref={dropdownRef}>
+        <div className="relative" style={{ width: "280px", minWidth: "280px", maxWidth: "280px" }} ref={dropdownRef}>
           <input
             id={name}
             name={name}
@@ -506,7 +506,7 @@ const CustomInput = ({
               onChange(e.target.value);
             }}
             onFocus={() => { setShowDropdown(true); setActiveInputField(name); }}
-            style={{ width: "280px", height: "32px", fontSize: "12px" }}
+            style={{ width: "280px", maxWidth: "280px", height: "32px", fontSize: "12px" }}
             className={`border border-[var(--color-border)] rounded px-2 bg-[var(--color-bg-card)] focus:outline-none ${
               disabled ? "opacity-30 cursor-not-allowed" : ""
             }`}
@@ -546,7 +546,7 @@ const CustomInput = ({
                             {file.job_status && (
                               <span className={`${
                                 file.job_status === "success" ? "text-[var(--color-success-text)]" :
-                                file.job_status === "error" ? "text-[var(--color-danger-text)]" :
+                                file.job_status === "failed" ? "text-[var(--color-danger-text)]" :
                                 "text-[var(--color-warning-text)]"
                               }`}>
                                 {file.job_status}
@@ -572,7 +572,7 @@ const CustomInput = ({
     // Default plain input field
     else {
       return (
-        <div className="relative flex items-center gap-2" style={{ width: "280px" }}>
+        <div className="relative flex items-center gap-2" style={{ width: "280px", minWidth: "280px", maxWidth: "280px" }}>
           <input
             id={name}
             name={name}
@@ -584,6 +584,7 @@ const CustomInput = ({
             className="border border-[var(--color-border)] rounded px-2 bg-[var(--color-bg-card)] focus:outline-none"
             style={{
               width: "280px",
+              maxWidth: "280px",
               height: "32px",
               fontSize: "12px",
               opacity: disabled ? 0.3 : 1,

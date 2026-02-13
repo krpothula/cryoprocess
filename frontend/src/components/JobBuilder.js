@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import "./MainComponent.css";
+import "./JobBuilder.css";
 
 const Import = React.lazy(() => import("./Tabs/Import"));
 const MotionCorrection = React.lazy(() => import("./Tabs/MotionCorrection"));
@@ -30,7 +30,7 @@ const LazyFallback = () => (
   </div>
 );
 
-const MainComponent = ({ selectedJob }) => {
+const JobBuilder = ({ selectedJob }) => {
   const renderFormContent = () => {
     switch (selectedJob) {
       case "Import":
@@ -91,4 +91,4 @@ const MainComponent = ({ selectedJob }) => {
   );
 };
 
-export default MainComponent;
+export default JobBuilder;

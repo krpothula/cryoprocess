@@ -1,7 +1,7 @@
 import React from "react";
-import "./JobList.css";
+import "./PipelineMenu.css";
 
-const JobList = ({ selectedJob, onSelectJob }) => {
+const PipelineMenu = ({ selectedJob, onSelectJob }) => {
   const jobs = [
     "Import",
     "Motion Correction",
@@ -53,4 +53,4 @@ const JobList = ({ selectedJob, onSelectJob }) => {
   );
 };
 
-export default JobList;
+export default PipelineMenu;

@@ -528,7 +528,7 @@ const MolstarMaskViewer = ({
                 step="0.01"
                 value={isoThreshold}
                 onChange={(e) => setIsoThreshold(parseFloat(e.target.value))}
-                className="flex-1 h-1 rounded-lg appearance-none cursor-pointer"
+                className="mask-slider flex-1 h-1 rounded-lg appearance-none cursor-pointer"
                 style={{ background: sliderBg(isoThreshold, 0.01, 1, "#9ca3af") }}
               />
               <span className="text-gray-500 font-mono" style={{ fontSize: "10px", minWidth: "32px", textAlign: "right" }}>
@@ -547,7 +547,7 @@ const MolstarMaskViewer = ({
                 step="0.05"
                 value={maskOpacity}
                 onChange={(e) => setMaskOpacity(parseFloat(e.target.value))}
-                className="h-1 rounded-lg appearance-none cursor-pointer"
+                className="mask-slider h-1 rounded-lg appearance-none cursor-pointer"
                 style={{ width: "80px", background: sliderBg(maskOpacity, 0.1, 1, "#9ca3af") }}
               />
               <span className="text-gray-500 font-mono" style={{ fontSize: "10px", minWidth: "28px", textAlign: "right" }}>
@@ -570,7 +570,7 @@ const MolstarMaskViewer = ({
                 step="0.1"
                 value={mapThreshold}
                 onChange={(e) => setMapThreshold(parseFloat(e.target.value))}
-                className="flex-1 h-1 rounded-lg appearance-none cursor-pointer"
+                className="map-slider flex-1 h-1 rounded-lg appearance-none cursor-pointer"
                 style={{ background: sliderBg(mapThreshold, 0.5, 5, "#3b82f6") }}
               />
               <span className="text-blue-500 font-mono" style={{ fontSize: "10px", minWidth: "32px", textAlign: "right" }}>
@@ -589,7 +589,7 @@ const MolstarMaskViewer = ({
                 step="0.05"
                 value={mapOpacity}
                 onChange={(e) => setMapOpacity(parseFloat(e.target.value))}
-                className="h-1 rounded-lg appearance-none cursor-pointer"
+                className="map-slider h-1 rounded-lg appearance-none cursor-pointer"
                 style={{ width: "80px", background: sliderBg(mapOpacity, 0.1, 1, "#3b82f6") }}
               />
               <span className="text-blue-500 font-mono" style={{ fontSize: "10px", minWidth: "28px", textAlign: "right" }}>
@@ -634,7 +634,7 @@ const MolstarMaskViewer = ({
         )}
       </div>
 
-      {/* Hide Molstar UI elements */}
+      {/* Hide Molstar UI elements + slider styling */}
       <style>{`
         .msp-plugin .msp-layout-left,
         .msp-plugin .msp-layout-right,
@@ -648,6 +648,46 @@ const MolstarMaskViewer = ({
         .msp-plugin .msp-viewport {
           position: absolute !important;
           inset: 0 !important;
+        }
+        .mask-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #9ca3af;
+          cursor: pointer;
+          border: 2px solid #fff;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .mask-slider::-moz-range-thumb {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #9ca3af;
+          cursor: pointer;
+          border: 2px solid #fff;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .map-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #3b82f6;
+          cursor: pointer;
+          border: 2px solid #fff;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .map-slider::-moz-range-thumb {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #3b82f6;
+          cursor: pointer;
+          border: 2px solid #fff;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
       `}</style>
     </div>

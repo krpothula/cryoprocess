@@ -283,13 +283,13 @@ const statusBadgeStyle = (status) => ({
   color:
     status === "success"
       ? "var(--color-success-text)"
-      : status === "error"
+      : status === "failed"
       ? "var(--color-danger-text)"
       : "var(--color-warning-text)",
   background:
     status === "success"
       ? "var(--color-success-bg)"
-      : status === "error"
+      : status === "failed"
       ? "var(--color-danger-bg)"
       : "var(--color-warning-bg)",
 });

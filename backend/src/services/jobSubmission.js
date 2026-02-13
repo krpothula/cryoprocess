@@ -187,6 +187,7 @@ const submitJobDirect = async (options) => {
     jobId,
     jobName,
     stageName,
+    projectId,
     projectPath,
     outputDir,
     executionMode = 'slurm',
@@ -372,6 +373,7 @@ const submitLocal = async (options) => {
     cmd,
     jobId,
     jobName,
+    projectId,
     projectPath,
     outputDir,
     postCommand
@@ -384,17 +386,34 @@ const submitLocal = async (options) => {
     // Wrap with Singularity if container is configured
     let finalCmd;
     if (settings.SINGULARITY_IMAGE && fs.existsSync(settings.SINGULARITY_IMAGE)) {
-      finalCmd = ['singularity', 'exec'];
+      // Build singularity exec prefix
+      const singularityPrefix = ['singularity', 'exec'];
 
       if (settings.SINGULARITY_BIND_PATHS) {
-        finalCmd.push('--bind', settings.SINGULARITY_BIND_PATHS);
+        singularityPrefix.push('--bind', settings.SINGULARITY_BIND_PATHS);
       }
 
-      if (settings.SINGULARITY_OPTIONS) {
-        finalCmd.push(...settings.SINGULARITY_OPTIONS.split(/\s+/).filter(Boolean));
+      // Only add GPU support (--nv) when the command actually uses GPU,
+      // matching the SLURM script behavior which checks gpus > 0
+      const gpuInCmd = cmdArray.some(a => a === '--gpu');
+      if (gpuInCmd && settings.SINGULARITY_OPTIONS) {
+        singularityPrefix.push(...settings.SINGULARITY_OPTIONS.split(/\s+/).filter(Boolean));
       }
 
-      finalCmd.push(settings.SINGULARITY_IMAGE, ...cmdArray);
+      singularityPrefix.push(settings.SINGULARITY_IMAGE);
+
+      // For MPI jobs, mpirun must be OUTSIDE the container so it can
+      // spawn multiple container instances (matching SLURM script behavior).
+      // Builder produces: ['mpirun', '-np', 'N', 'relion_cmd_mpi', ...flags]
+      if (cmdArray[0] === 'mpirun') {
+        const relionIdx = cmdArray.findIndex(c => typeof c === 'string' && c.startsWith('relion_'));
+        const mpiPrefix = cmdArray.slice(0, relionIdx);   // ['mpirun', '-np', 'N']
+        const relionCmd = cmdArray.slice(relionIdx);       // ['relion_cmd_mpi', ...flags]
+        finalCmd = [...mpiPrefix, ...singularityPrefix, ...relionCmd];
+      } else {
+        finalCmd = [...singularityPrefix, ...cmdArray];
+      }
+
       logger.info(`[JobSubmit] Using Singularity container: ${settings.SINGULARITY_IMAGE}`);
     } else {
       finalCmd = cmdArray;
@@ -448,6 +467,21 @@ const submitLocal = async (options) => {
         } catch (metaError) {
           logger.error(`[JobSubmit] Failed to store pipeline metadata for ${jobId}: ${metaError.message}`);
         }
+      }
+
+      // Broadcast status change via WebSocket (local jobs aren't monitored
+      // by the SLURM monitor, so we need to push the notification here)
+      try {
+        const { getWebSocketServer } = require('./websocket');
+        getWebSocketServer().broadcastJobUpdate({
+          projectId,
+          jobId,
+          oldStatus: JOB_STATUS.RUNNING,
+          newStatus: status,
+          slurmStatus: null
+        });
+      } catch (wsErr) {
+        logger.debug(`[JobSubmit] WebSocket broadcast failed for ${jobId}: ${wsErr.message}`);
       }
 
       // Run post-command if provided and job succeeded
@@ -506,6 +540,20 @@ const submitLocal = async (options) => {
           end_time: new Date()
         }
       );
+
+      // Broadcast failure via WebSocket
+      try {
+        const { getWebSocketServer } = require('./websocket');
+        getWebSocketServer().broadcastJobUpdate({
+          projectId,
+          jobId,
+          oldStatus: JOB_STATUS.RUNNING,
+          newStatus: JOB_STATUS.FAILED,
+          slurmStatus: null
+        });
+      } catch (wsErr) {
+        logger.debug(`[JobSubmit] WebSocket broadcast failed for ${jobId}: ${wsErr.message}`);
+      }
     });
 
     return {

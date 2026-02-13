@@ -17,6 +17,7 @@ import {
   FiBox,
   FiCircle,
   FiMaximize2,
+  FiCrosshair,
 } from "react-icons/fi";
 import useJobNotification from "../../hooks/useJobNotification";
 
@@ -137,11 +138,11 @@ const ExtractDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -149,7 +150,7 @@ const ExtractDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -203,45 +204,57 @@ const ExtractDashboard = () => {
       </div>
 
       {/* Stats Card - Merged */}
+      {(() => {
+        const stats = selectedJob?.pipeline_stats || {};
+        return (
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.stats?.micrographs || 0}
+              {stats.micrograph_count || 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {results?.stats?.totalParticles?.toLocaleString() || 0}
+              {(stats.particle_count || 0).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiBox className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {selectedJob?.parameters?.particleBoxSize || selectedJob?.parameters?.extractSize || selectedJob?.parameters?.extract_size || 0} px
+              {stats.box_size || 0} px
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiCircle className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Avg/Mic:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.stats?.avgPerMicrograph || 0}
+              {stats.micrograph_count > 0 ? Math.round((stats.particle_count || 0) / stats.micrograph_count) : 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiMaximize2 className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Rescaled:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {selectedJob?.parameters?.rescaleParticles === "Yes" ? `${selectedJob?.parameters?.rescaledBoxSize || selectedJob?.parameters?.rescaledSize || selectedJob?.parameters?.rescaled_size || 0} px` : "No"}
+              {stats.rescaled_size ? `${stats.rescaled_size} px` : "No"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiCrosshair className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
             </span>
           </div>
         </div>
       </div>
+        );
+      })()}
 
     </div>
   );

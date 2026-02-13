@@ -151,7 +151,7 @@ exports.getMotionResults = async (req, res) => {
       micrographs: []
     };
 
-    // Get pixel size - prefer pipeline_stats, fallback to pipeline_metadata
+    // Get pixel size from pipeline_stats or parameters
     if (job.pipeline_stats?.pixel_size) {
       overview.pixel_size = job.pipeline_stats.pixel_size;
     } else if (job.pixel_size) {
@@ -267,6 +267,11 @@ exports.getMotionLiveStats = async (req, res) => {
     stats.processed = micrographs.length;
     stats.total = micrographs.length;
     stats.progress_percent = 100;
+
+    // Update pipeline_stats.micrograph_count in DB so stats cards stay current
+    if (micrographs.length > 0 && micrographs.length !== (job.pipeline_stats?.micrograph_count || 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.micrograph_count': micrographs.length }).catch(() => {});
+    }
 
     if (micrographs.length > 0) {
       // Get latest micrographs
@@ -903,7 +908,7 @@ exports.getAutopickMicrographs = async (req, res) => {
 
 /**
  * Particle extraction dashboard
- * Uses pre-computed pipeline_metadata stored at job completion for fast lookups
+ * Uses pre-computed pipeline_stats stored at job completion for fast lookups
  */
 exports.getExtractDashboard = async (req, res) => {
   try {
@@ -1080,7 +1085,7 @@ exports.getImportDashboard = async (req, res) => {
       status: 'success',
         data: {
           job: { id: job.id, name: job.job_name, status: job.status },
-          stats: { movies: 0, importType: job.pipeline_metadata?.import_type || 'movies' }
+          stats: { movies: 0, importType: (job.parameters?.rawMovies === 'Yes' ? 'movies' : 'micrographs') }
         }
       });
     }
@@ -1095,9 +1100,9 @@ exports.getImportDashboard = async (req, res) => {
         job: { id: job.id, name: job.job_name, status: job.status },
         stats: {
           movies: movies.length,
-          importType: job.pipeline_metadata?.import_type || 'movies',
-          pixelSize: job.pipeline_metadata?.pixel_size || null,
-          voltage: job.pipeline_metadata?.voltage || null
+          importType: job.parameters?.rawMovies === 'Yes' ? 'movies' : 'micrographs',
+          pixelSize: job.pipeline_stats?.pixel_size || job.parameters?.angpix || null,
+          voltage: job.parameters?.kV || null
         }
       }
     });
@@ -2967,6 +2972,11 @@ exports.getClass2dLiveStats = async (req, res) => {
     }
     const totalIterations = job.parameters?.numberOfIterations || job.parameters?.numberEMIterations || 25;
 
+    // Update pipeline_stats.iteration_count in DB so stats cards stay current
+    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.iteration_count': currentIteration }).catch(() => {});
+    }
+
     res.json({
       success: true,
       status: 'success',
@@ -3018,11 +3028,26 @@ exports.getManualSelectResults = async (req, res) => {
     const starPath = path.join(outputDir, 'particles.star');
 
     const selectedClasses = job.parameters?.selected_classes || job.parameters?.selectedClasses || [];
+
+    // Get input particle count from source job
+    let particlesBefore = 0;
+    if (job.input_job_ids && job.input_job_ids.length > 0) {
+      try {
+        const sourceJob = await Job.findOne({ id: job.input_job_ids[0] }).lean();
+        if (sourceJob) {
+          particlesBefore = sourceJob.pipeline_stats?.particle_count || sourceJob.particle_count || 0;
+        }
+      } catch (e) {
+        logger.warn(`[ManualSelect] Could not get source job particle count: ${e.message}`);
+      }
+    }
+
     const response = {
       id: job.id,
       job_name: job.job_name,
       job_status: job.status,
       particle_count: job.pipeline_stats?.particle_count || job.particle_count || 0,
+      particles_before: particlesBefore,
       // Include both field names for frontend compatibility
       selected_classes: selectedClasses,
       classes_selected: selectedClasses,
@@ -3117,9 +3142,9 @@ exports.getInitialModelResults = async (req, res) => {
     const ips = job.pipeline_stats || {};
     boxSize = ips.box_size || null;
     pixelSize = ips.pixel_size || null;
-    originalPixelSize = job.pipeline_metadata?.original_pixel_size || null;
+    originalPixelSize = job.parameters?.angpix ? parseFloat(job.parameters.angpix) : null;
 
-    // Try to read from input STAR file if not in pipeline_metadata
+    // Try to read from input STAR file if not in parameters
     if (!boxSize || !pixelSize) {
       const inputStarFile = params.inputParticles || params.inputStarFile;
       if (inputStarFile) {
@@ -3324,6 +3349,11 @@ exports.getInitialModelLiveStats = async (req, res) => {
         return match ? parseInt(match[1]) : null;
       }).filter(Boolean)
     )].sort((a, b) => a - b);
+
+    // Update pipeline_stats.iteration_count in DB so stats cards stay current
+    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.iteration_count': currentIteration }).catch(() => {});
+    }
 
     res.json({
       success: true,
@@ -3563,6 +3593,11 @@ exports.getClass3dLiveStats = async (req, res) => {
       }
     }
     const totalIterations = job.parameters?.numberOfIterations || job.parameters?.numberEMIterations || 25;
+
+    // Update pipeline_stats.iteration_count in DB so stats cards stay current
+    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.iteration_count': currentIteration }).catch(() => {});
+    }
 
     res.json({
       success: true,
@@ -3833,6 +3868,11 @@ exports.getAutoRefineLiveStats = async (req, res) => {
       }
     }
 
+    // Update pipeline_stats.iteration_count in DB so stats cards stay current
+    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.iteration_count': currentIteration }).catch(() => {});
+    }
+
     res.json({
       success: true,
       status: 'success',
@@ -3849,6 +3889,89 @@ exports.getAutoRefineLiveStats = async (req, res) => {
   } catch (error) {
     logger.error(`[Dashboard] AutoRefine live stats error: ${error.message}`);
     res.status(500).json({ status: 'error', message: 'Failed to get AutoRefine live stats' });
+  }
+};
+
+/**
+ * AutoRefine FSC curve
+ * GET /autorefine/fsc/?job_id=xxx&iteration=latest
+ *
+ * Extracts gold-standard FSC from the model.star file's data_model_class_1 block.
+ */
+exports.getAutoRefineFsc = async (req, res) => {
+  try {
+    const jobId = req.query.job_id;
+    if (!jobId) {
+      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+    }
+
+    const result = await getJobWithAccess(jobId, req.user.id);
+    if (result.error) {
+      return res.status(result.status).json({ status: 'error', message: result.error });
+    }
+
+    const { job } = result;
+    const outputDir = job.output_file_path;
+
+    // Find model files
+    const modelFiles = fs.existsSync(outputDir)
+      ? fs.readdirSync(outputDir).filter(f => f.match(/_it\d+_model\.star$/)).sort()
+      : [];
+
+    if (modelFiles.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'No model files found' });
+    }
+
+    // Use requested iteration or latest
+    const reqIter = req.query.iteration;
+    let modelFile;
+    if (reqIter && reqIter !== 'latest') {
+      const padded = String(reqIter).padStart(3, '0');
+      modelFile = modelFiles.find(f => f.includes(`_it${padded}_`));
+    }
+    if (!modelFile) {
+      modelFile = modelFiles[modelFiles.length - 1];
+    }
+
+    const modelPath = path.join(outputDir, modelFile);
+    const starData = await parseStarFile(modelPath);
+
+    // FSC data lives in model_class_1 block (for single-class AutoRefine)
+    const fscBlock = starData.model_class_1 || starData.data_model_class_1 || {};
+    const fscRows = fscBlock.rows || (Array.isArray(fscBlock) ? fscBlock : []);
+
+    if (fscRows.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'No FSC data in model file' });
+    }
+
+    const fscCurve = fscRows
+      .filter(row => row.rlnResolution && parseFloat(row.rlnResolution) > 0)
+      .map(row => ({
+        resolution: parseFloat(row.rlnResolution) || 0,
+        fsc_corrected: parseFloat(row.rlnGoldStandardFsc) || 0,
+      }));
+
+    // Get resolution from model_general block
+    const general = starData.model_general || starData.data_model_general || [];
+    const goldStdResolution = general.length > 0 && general[0].rlnCurrentResolution
+      ? parseFloat(general[0].rlnCurrentResolution) : null;
+
+    // Extract iteration number from filename
+    const iterMatch = modelFile.match(/_it(\d+)_/);
+    const iteration = iterMatch ? parseInt(iterMatch[1]) : 0;
+
+    res.json({
+      success: true,
+      status: 'success',
+      data: {
+        fsc_curve: fscCurve,
+        iteration,
+        gold_standard_resolution: goldStdResolution
+      }
+    });
+  } catch (error) {
+    logger.error(`[Dashboard] AutoRefine FSC error: ${error.message}`);
+    res.status(500).json({ status: 'error', message: 'Failed to get FSC data' });
   }
 };
 
@@ -3978,6 +4101,7 @@ exports.getCtfRefineResults = async (req, res) => {
     const { job } = result;
     const outputDir = job.output_file_path;
     const starPath = path.join(outputDir, 'particles_ctf_refine.star');
+    const params = job.parameters || {};
 
     const response = {
       id: job.id,
@@ -3988,33 +4112,135 @@ exports.getCtfRefineResults = async (req, res) => {
       beam_tilt_x: null,
       beam_tilt_y: null,
       defocus_mean: null,
+      defocus_min: null,
+      defocus_max: null,
+      defocus_std: null,
+      astigmatism_mean: null,
       odd_zernike: [],
-      even_zernike: []
+      even_zernike: [],
+      defocus_histogram: null,
+      astigmatism_histogram: null,
+      has_output: fs.existsSync(starPath),
+      has_pdf: fs.existsSync(path.join(outputDir, 'logfile.pdf')),
+      has_aberration_plots: false,
+      // Refinement settings from job parameters
+      do_defocus_refine: params.ctfParameter === 'Yes' || params.doDefocusRefine === 'Yes' || params.ctfParameter === true,
+      do_beam_tilt: params.estimateBeamtilt === 'Yes' || params.doBeamTilt === 'Yes' || params.estimateBeamtilt === true,
+      do_trefoil: params.estimateTreFoil === 'Yes' || params.treFoil === 'Yes' || params.doTrefoil === 'Yes',
+      do_4th_order: params.aberrations === 'Yes' || params.do4thOrder === 'Yes' || params.aberrations === true,
+      min_res_defocus: parseFloat(params.minResolutionFits) || parseFloat(params.minResDefocus) || 30,
+      fit_defocus: params.fitDefocus || 'No',
+      fit_astigmatism: params.fitAstigmatism || 'No',
+      fit_bfactor: params.fitBFactor || 'No',
+      fit_phase_shift: params.fitPhaseShift || params.phaseShift || 'No',
+      // Microscope parameters (from upstream Import)
+      voltage: null,
+      spherical_aberration: null,
+      pixel_size: job.pipeline_stats?.pixel_size || null
     };
 
     if (fs.existsSync(starPath)) {
       const starData = await parseStarWithCache(job, starPath);
-      const particles = starData.particles || starData.data_particles || [];
+      const particlesBlock = starData.particles || starData.data_particles || {};
+      const particles = particlesBlock.rows || particlesBlock || [];
       response.particle_count = particles.length;
 
-      // Calculate mean defocus and beam tilt
+      // Extract Zernike polynomials from data_optics block
+      const opticsBlock = starData.optics || starData.data_optics || {};
+      const opticsRows = opticsBlock.rows || opticsBlock || [];
+      if (opticsRows.length > 0) {
+        const optics = opticsRows[0];
+        if (optics.rlnOddZernike) {
+          response.odd_zernike = optics.rlnOddZernike.split(',').map(Number).filter(n => !isNaN(n));
+        }
+        if (optics.rlnEvenZernike) {
+          response.even_zernike = optics.rlnEvenZernike.split(',').map(Number).filter(n => !isNaN(n));
+        }
+      }
+      response.has_aberration_plots = response.odd_zernike.length > 0 || response.even_zernike.length > 0;
+
+      // Calculate defocus/astigmatism statistics and beam tilt
       if (particles.length > 0) {
         let defocusSum = 0;
+        let astigSum = 0;
         let beamTiltXSum = 0;
         let beamTiltYSum = 0;
+        let defocusMin = Infinity;
+        let defocusMax = -Infinity;
+        const defocusValues = [];
+        const astigValues = [];
 
         for (const p of particles) {
           const defU = parseFloat(p.rlnDefocusU) || 0;
           const defV = parseFloat(p.rlnDefocusV) || 0;
-          defocusSum += (defU + defV) / 2;
+          const avgDefocus = (defU + defV) / 2;
+          const astig = Math.abs(defU - defV);
+          defocusSum += avgDefocus;
+          astigSum += astig;
+          defocusValues.push(avgDefocus);
+          astigValues.push(astig);
+          if (avgDefocus < defocusMin) defocusMin = avgDefocus;
+          if (avgDefocus > defocusMax) defocusMax = avgDefocus;
           beamTiltXSum += parseFloat(p.rlnBeamTiltX) || 0;
           beamTiltYSum += parseFloat(p.rlnBeamTiltY) || 0;
         }
 
         response.defocus_mean = defocusSum / particles.length;
+        response.defocus_min = defocusMin;
+        response.defocus_max = defocusMax;
+        response.astigmatism_mean = astigSum / particles.length;
         response.beam_tilt_x = beamTiltXSum / particles.length;
         response.beam_tilt_y = beamTiltYSum / particles.length;
+
+        // Standard deviation
+        const mean = response.defocus_mean;
+        const sqDiffSum = defocusValues.reduce((sum, val) => sum + (val - mean) ** 2, 0);
+        response.defocus_std = Math.sqrt(sqDiffSum / particles.length);
+
+        // Build histograms (20 bins) for defocus and astigmatism distributions
+        const buildHistogram = (values, numBins = 20) => {
+          if (values.length === 0) return null;
+          const vMin = Math.min(...values);
+          const vMax = Math.max(...values);
+          const binWidth = (vMax - vMin) / numBins || 1;
+          const counts = Array(numBins).fill(0);
+          const labels = [];
+          for (let i = 0; i < numBins; i++) {
+            labels.push(vMin + binWidth * (i + 0.5));
+          }
+          for (const v of values) {
+            const idx = Math.min(Math.floor((v - vMin) / binWidth), numBins - 1);
+            counts[idx]++;
+          }
+          return { labels, counts, min: vMin, max: vMax };
+        };
+
+        response.defocus_histogram = buildHistogram(defocusValues);
+        response.astigmatism_histogram = buildHistogram(astigValues);
       }
+    }
+
+    // Get microscope parameters from Import job (traverse upstream)
+    try {
+      let currentJob = job;
+      const visited = new Set();
+      while (currentJob) {
+        if (visited.has(currentJob.id)) break;
+        visited.add(currentJob.id);
+        if (currentJob.job_type === 'Import') {
+          const importParams = currentJob.parameters || {};
+          response.voltage = parseFloat(importParams.kV) || null;
+          response.spherical_aberration = parseFloat(importParams.spherical) || null;
+          break;
+        }
+        if (currentJob.input_job_ids && currentJob.input_job_ids.length > 0) {
+          currentJob = await Job.findOne({ id: currentJob.input_job_ids[0] }).lean();
+        } else {
+          break;
+        }
+      }
+    } catch (e) {
+      logger.warn(`[CTFRefine] Could not get Import parameters: ${e.message}`);
     }
 
     res.json({ success: true,
@@ -4048,6 +4274,9 @@ exports.getPolishResults = async (req, res) => {
     const { job } = result;
     const outputDir = job.output_file_path;
     const starPath = path.join(outputDir, 'shiny.star');
+    const params = job.parameters || {};
+
+    const trainOptimal = params.trainOptimalBfactors === 'Yes' || params.trainOptimalBfactors === true;
 
     const response = {
       id: job.id,
@@ -4055,7 +4284,20 @@ exports.getPolishResults = async (req, res) => {
       job_status: job.status,
       command: job.command,
       particle_count: 0,
-      has_output: fs.existsSync(starPath)
+      has_output: fs.existsSync(starPath),
+      // Motion sigma parameters from job settings
+      sigma_velocity: parseFloat(params.sigmaVelocity) || 0.2,
+      sigma_divergence: parseFloat(params.sigmaDivergence) || 5000,
+      sigma_acceleration: parseFloat(params.sigmaAcceleration) || 2,
+      train_optimal: trainOptimal,
+      // Frame range
+      first_frame: parseInt(params.firstMovieFrame) || parseInt(params.firstFrame) || 1,
+      last_frame: parseInt(params.lastMovieFrame) || parseInt(params.lastFrame) || -1,
+      // B-factor weighting
+      perform_bfac_weighting: params.performBfactorWeighting !== 'No' && params.performBfactorWeighting !== false,
+      min_res_bfac: parseFloat(params.minResolutionBfac) || 20,
+      // Upstream data
+      micrographs_processed: 0
     };
 
     if (fs.existsSync(starPath)) {
@@ -4064,11 +4306,179 @@ exports.getPolishResults = async (req, res) => {
       response.particle_count = particles.length;
     }
 
+    // Get micrograph count from upstream job
+    if (job.input_job_ids && job.input_job_ids.length > 0) {
+      try {
+        const sourceJob = await Job.findOne({ id: job.input_job_ids[0] }).lean();
+        if (sourceJob) {
+          response.micrographs_processed = sourceJob.pipeline_stats?.micrograph_count || sourceJob.micrograph_count || 0;
+        }
+      } catch (e) {
+        logger.warn(`[Polish] Could not get upstream micrograph count: ${e.message}`);
+      }
+    }
+
     res.json({ success: true,
       status: 'success', data: response });
   } catch (error) {
     logger.error(`[Dashboard] Polish results error: ${error.message}`);
     res.status(500).json({ status: 'error', message: 'Failed to get Polish results' });
+  }
+};
+
+// ============================================
+// SUBTRACT ENDPOINTS
+// ============================================
+
+/**
+ * Subtract results
+ * GET /subtract/results/?job_id=xxx
+ */
+exports.getSubtractResults = async (req, res) => {
+  try {
+    const jobId = req.query.job_id;
+    if (!jobId) {
+      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+    }
+
+    const result = await getJobWithAccess(jobId, req.user.id);
+    if (result.error) {
+      return res.status(result.status).json({ status: 'error', message: result.error });
+    }
+
+    const { job } = result;
+    const outputDir = job.output_file_path;
+    const starPath = path.join(outputDir, 'particles_subtracted.star');
+    const params = job.parameters || {};
+
+    const response = {
+      id: job.id,
+      job_name: job.job_name,
+      job_status: job.status,
+      command: job.command,
+      particle_count: 0,
+      particles_before: 0,
+      has_output: fs.existsSync(starPath),
+      // Operation details from parameters
+      is_revert: params.revertToOriginal === 'Yes' || params.revertToOriginal === true,
+      new_box_size: parseInt(params.newBoxSize) > 0 ? parseInt(params.newBoxSize) : null,
+      output_float16: params.outputInFloat16 === 'Yes' || params.outputInFloat16 === true,
+      recenter_on_mask: params.subtracted_images === 'Yes' || params.subtracted_images === true,
+      center_coordinates: params.centerCoordinates === 'Yes' || params.centerCoordinates === true
+    };
+
+    if (fs.existsSync(starPath)) {
+      try {
+        const starData = await parseStarWithCache(job, starPath);
+        const particles = starData.particles || starData.data_particles || [];
+        response.particle_count = particles.length;
+      } catch (e) {
+        logger.warn(`[Subtract] Could not read particle count from ${starPath}: ${e.message}`);
+      }
+    }
+
+    // Get input particle count from source job
+    if (job.input_job_ids && job.input_job_ids.length > 0) {
+      try {
+        const sourceJob = await Job.findOne({ id: job.input_job_ids[0] }).lean();
+        if (sourceJob) {
+          response.particles_before = sourceJob.pipeline_stats?.particle_count || sourceJob.particle_count || 0;
+        }
+      } catch (e) {
+        logger.warn(`[Subtract] Could not get source job particle count: ${e.message}`);
+      }
+    }
+
+    res.json({ success: true,
+      status: 'success', data: response });
+  } catch (error) {
+    logger.error(`[Dashboard] Subtract results error: ${error.message}`);
+    res.status(500).json({ status: 'error', message: 'Failed to get Subtract results' });
+  }
+};
+
+// ============================================
+// JOINSTAR ENDPOINTS
+// ============================================
+
+/**
+ * JoinStar results
+ * GET /joinstar/results/?job_id=xxx
+ */
+exports.getJoinStarResults = async (req, res) => {
+  try {
+    const jobId = req.query.job_id;
+    if (!jobId) {
+      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+    }
+
+    const result = await getJobWithAccess(jobId, req.user.id);
+    if (result.error) {
+      return res.status(result.status).json({ status: 'error', message: result.error });
+    }
+
+    const { job } = result;
+    const outputDir = job.output_file_path;
+    const params = job.parameters || {};
+
+    const particlesStarPath = path.join(outputDir, 'join_particles.star');
+    const micrographsStarPath = path.join(outputDir, 'join_micrographs.star');
+    const moviesStarPath = path.join(outputDir, 'join_movies.star');
+
+    const response = {
+      id: job.id,
+      job_name: job.job_name,
+      job_status: job.status,
+      command: job.command,
+      // Combining types
+      combine_particles: params.combineParticles === 'Yes' || params.combineParticles === true,
+      combine_micrographs: params.combineMicrographs === 'Yes' || params.combineMicrographs === true,
+      combine_movies: params.combineMovies === 'Yes' || params.combineMovies === true,
+      // Output counts
+      particle_count: 0,
+      micrograph_count: 0,
+      movie_count: 0,
+      has_particles_output: fs.existsSync(particlesStarPath),
+      has_micrographs_output: fs.existsSync(micrographsStarPath),
+      has_movies_output: fs.existsSync(moviesStarPath)
+    };
+
+    // Count particles from join_particles.star
+    if (fs.existsSync(particlesStarPath)) {
+      try {
+        const starData = await parseStarWithCache(job, particlesStarPath);
+        const particles = starData.particles || starData.data_particles || [];
+        response.particle_count = particles.length;
+      } catch (e) {
+        logger.warn(`[JoinStar] Could not read particle count: ${e.message}`);
+      }
+    }
+
+    // Count micrographs from join_micrographs.star
+    if (fs.existsSync(micrographsStarPath)) {
+      try {
+        const { countStarFileEntries } = require('../utils/pipelineMetadata');
+        response.micrograph_count = await countStarFileEntries(micrographsStarPath);
+      } catch (e) {
+        logger.warn(`[JoinStar] Could not read micrograph count: ${e.message}`);
+      }
+    }
+
+    // Count movies from join_movies.star
+    if (fs.existsSync(moviesStarPath)) {
+      try {
+        const { countStarFileEntries } = require('../utils/pipelineMetadata');
+        response.movie_count = await countStarFileEntries(moviesStarPath);
+      } catch (e) {
+        logger.warn(`[JoinStar] Could not read movie count: ${e.message}`);
+      }
+    }
+
+    res.json({ success: true,
+      status: 'success', data: response });
+  } catch (error) {
+    logger.error(`[Dashboard] JoinStar results error: ${error.message}`);
+    res.status(500).json({ status: 'error', message: 'Failed to get JoinStar results' });
   }
 };
 
@@ -4106,10 +4516,11 @@ exports.getPostProcessResults = async (req, res) => {
     if (fs.existsSync(postprocessStar)) {
       try {
         const starData = await parseStarFile(postprocessStar);
-        const general = starData.general || starData.data_general || [];
-        if (general.length > 0) {
-          finalResolution = parseFloat(general[0].rlnFinalResolution) || null;
-          bfactor = parseFloat(general[0].rlnBfactorUsedForSharpening) || null;
+        const generalBlock = starData.general || starData.data_general;
+        const generalRows = generalBlock?.rows || generalBlock || [];
+        if (generalRows.length > 0) {
+          finalResolution = parseFloat(generalRows[0].rlnFinalResolution) || null;
+          bfactor = parseFloat(generalRows[0].rlnBfactorUsedForSharpening) || null;
         }
       } catch (e) {
         // Skip
@@ -4716,12 +5127,11 @@ exports.getImportResults = async (req, res) => {
       thumbnailsCount = fs.readdirSync(thumbnailsDir).filter(f => f.endsWith('.png')).length;
     }
 
-    // Get import parameters from pipeline_metadata or job parameters
-    const pipelineMetadata = job.pipeline_metadata || {};
+    // Get import parameters from job parameters
     const params = job.parameters || {};
-    const angpix = pipelineMetadata.original_pixel_size || params.angpix;
-    const kV = pipelineMetadata.voltage_kv || params.kV;
-    const cs = pipelineMetadata.spherical_aberration || params.spherical || params.cs;
+    const angpix = params.angpix;
+    const kV = params.kV;
+    const cs = params.spherical || params.cs;
 
     res.json({
       success: true,

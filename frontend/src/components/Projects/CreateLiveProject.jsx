@@ -1290,8 +1290,8 @@ const CreateLiveProject = () => {
         .lp-form-group input:focus,
         .lp-form-group textarea:focus,
         .lp-form-group select:focus {
-          border-color: #0d9488;
-          box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+          border-color: var(--color-primary);
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
         .lp-form-group input::placeholder,
@@ -1365,7 +1365,7 @@ const CreateLiveProject = () => {
 
         .lp-mode-btn.lp-mode-active {
           color: #ffffff;
-          background: #0d9488;
+          background: var(--color-primary);
         }
 
         .lp-mode-btn:hover:not(.lp-mode-active) {
@@ -1419,7 +1419,7 @@ const CreateLiveProject = () => {
         }
 
         .lp-toggle input:checked + .lp-toggle-slider {
-          background: #0d9488;
+          background: var(--color-primary);
         }
 
         .lp-toggle input:checked + .lp-toggle-slider::before {
@@ -1472,7 +1472,7 @@ const CreateLiveProject = () => {
           font-size: 14px;
           font-weight: 500;
           color: white;
-          background: #0d9488;
+          background: var(--color-primary);
           border: none;
           border-radius: 8px;
           cursor: pointer;
@@ -1480,7 +1480,7 @@ const CreateLiveProject = () => {
         }
 
         .lp-btn-submit:hover:not(.lp-btn-disabled) {
-          background: #0f766e;
+          background: var(--color-primary-hover);
         }
 
         .lp-btn-disabled {

@@ -25,13 +25,13 @@ class LocalResolutionBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    const halfMap = getParam(this.data, ['halfMap', 'half_map'], null);
+    const halfMap = getParam(this.data, ['halfMap'], null);
     let result = this.validateFileExists(halfMap, 'Half map');
     if (!result.valid) {
       return result;
     }
 
-    const solventMask = getParam(this.data, ['solventMask', 'solvent_mask'], null);
+    const solventMask = getParam(this.data, ['solventMask'], null);
     if (!solventMask) {
       return { valid: false, error: 'Solvent mask is required' };
     }
@@ -44,8 +44,8 @@ class LocalResolutionBuilder extends BaseJobBuilder {
     const relOutputDir = this.makeRelative(outputDir);
     const data = this.data;
 
-    const halfMap = getParam(data, ['halfMap', 'half_map'], null);
-    const solventMask = getParam(data, ['solventMask', 'solvent_mask'], null);
+    const halfMap = getParam(data, ['halfMap'], null);
+    const solventMask = getParam(data, ['solventMask'], null);
     const pixelSize = getAngpix(data, 1);
 
     const cmd = [
@@ -60,7 +60,7 @@ class LocalResolutionBuilder extends BaseJobBuilder {
     ];
 
     // MTF file
-    const mtfFile = getParam(data, ['mtfDetector', 'mtf_detector'], null);
+    const mtfFile = getParam(data, ['mtfDetector'], null);
     if (mtfFile) {
       cmd.push('--mtf', this.makeRelative(this.resolveInputPath(mtfFile)));
     }

@@ -1,9 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import MonitorList from "../MonitorList";
+import JobCardList from "../JobCardList";
 import { getJobsApi, getLogsApi } from "../../services/builders/jobs";
 import { useBuilder } from "../../context/BuilderContext";
+import useProjectNotification from "../../hooks/useProjectNotification";
+import { isActiveStatus } from "../../utils/jobStatus";
 import { BiLoader } from "react-icons/bi";
-const Meta = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
+
+const POLL_INTERVAL_MS = 3000; // How often to poll for job status updates
+
+const JobMonitor = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
   const [jobListData, setJobListData] = useState({});
   const [isLoading, setLoading] = useState(true);
   const [moreJobsLoading, setMoreJobsLoading] = useState(false);
@@ -11,8 +16,6 @@ const Meta = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
   const ticking = useRef(false);
   const fetchingRef = useRef(false);
   const countRef = useRef(0);
-  const wsRef = useRef(null);
-  const wsReconnectRef = useRef(null);
 
   const limit = 1000; // Load all jobs at once
   const skipRef = useRef(0); // maintain skip value across renders
@@ -45,11 +48,8 @@ const Meta = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
         }));
 
         // set first selected only for first load
-        if (initial && newJobs.length > 0) {
-          if (selectedTreeJob) {
-          } else {
-            setSelectedJob(newJobs[0]);
-          }
+        if (initial && newJobs.length > 0 && !selectedTreeJob) {
+          setSelectedJob(newJobs[0]);
         }
 
         // update skip for next call
@@ -140,90 +140,32 @@ const Meta = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
   const hasActiveJobsRef = useRef(false);
   useEffect(() => {
     hasActiveJobsRef.current = jobListData?.data?.some(
-      (j) => j.status === "running" || j.status === "pending"
+      (j) => isActiveStatus(j.status)
     ) || false;
   }, [jobListData?.data]);
 
   // Poll for job status updates (reliable fallback)
-  // Fast polling (3s) when active jobs exist, slow polling (15s) otherwise
+  // Fast polling (3s) when active jobs exist, slow polling (15s) otherwise.
+  // Uses ref-based interval to avoid recreating on every data change.
   useEffect(() => {
     if (!projectId) return;
 
-    const pollInterval = setInterval(() => {
+    const tick = () => {
       refreshJobStatuses();
-    }, hasActiveJobsRef.current ? 3000 : 15000);
-
-    return () => clearInterval(pollInterval);
-  }, [projectId, jobListData?.data]); // re-create interval when active status changes
-
-  // WebSocket connection for real-time job status updates
-  useEffect(() => {
-    const wsUrl = `ws://${window.location.hostname}:8001/ws`;
-
-    const connectWebSocket = () => {
-      try {
-        wsRef.current = new WebSocket(wsUrl);
-
-        wsRef.current.onopen = () => {
-          // Subscribe to current project for filtered updates
-          if (projectId && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({
-              type: "subscribe",
-              project_id: projectId
-            }));
-          }
-        };
-
-        wsRef.current.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            // Handle job status update message
-            if (data.id && data.status) {
-              updateJobStatus(data.id, data.status);
-            }
-            // Handle full refresh request
-            if (data.action === "refresh") {
-              refreshJobStatuses();
-            }
-          } catch (e) {
-            // non-JSON message, ignore
-          }
-        };
-
-        wsRef.current.onclose = () => {
-          // Reconnect after 5 seconds (timer tracked for cleanup)
-          wsReconnectRef.current = setTimeout(connectWebSocket, 5000);
-        };
-
-        wsRef.current.onerror = () => {};
-      } catch (error) {
-        wsReconnectRef.current = setTimeout(connectWebSocket, 5000);
-      }
     };
 
-    connectWebSocket();
+    // Start with a short interval; dynamically adjust via ref
+    const id = setInterval(tick, POLL_INTERVAL_MS);
 
-    // Cleanup on unmount — null onclose to prevent reconnect, cancel pending timer
-    return () => {
-      clearTimeout(wsReconnectRef.current);
-      wsReconnectRef.current = null;
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, []);
+    return () => clearInterval(id);
+  }, [projectId]); // only recreate when project changes
 
-  // Subscribe to new project when projectId changes
-  useEffect(() => {
-    if (projectId && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: "subscribe",
-        project_id: projectId
-      }));
+  // Real-time job status updates via shared WebSocket (wsNotifier singleton)
+  useProjectNotification(projectId, (data) => {
+    if (data.id && data.status) {
+      updateJobStatus(data.id, data.status);
     }
-  }, [projectId]);
+  });
 
   useEffect(() => {
     skipRef.current = 0;
@@ -297,7 +239,7 @@ const Meta = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
           </p>
         </div>
       ) : (
-        <MonitorList
+        <JobCardList
           selectedJob={selectedJob}
           setSelectedJob={setSelectedJob}
           jobs={jobList || []}
@@ -330,4 +272,4 @@ const Meta = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
   );
 };
 
-export default Meta;
+export default JobMonitor;

@@ -20,5 +20,7 @@ router.get('/users/:userId', asyncHandler(adminController.getUser));
 router.patch('/users/:userId', asyncHandler(adminController.updateUser));
 router.delete('/users/:userId', asyncHandler(adminController.deleteUser));
 router.post('/users/:userId/reset-password', asyncHandler(adminController.resetPassword));
+router.post('/users/:userId/generate-api-key', asyncHandler(adminController.generateApiKey));
+router.delete('/users/:userId/api-key', asyncHandler(adminController.revokeApiKey));
 
 module.exports = router;

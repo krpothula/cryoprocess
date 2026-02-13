@@ -37,6 +37,9 @@ const importJobSchema = Joi.object({
   rawMovies: yesNoBool,
   multiframemovies: yesNoBool,
 
+  // MTF of the detector (STAR file path)
+  mtf: Joi.string().allow('').default(''),
+
   // Microscope settings
   angpix: Joi.number().positive().default(1.4),
   kV: Joi.number().integer().positive().default(300),

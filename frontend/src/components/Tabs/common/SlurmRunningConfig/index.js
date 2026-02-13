@@ -28,8 +28,9 @@ const SlurmRunningConfig = ({
   dropdownOptions,
   computeProfile,
   disableMpi,
+  requireOddMpi = false,
 }) => {
-  const { setResourceError } = useBuilder();
+  const { resourceError, setResourceError } = useBuilder();
   const [partitions, setPartitions] = useState([]);
   const [nodes, setNodes] = useState([]);
   const [rawNodes, setRawNodes] = useState([]);
@@ -88,6 +89,14 @@ const SlurmRunningConfig = ({
   const threadsVal = parseInt(formData.threads || formData.numberOfThreads || 1, 10) || 1;
 
   useEffect(() => {
+    // Auto-Refine requires odd MPI (1 master + even workers for two half-sets)
+    if (requireOddMpi && mpiVal > 1 && mpiVal % 2 === 0) {
+      setResourceError(
+        `MPI procs must be odd for Auto-Refine (1 master + even split for half-sets). Use ${mpiVal - 1} or ${mpiVal + 1}.`
+      );
+      return;
+    }
+
     if (!isSubmitToQueueYes) {
       // Scenario 2: No SLURM, Local execution — max 2 threads
       const maxLocalThreads = 2;
@@ -125,7 +134,11 @@ const SlurmRunningConfig = ({
     }
 
     setResourceError(null);
-  }, [mpiVal, threadsVal, isSubmitToQueueYes, connectionInfo, resourceLimits, rawNodes, formData.clustername, setResourceError]);
+  }, [mpiVal, threadsVal, isSubmitToQueueYes, connectionInfo, resourceLimits, rawNodes, formData.clustername, setResourceError, requireOddMpi]);
+
+  // Determine which fields are in error (for red highlighting)
+  const isMpiOddError = requireOddMpi && mpiVal > 1 && mpiVal % 2 === 0;
+  const isCpuExceeded = !!resourceError && !isMpiOddError;
 
   // Clear resource error on unmount
   useEffect(() => {
@@ -285,8 +298,9 @@ const SlurmRunningConfig = ({
         name="runningmpi"
         onChange={handleNumericChange}
         handleInputChange={handleNumericChange}
-        tooltipText="Number of MPI processes. Auto-Refine requires at least 2 MPI processes for gold-standard FSC (recommended: 4+). Maps to SLURM --ntasks."
+        tooltipText="Number of MPI processes. Must be odd for Auto-Refine (1 master + even split for two half-sets, e.g. 3, 5, 7). Maps to SLURM --ntasks."
         disabled={disableMpi}
+        error={isMpiOddError || isCpuExceeded}
       />
 
       <PixelSizeInput
@@ -299,6 +313,7 @@ const SlurmRunningConfig = ({
         onChange={handleNumericChange}
         handleInputChange={handleNumericChange}
         tooltipText="Number of threads per MPI process (maps to SLURM --cpus-per-task)"
+        error={isCpuExceeded}
       />
 
       {showGpu && (

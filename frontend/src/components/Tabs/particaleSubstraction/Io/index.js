@@ -8,7 +8,7 @@ const Io = ({handleInputChange, formData, handleRangeChange, dropdownOptions, jo
   return (
     <div className="grid py-5 tab-content">
       <CustomInput
-        stageStarFiles="AutoRefine,Class3D"
+        stageOptimiserFiles="AutoRefine,Class3D"
         onChange={(val = "") => {
           handleInputChange({ target: { name: "optimiserStar", value: val } });
         }}

@@ -65,6 +65,11 @@ module.exports = {
   SMTP_FROM: process.env.SMTP_FROM || 'CryoProcess <noreply@example.com>',
   EMAIL_NOTIFICATIONS_ENABLED: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
 
+  // SmartScope Integration
+  SMARTSCOPE_URL: process.env.SMARTSCOPE_URL || '',
+  SMARTSCOPE_TOKEN: process.env.SMARTSCOPE_TOKEN || '',
+  SMARTSCOPE_API_KEY: process.env.SMARTSCOPE_API_KEY || '',
+
   // External Software Executables
   CTFFIND_EXE: process.env.CTFFIND_EXE || 'ctffind',
   GCTF_EXE: process.env.GCTF_EXE || 'gctf',

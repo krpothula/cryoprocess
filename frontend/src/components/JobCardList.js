@@ -2,38 +2,29 @@ import React from "react";
 import PropTypes from "prop-types";
 import { BiLoader } from "react-icons/bi";
 import { AiOutlineCloseCircle } from "react-icons/ai";
-import { MdCheckCircle } from "react-icons/md";
+import { MdCheckCircle, MdCancel } from "react-icons/md";
 import { formatDateString } from "../utils/datetime";
 import JobActions from "./Tabs/common/JobActions";
+import { JOB_STATUS, getStatusCssVar } from "../utils/jobStatus";
 
 const getStatusStyle = (status) => {
-  // Error/Failed states - softer red
-  if (status === "error" || status === "failed") {
-    return { color: "var(--color-danger)" };
-  }
-  // Pending/Running states - softer orange
-  if (status === "pending" || status === "running") {
-    return { color: "var(--color-warning)" };
-  }
-  // Success/Completed states - softer green
-  if (status === "success" || status === "completed") {
-    return { color: "var(--color-success)" };
-  }
-  // Default
-  return { color: "var(--color-text-muted)" };
+  return { color: getStatusCssVar(status) };
 };
 
 const getIcon = (status) => {
-  if (status === "error" || status === "failed") {
-    return <AiOutlineCloseCircle />;
+  switch (status) {
+    case JOB_STATUS.FAILED:
+      return <AiOutlineCloseCircle />;
+    case JOB_STATUS.PENDING:
+    case JOB_STATUS.RUNNING:
+      return <BiLoader className="animate-spin" />;
+    case JOB_STATUS.SUCCESS:
+      return <MdCheckCircle />;
+    case JOB_STATUS.CANCELLED:
+      return <MdCancel />;
+    default:
+      return null;
   }
-  if (status === "pending" || status === "running") {
-    return <BiLoader className="animate-spin" />;
-  }
-  if (status === "success" || status === "completed") {
-    return <MdCheckCircle />;
-  }
-  return null;
 };
 
 // Map job_type (PascalCase) to display names
@@ -67,7 +58,7 @@ const getJobTypeDisplayName = (jobType) => {
   return JOB_TYPE_DISPLAY_NAMES[jobType] || jobType;
 };
 
-const MonitorListCard = ({ jobs, setSelectedJob, selectedJob, onJobCancelled, onJobUpdated }) => {
+const JobCardList = ({ jobs, setSelectedJob, selectedJob, onJobCancelled, onJobUpdated }) => {
   const handleJobUpdated = (action, jobId) => {
     // Refresh job list when job is deleted or status changed
     if (onJobUpdated) {
@@ -205,7 +196,7 @@ const MonitorListCard = ({ jobs, setSelectedJob, selectedJob, onJobCancelled, on
   );
 };
 
-MonitorListCard.propTypes = {
+JobCardList.propTypes = {
   jobs: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,
@@ -220,4 +211,4 @@ MonitorListCard.propTypes = {
   onJobUpdated: PropTypes.func,
 };
 
-export default MonitorListCard;
+export default JobCardList;

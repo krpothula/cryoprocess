@@ -30,13 +30,11 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
    * RELION's own motion correction is CPU-only.
    */
   get supportsGpu() {
-    // GPU is used when NOT using RELION's own implementation
-    return !getBoolParam(this.data, ['useRelionImplementation', 'use_own'], true);
+    return !getBoolParam(this.data, ['useRelionImplementation'], true);
   }
 
   validate() {
-    // Require input STAR file (accept multiple field names from frontend)
-    const inputMovies = getParam(this.data, ['inputMovies', 'input_star_file', 'inputStarFile'], null);
+    const inputMovies = getParam(this.data, ['inputMovies'], null);
     if (!inputMovies) {
       logger.warn('[Motion] Validation: Failed | inputMovies is required');
       return { valid: false, error: 'Input movies STAR file is required' };
@@ -58,17 +56,17 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
     logger.info(`[Motion] Command: Building | job_name: ${jobName}`);
 
     // Get input movies STAR file
-    const inputMovies = getParam(data, ['inputMovies', 'input_star_file', 'inputStarFile'], null);
+    const inputMovies = getParam(data, ['inputMovies'], null);
     const relInput = this.makeRelative(this.resolveInputPath(inputMovies));
 
-    // Determine EER grouping value
-    const eerGrouping = getIntParam(data, ['eerFractionation', 'eerGrouping', 'groupFrames'], 32);
+    // Determine EER grouping value (two UI fields map to same RELION flag)
+    const eerGrouping = getIntParam(data, ['eerFractionation', 'groupFrames'], 32);
 
     // Check if MPI should be used (more than 1 process)
     const mpiProcs = getMpiProcs(data);
 
     // GPU is only used with MotionCor2, not RELION's own implementation
-    const gpuEnabled = !getBoolParam(data, ['useRelionImplementation', 'use_own'], true);
+    const gpuEnabled = !getBoolParam(data, ['useRelionImplementation'], true);
 
     // Build command with MPI if requested (using configurable launcher)
     const cmd = this.buildMpiCommand('relion_run_motioncorr', mpiProcs, gpuEnabled);
@@ -76,24 +74,24 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
     // Add required parameters
     cmd.push('--i', relInput);
     cmd.push('--o', relOutputDir + path.sep);
-    cmd.push('--first_frame_sum', String(getIntParam(data, ['firstFrame', 'first_frame_sum'], 1)));
-    cmd.push('--last_frame_sum', String(getIntParam(data, ['lastFrame', 'last_frame_sum'], -1)));
-    cmd.push('--bin_factor', String(getIntParam(data, ['binningFactor', 'bin_factor'], 1)));
+    cmd.push('--first_frame_sum', String(getIntParam(data, ['firstFrame'], 1)));
+    cmd.push('--last_frame_sum', String(getIntParam(data, ['lastFrame'], -1)));
+    cmd.push('--bin_factor', String(getIntParam(data, ['binningFactor'], 1)));
     cmd.push('--bfactor', String(getIntParam(data, ['bfactor'], 150)));
-    cmd.push('--dose_per_frame', String(getFloatParam(data, ['dosePerFrame', 'dose_per_frame'], 1.0)));
-    cmd.push('--preexposure', String(getFloatParam(data, ['preExposure', 'pre_exposure'], 0.0)));
-    cmd.push('--patch_x', String(getIntParam(data, ['patchesX', 'patch_x'], 1)));
-    cmd.push('--patch_y', String(getIntParam(data, ['patchesY', 'patch_y'], 1)));
+    cmd.push('--dose_per_frame', String(getFloatParam(data, ['dosePerFrame'], 1.0)));
+    cmd.push('--preexposure', String(getFloatParam(data, ['preExposure'], 0.0)));
+    cmd.push('--patch_x', String(getIntParam(data, ['patchesX'], 1)));
+    cmd.push('--patch_y', String(getIntParam(data, ['patchesY'], 1)));
     cmd.push('--eer_grouping', String(eerGrouping));
-    cmd.push('--pipeline_control', path.resolve(outputDir) + path.sep);
+    cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     // Add gain reference if provided
-    const gainRef = getParam(data, ['gainReferenceImage', 'gainReference', 'gain_reference'], null);
+    const gainRef = getParam(data, ['gainReferenceImage'], null);
     if (gainRef && gainRef.trim()) {
-      cmd.push('--gainref', gainRef);
+      cmd.push('--gainref', this.makeRelative(this.resolveInputPath(gainRef.trim())));
 
       // Gain rotation
-      let gainRotation = getParam(data, ['gainRotation', 'gain_rot'], 'No rotation (0)');
+      let gainRotation = getParam(data, ['gainRotation'], 'No rotation (0)');
       const rotationMap = {
         'No rotation (0)': '0',
         '90 degrees (1)': '1',
@@ -120,7 +118,7 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
       }
 
       // Gain flip
-      let gainFlip = getParam(data, ['gainFlip', 'gain_flip'], 'No flipping (0)');
+      let gainFlip = getParam(data, ['gainFlip'], 'No flipping (0)');
       const flipMap = {
         'No flipping (0)': '0',
         'Flip upside down (1)': '1',
@@ -144,26 +142,28 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
     }
 
     // Add defect file if provided
-    const defectFile = getParam(data, ['defectFile', 'defect_file'], null);
+    const defectFile = getParam(data, ['defectFile'], null);
     if (defectFile && defectFile.trim()) {
-      cmd.push('--defect_file', defectFile);
+      cmd.push('--defect_file', this.makeRelative(this.resolveInputPath(defectFile.trim())));
     }
 
     // Optional flags
-    if (getBoolParam(data, ['float16Output', 'float16'], false)) {
+    if (getBoolParam(data, ['float16Output'], false)) {
       cmd.push('--float16');
     }
 
-    if (getBoolParam(data, ['doseWeighting', 'dose_weighting'], false)) {
+    const doseWeighting = getBoolParam(data, ['doseWeighting'], false);
+    if (doseWeighting) {
       cmd.push('--dose_weighting');
     }
 
-    if (getBoolParam(data, ['nonDoseWeighted', 'save_noDW'], false)) {
+    // --save_noDW only meaningful when dose weighting is enabled
+    if (doseWeighting && getBoolParam(data, ['nonDoseWeighted'], false)) {
       cmd.push('--save_noDW');
     }
 
-    if (getBoolParam(data, ['savePowerSpectra', 'save_ps'], false)) {
-      cmd.push('--grouping_for_ps', String(getIntParam(data, ['sumPowerSpectra', 'grouping_for_ps'], 4)));
+    if (getBoolParam(data, ['savePowerSpectra'], false)) {
+      cmd.push('--grouping_for_ps', String(getIntParam(data, ['sumPowerSpectra'], 4)));
     }
 
     // Add threads parameter
@@ -179,8 +179,8 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
       // MotionCor2 mode
       cmd.push('--use_motioncor2');
 
-      // Add MotionCor2 executable path from environment or data
-      const motioncor2Exe = getParam(data, ['motioncor2Executable', 'motioncor2_exe'], process.env.MOTIONCOR2_EXE);
+      // Add MotionCor2 executable path from environment
+      const motioncor2Exe = process.env.MOTIONCOR2_EXE;
       if (motioncor2Exe && motioncor2Exe.trim()) {
         if (!isPathSafe(motioncor2Exe.trim())) {
           throw new Error('Invalid MotionCor2 executable path: contains unsafe characters');
@@ -197,7 +197,7 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
       }
 
       // Add other MotionCor2 arguments if provided
-      const otherArgs = getParam(data, ['othermotion', 'other_motioncor2_args'], null);
+      const otherArgs = getParam(data, ['othermotion'], null);
       if (otherArgs && otherArgs.trim()) {
         // Split and add each argument
         for (const arg of otherArgs.trim().split(/\s+/)) {

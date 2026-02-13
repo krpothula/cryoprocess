@@ -113,7 +113,8 @@ const LinkMoviesDashboard = () => {
   }
 
   const command = selectedJob?.command || results?.command;
-  const linkedCount = results?.linked_count || 0;
+  const stats = selectedJob?.pipeline_stats || {};
+  const linkedCount = stats.movie_count || results?.linked_count || 0;
   const linkedFiles = results?.linked_files || [];
   const summary = results?.summary || {};
 
@@ -133,11 +134,11 @@ const LinkMoviesDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -145,7 +146,7 @@ const LinkMoviesDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status || results?.job_status}
               </p>

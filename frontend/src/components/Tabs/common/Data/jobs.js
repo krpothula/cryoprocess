@@ -38,7 +38,7 @@ export const JOB_COMPUTE_PROFILES = {
   // Tier 1: GPU + SLURM
   class_2d:         { tier: 'gpu',   defaultMpi: 4, defaultGpu: 1, defaultThreads: 4 },
   class_3d:         { tier: 'gpu',   defaultMpi: 4, defaultGpu: 1, defaultThreads: 4 },
-  auto_refine:      { tier: 'gpu',   defaultMpi: 4, defaultGpu: 1, defaultThreads: 4 },
+  auto_refine:      { tier: 'gpu',   defaultMpi: 3, defaultGpu: 1, defaultThreads: 4 },
   initial_model:    { tier: 'gpu',   defaultMpi: 1, defaultGpu: 1, defaultThreads: 4 },
   multibody:        { tier: 'gpu',   defaultMpi: 4, defaultGpu: 1, defaultThreads: 4 },
   dynamight:        { tier: 'gpu',   defaultMpi: 4, defaultGpu: 1, defaultThreads: 4 },

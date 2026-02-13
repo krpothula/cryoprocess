@@ -65,12 +65,6 @@ async function backfillJobStats(job, forceRecalculate = false) {
           iteration_count: existingStats.iteration_count || 0
         };
 
-        // Update pipeline_metadata with derivation context
-        const existingMeta = job.pipeline_metadata || {};
-        updates.pipeline_metadata = {
-          ...existingMeta,
-          original_pixel_size: pixelCalc.original_pixel_size
-        };
 
         if (pixelCalc.transformations.length > 0) {
           logger.debug(`[${job.job_name}] pixel_size calculated: ${pixelCalc.current_pixel_size} (${pixelCalc.transformations.length} transformations)`);

@@ -20,6 +20,7 @@ import {
   FiRefreshCw,
   FiCircle,
   FiTarget,
+  FiCrosshair,
 } from "react-icons/fi";
 import useJobNotification from "../../hooks/useJobNotification";
 
@@ -159,13 +160,14 @@ const Class2DDashboard = () => {
     setSelectedIteration(e.target.value);
   };
 
-  // Get stats from job parameters
-  const numClasses = selectedJob?.parameters?.numberOfClasses || results?.num_classes || classesData?.num_classes || 0;
-  const boxSize = selectedJob?.parameters?.particleBoxSize || results?.box_size || 0;
-  const maskDiameter = selectedJob?.parameters?.maskDiameter || results?.mask_diameter || 0;
-  const totalIterations = selectedJob?.parameters?.numberEMIterations || selectedJob?.parameters?.numberOfIterations || 25;
-  const currentIteration = liveStats?.current_iteration ?? results?.latest_iteration ?? classesData?.iteration ?? 0;
-  const particleCount = selectedJob?.pipeline_stats?.particle_count || results?.num_particles || 0;
+  // Get stats from pipeline_stats (single source of truth)
+  const stats = selectedJob?.pipeline_stats || {};
+  const numClasses = stats.class_count || 0;
+  const boxSize = stats.box_size || 0;
+  const maskDiameter = stats.mask_diameter || 0;
+  const totalIterations = stats.total_iterations || 0;
+  const currentIteration = stats.iteration_count || 0;
+  const particleCount = stats.particle_count || 0;
 
   if (loading) {
     return (
@@ -205,11 +207,11 @@ const Class2DDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error" || selectedJob?.status === "failed"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -217,7 +219,7 @@ const Class2DDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error" || selectedJob?.status === "failed"
+                  : selectedJob?.status === "failed"
                   ? "Failed"
                   : selectedJob?.status}
               </p>
@@ -283,8 +285,15 @@ const Class2DDashboard = () => {
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Iterations:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: selectedJob?.status === "running" ? "var(--color-warning-text)" : "var(--color-text-heading)" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: selectedJob?.status === "running" ? "var(--color-warning)" : "var(--color-text-heading)" }}>
               {currentIteration}/{totalIterations}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiCrosshair className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">

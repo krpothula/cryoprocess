@@ -134,7 +134,7 @@ const DynamightDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
                   ? "#f59e0b"
@@ -146,7 +146,7 @@ const DynamightDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -200,20 +200,23 @@ const DynamightDashboard = () => {
       </div>
 
       {/* Stats Card - Merged */}
+      {(() => {
+        const stats = selectedJob?.pipeline_stats || {};
+        return (
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FiLayers className="text-gray-400 dark:text-slate-500" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Iteration:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {results?.latest_iteration || 0}/{results?.num_iterations || 0}
+              {stats.iteration_count || 0}/{stats.total_iterations || 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiImage className="text-gray-400 dark:text-slate-500" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {results?.num_particles?.toLocaleString() || 0}
+              {(stats.particle_count || 0).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -232,6 +235,8 @@ const DynamightDashboard = () => {
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* 3D Visualization */}
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">

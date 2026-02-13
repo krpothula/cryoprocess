@@ -29,9 +29,9 @@ class JoinStarBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    const combineParticles = getBoolParam(this.data, ['combineParticles', 'combine_particles'], false);
-    const combineMicrographs = getBoolParam(this.data, ['combineMicrographs', 'combine_micrographs'], false);
-    const combineMovies = getBoolParam(this.data, ['combineMovies', 'combine_movies'], false);
+    const combineParticles = getBoolParam(this.data, ['combineParticles'], false);
+    const combineMicrographs = getBoolParam(this.data, ['combineMicrographs'], false);
+    const combineMovies = getBoolParam(this.data, ['combineMovies'], false);
 
     if (!combineParticles && !combineMicrographs && !combineMovies) {
       return { valid: false, error: 'At least one type of file combination must be selected' };
@@ -48,12 +48,12 @@ class JoinStarBuilder extends BaseJobBuilder {
     const cmd = ['relion_star_handler', '--combine'];
 
     // Combine particle STARs
-    if (getBoolParam(data, ['combineParticles', 'combine_particles'], false)) {
+    if (getBoolParam(data, ['combineParticles'], false)) {
       const inputs = [
-        getParam(data, ['particlesStarFile1', 'particles_star_file_1'], null),
-        getParam(data, ['particlesStarFile2', 'particles_star_file_2'], null),
-        getParam(data, ['particlesStarFile3', 'particles_star_file_3'], null),
-        getParam(data, ['particlesStarFile4', 'particles_star_file_4'], null)
+        getParam(data, ['particlesStarFile1'], null),
+        getParam(data, ['particlesStarFile2'], null),
+        getParam(data, ['particlesStarFile3'], null),
+        getParam(data, ['particlesStarFile4'], null)
       ].filter(Boolean).join(' ');
 
       if (inputs) {
@@ -63,12 +63,12 @@ class JoinStarBuilder extends BaseJobBuilder {
     }
 
     // Combine micrograph STARs
-    if (getBoolParam(data, ['combineMicrographs', 'combine_micrographs'], false)) {
+    if (getBoolParam(data, ['combineMicrographs'], false)) {
       const inputs = [
-        getParam(data, ['micrographStarFile1', 'micrograph_star_file_1'], null),
-        getParam(data, ['micrographStarFile2', 'micrograph_star_file_2'], null),
-        getParam(data, ['micrographStarFile3', 'micrograph_star_file_3'], null),
-        getParam(data, ['micrographStarFile4', 'micrograph_star_file_4'], null)
+        getParam(data, ['micrographStarFile1'], null),
+        getParam(data, ['micrographStarFile2'], null),
+        getParam(data, ['micrographStarFile3'], null),
+        getParam(data, ['micrographStarFile4'], null)
       ].filter(Boolean).join(' ');
 
       if (inputs) {
@@ -78,12 +78,12 @@ class JoinStarBuilder extends BaseJobBuilder {
     }
 
     // Combine movie STARs
-    if (getBoolParam(data, ['combineMovies', 'combine_movies'], false)) {
+    if (getBoolParam(data, ['combineMovies'], false)) {
       const inputs = [
-        getParam(data, ['movieStarFile1', 'movie_star_file_1'], null),
-        getParam(data, ['movieStarFile2', 'movie_star_file_2'], null),
-        getParam(data, ['movieStarFile3', 'movie_star_file_3'], null),
-        getParam(data, ['movieStarFile4', 'movie_star_file_4'], null)
+        getParam(data, ['movieStarFile1'], null),
+        getParam(data, ['movieStarFile2'], null),
+        getParam(data, ['movieStarFile3'], null),
+        getParam(data, ['movieStarFile4'], null)
       ].filter(Boolean).join(' ');
 
       if (inputs) {
@@ -92,7 +92,7 @@ class JoinStarBuilder extends BaseJobBuilder {
       }
     }
 
-    cmd.push('--pipeline_control', relOutputDir);
+    cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     logger.info(`[JoinStar] Command built | ${cmd.join(' ')}`);
     return cmd;

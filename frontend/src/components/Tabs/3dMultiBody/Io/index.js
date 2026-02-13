@@ -6,7 +6,7 @@ const Io = ({ formData, handleInputChange, dropdownOptions, jobType }) => {
   return (
     <div className="tab-content">
       <CustomInput
-        stageStarFiles="AutoRefine"
+        stageOptimiserFiles="AutoRefine"
         onChange={(val = "") => {
           handleInputChange({ target: { name: "refinementStarFile", value: val } });
         }}

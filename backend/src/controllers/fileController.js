@@ -758,10 +758,11 @@ exports.getStageOptimiserFiles = async (req, res) => {
 
     const projectPath = getProjectPath(project);
 
-    // Get jobs for this stage
+    // Get jobs for this stage (supports comma-separated stages e.g. "AutoRefine,Class3D")
+    const stages = stage.split(',').map(s => s.trim()).filter(Boolean);
     const jobs = await Job.find({
       project_id: projectId,
-      job_type: stage
+      job_type: stages.length > 1 ? { $in: stages } : stages[0]
     }).sort({ created_at: -1 }).lean();
 
     const files = [];
@@ -775,8 +776,8 @@ exports.getStageOptimiserFiles = async (req, res) => {
       const jobDir = job.output_file_path;
       if (!jobDir || !fs.existsSync(jobDir)) continue;
 
-      // Find optimiser files
-      const optimiserFiles = glob.sync(path.join(jobDir, 'run_it*_optimiser.star'));
+      // Find optimiser files (run_it*_optimiser.star or *_optimiser.star)
+      const optimiserFiles = glob.sync(path.join(jobDir, '*_optimiser.star'));
 
       if (optimiserFiles.length > 0) {
         // Sort by iteration number and get the latest

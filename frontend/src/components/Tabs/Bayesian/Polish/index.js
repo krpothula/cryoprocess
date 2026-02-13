@@ -8,6 +8,7 @@ const Polish = ({
   formData,
   handleRangeChange,
   dropdownOptions,
+  jobType,
 }) => {
   const isEnable = formData.ownParams === "Yes";
   return (
@@ -21,11 +22,16 @@ const Polish = ({
         options={dropdownOptions}
       />
       <CustomInput
-        onChange={handleInputChange}
+        stageStarFiles="Polish"
+        onChange={(val = "") => {
+          handleInputChange({ target: { name: "optimisedParameterFile", value: val } });
+        }}
         name="optimisedParameterFile"
         label="Optimised parameter file:"
-        placeholder=""
-        tooltipText="Load pre-trained parameters from a previous training run. Use this to skip training and directly apply polishing with known-good parameters."
+        placeholder="Select opt_params.txt from a previous training run"
+        tooltipText="Load pre-trained parameters from a previous training run. After training, open the opt_params.txt file to find the optimised sigma values and enter them below."
+        value={formData?.["optimisedParameterFile"]}
+        jobType={jobType}
       />
       <CustomDropdown
         label="OR: you use your own parameter?"
@@ -51,7 +57,7 @@ const Polish = ({
         label="Sigma for divergence (A):"
         placeholder=""
         min={0}
-        max={50}
+        max={50000}
         value={formData.sigmaDivergence}
         name="sigmaDivergence"
         onChange={handleRangeChange}
@@ -85,7 +91,7 @@ const Polish = ({
       <PixelSizeInput
         label="Maximum resolution for B-factor fit (A):"
         placeholder=""
-        min={0}
+        min={-1}
         max={50}
         value={formData.maxResolutionBfac}
         name="maxResolutionBfac"

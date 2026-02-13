@@ -8,6 +8,8 @@ import {
   FiAlertCircle,
   FiLayers,
   FiGrid,
+  FiCrosshair,
+  FiBox,
 } from "react-icons/fi";
 
 const ManualSelectDashboard = () => {
@@ -117,7 +119,7 @@ const ManualSelectDashboard = () => {
             <div className="flex items-center gap-3">
               {jobStatus === "success" ? (
                 <FiCheckCircle className="text-green-500 text-xl" />
-              ) : jobStatus === "error" || jobStatus === "failed" ? (
+              ) : jobStatus === "failed" ? (
                 <FiAlertCircle className="text-red-500 text-xl" />
               ) : (
                 <FiCheckCircle className="text-yellow-500 text-xl" />
@@ -131,11 +133,11 @@ const ManualSelectDashboard = () => {
                   fontWeight: 500,
                   color: jobStatus === "success"
                     ? "var(--color-success-text)"
-                    : jobStatus === "error" || jobStatus === "failed"
+                    : jobStatus === "failed"
                     ? "var(--color-danger-text)"
                     : jobStatus === "running"
-                    ? "var(--color-warning-text)"
-                    : "var(--color-warning-text)"
+                    ? "var(--color-warning)"
+                    : "var(--color-warning)"
                 }}>
                   {jobStatus === "success"
                     ? "Success"
@@ -143,7 +145,7 @@ const ManualSelectDashboard = () => {
                     ? "Running..."
                     : jobStatus === "pending"
                     ? "Pending"
-                    : jobStatus === "error" || jobStatus === "failed"
+                    : jobStatus === "failed"
                     ? "Error"
                     : jobStatus}
                 </p>
@@ -154,24 +156,50 @@ const ManualSelectDashboard = () => {
       })()}
 
       {/* Stats Card - Merged */}
+      {(() => {
+        const stats = selectedJob?.pipeline_stats || {};
+        return (
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2">
             <FiGrid className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Classes Selected:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-indigo-text)" }}>
-              {numSelected} / {classes.length || "?"}
+              {stats.class_count || numSelected} / {stats.iteration_count || classes.length || 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Total Particles:</span>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {results?.particle_count?.toLocaleString() || 0}
+              {(stats.particle_count || 0).toLocaleString()}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiLayers className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.micrograph_count || 0}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiCrosshair className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiBox className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.box_size || 0} px
             </span>
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* Class Images Grid */}
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">

@@ -19,9 +19,10 @@ const initialFormData = {
   fractions: 0.5,          // Fraction of Fourier pixels for testing
   manyParticles: 5000,     // Number of particles for training
   fractionFourierPixels: 0.5,
-  UseParticles: 5000,
+  useParticles: 10000,     // RELION GUI default
   // Polish parameters
-  sigmaVelocity: 0.2,      // Default velocity sigma (A/dose)
+  optimisedParameterFile: "",
+  sigmaVelocity: 0.2,      // RELION GUI default velocity sigma (A/dose)
   sigmaDivergence: 5000,   // Default divergence sigma (A)
   sigmaAcceleration: 2,    // Default acceleration sigma (A/dose)
   minResolutionBfac: 20,   // B-factor fit min resolution (A)
@@ -189,6 +190,7 @@ const Bayesian = () => {
             handleInputChange={handleInputChange}
             handleRangeChange={handleRangeChange}
             dropdownOptions={dropdownOptions}
+            jobType={JobTypes.bayesian_polishing}
           />
         )}
 

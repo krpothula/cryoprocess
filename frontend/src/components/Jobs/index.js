@@ -1,21 +1,21 @@
 import React from 'react'
-import MonitorList from '../MonitorList'
+import JobCardList from '../JobCardList'
 import "../../App.css"
-import MainComponent from '../MainComponent'
+import JobBuilder from '../JobBuilder'
 
 const Jobs = () => {
   return (
     <div className="App">
     <div className="left-panel">
-    
-      <MonitorList />
-   
-     
+
+      <JobCardList />
+
+
     </div>
     <div className="right-panel">
-   
-       <MainComponent/>
-    
+
+       <JobBuilder/>
+
     </div>
   </div>
   )

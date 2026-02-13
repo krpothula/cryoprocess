@@ -321,7 +321,7 @@ exports.getSessionStats = async (req, res) => {
     ].filter(Boolean);
 
     const jobs = await Job.find({ id: { $in: jobIds } })
-      .select('id job_name job_type status pipeline_stats pipeline_metadata start_time end_time')
+      .select('id job_name job_type status pipeline_stats start_time end_time')
       .lean();
 
     const jobsByType = {};

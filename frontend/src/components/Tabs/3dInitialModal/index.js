@@ -39,7 +39,7 @@ const initialState = {
   copyParticle: "",
   combineIterations: "No",
   GpuAcceleration: "No",
-  gpuTouse: "",
+  gpuToUse: "",
   submitToQueue: "Yes",
   queuename: "",
   queueSubmitCommand: "",

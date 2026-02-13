@@ -28,12 +28,12 @@ class MultibodyBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    const refinementStar = getParam(this.data, ['refinementStarFile', 'refinement_star_file'], null);
+    const refinementStar = getParam(this.data, ['refinementStarFile'], null);
     if (!refinementStar) {
       return { valid: false, error: 'Refinement optimiser STAR file is required' };
     }
 
-    const bodyMasks = getParam(this.data, ['multibodyMasks', 'multibody_masks', 'bodyMasks', 'body_masks'], null);
+    const bodyMasks = getParam(this.data, ['bodyStarFile'], null);
     if (!bodyMasks) {
       return { valid: false, error: 'Multi-body masks STAR file is required' };
     }
@@ -49,7 +49,7 @@ class MultibodyBuilder extends BaseJobBuilder {
     // Get MPI and thread settings using paramHelper
     const mpiProcs = getMpiProcs(data);
     const threads = getThreads(data);
-    const pooled = getIntParam(data, ['numberOfPooledParticle', 'pooledParticles', 'pooled_particles'], 3);
+    const pooled = getIntParam(data, ['numberOfPooledParticle'], 3);
 
     // Determine if GPU is used
     const gpuEnabled = isGpuEnabled(data);
@@ -57,8 +57,8 @@ class MultibodyBuilder extends BaseJobBuilder {
     // Build command with MPI if requested (using configurable launcher)
     const cmd = this.buildMpiCommand('relion_refine', mpiProcs, gpuEnabled);
 
-    const refinementStar = getParam(data, ['refinementStarFile', 'refinement_star_file'], null);
-    const bodyMasks = getParam(data, ['multibodyMasks', 'multibody_masks', 'bodyMasks', 'body_masks'], null);
+    const refinementStar = getParam(data, ['refinementStarFile'], null);
+    const bodyMasks = getParam(data, ['bodyStarFile'], null);
 
     // Multi-body refinement uses --continue (not --i) with a completed auto-refine optimiser
     cmd.push('--continue', this.makeRelative(this.resolveInputPath(refinementStar)));
@@ -68,18 +68,18 @@ class MultibodyBuilder extends BaseJobBuilder {
     cmd.push('--multibody_masks', this.makeRelative(this.resolveInputPath(bodyMasks)));
 
     // Reconstruct subtracted bodies (recommended)
-    if (getBoolParam(data, ['reconstructSubtractedBodies', 'reconstruct_subtracted_bodies'], true)) {
+    if (getBoolParam(data, ['reconstructSubtracted'], true)) {
       cmd.push('--reconstruct_subtracted_bodies');
     }
 
     // Solvent-correct FSC (recommended for multi-body)
-    if (getBoolParam(data, ['solventCorrectFsc', 'solvent_correct_fsc'], true)) {
+    if (getBoolParam(data, ['solventCorrectFsc'], true)) {
       cmd.push('--solvent_correct_fsc');
     }
 
-    cmd.push('--healpix_order', String(getIntParam(data, ['healpixOrder', 'healpix_order'], 4)));
-    cmd.push('--offset_range', String(getFloatParam(data, ['offsetSearchRange', 'offset_search_range'], 3)));
-    cmd.push('--offset_step', String(getFloatParam(data, ['offsetStep', 'offset_step'], 1.5)));
+    cmd.push('--healpix_order', String(getIntParam(data, ['healpixOrder'], 4)));
+    cmd.push('--offset_range', String(getFloatParam(data, ['offsetSearchRange'], 3)));
+    cmd.push('--offset_step', String(getFloatParam(data, ['offsetStep'], 1.5)));
     cmd.push('--auto_local_healpix_order', '4');
     cmd.push('--oversampling', '1');
     cmd.push('--pool', String(pooled));
@@ -89,7 +89,7 @@ class MultibodyBuilder extends BaseJobBuilder {
     cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     // Optional flags
-    if (getBoolParam(data, ['useBlushRegularisation', 'use_blush_regularisation'], false)) {
+    if (getBoolParam(data, ['blushRegularisation'], false)) {
       cmd.push('--blush');
     }
 
@@ -100,7 +100,7 @@ class MultibodyBuilder extends BaseJobBuilder {
     }
 
     // I/O options
-    if (!getBoolParam(data, ['Useparalleldisc', 'useParallelIO', 'use_parallel_io'], true)) {
+    if (!getBoolParam(data, ['Useparalleldisc'], true)) {
       cmd.push('--no_parallel_disc_io');
     }
 

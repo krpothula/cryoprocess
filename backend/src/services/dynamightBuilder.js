@@ -38,7 +38,7 @@ class DynamightBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    const checkpointFile = getParam(this.data, ['checkpointFile', 'checkpoint_file'], null);
+    const checkpointFile = getParam(this.data, ['checkpointFile'], null);
 
     // If continuing from checkpoint, only checkpoint is required
     if (checkpointFile) {
@@ -47,7 +47,7 @@ class DynamightBuilder extends BaseJobBuilder {
     }
 
     // For initial training, input particles are required
-    const inputFile = getParam(this.data, ['micrographs', 'input_file', 'inputFile'], null);
+    const inputFile = getParam(this.data, ['micrographs'], null);
     if (!inputFile) {
       return { valid: false, error: 'Input particles STAR file is required' };
     }
@@ -60,17 +60,17 @@ class DynamightBuilder extends BaseJobBuilder {
     const relOutputDir = this.makeRelative(outputDir);
     const data = this.data;
 
-    const executable = getParam(data, ['dynamightExecutable', 'dynamight_executable'], null)
+    const executable = getParam(data, ['dynamightExecutable'], null)
       || settings.DYNAMIGHT_EXE || 'relion_python_dynamight';
 
-    const gpuDevice = String(getIntParam(data, ['gpuToUse', 'gpu_to_use'], 0));
+    const gpuDevice = String(getIntParam(data, ['gpuToUse'], 0));
     const threads = getThreads(data);
-    const checkpointFile = getParam(data, ['checkpointFile', 'checkpoint_file'], null);
+    const checkpointFile = getParam(data, ['checkpointFile'], null);
 
     // Determine which subcommand(s) to run
-    const doVisualization = getBoolParam(data, ['doVisulization', 'doVisualization', 'do_visualization'], false);
-    const doInverse = getBoolParam(data, ['inverseDeformation', 'inverse_deformation'], false);
-    const doBackprojection = getBoolParam(data, ['deformedBackProjection', 'deformed_back_projection'], false);
+    const doVisualization = getBoolParam(data, ['doVisulization'], false);
+    const doInverse = getBoolParam(data, ['inverseDeformation'], false);
+    const doBackprojection = getBoolParam(data, ['deformedBackProjection'], false);
 
     // If checkpoint provided with task flags, run those specific tasks
     // Otherwise run primary optimize-deformations training
@@ -110,8 +110,8 @@ class DynamightBuilder extends BaseJobBuilder {
   }
 
   _buildOptimizeCommand(cmd, executable, data, relOutputDir, checkpointFile, gpuDevice, threads) {
-    const inputFile = getParam(data, ['micrographs', 'input_file', 'inputFile'], null);
-    const consensusMap = getParam(data, ['consensusMap', 'consensus_map', 'initial_model'], null);
+    const inputFile = getParam(data, ['micrographs'], null);
+    const consensusMap = getParam(data, ['consensusMap'], null);
 
     cmd.push(executable, 'optimize-deformations');
     cmd.push('--refinement-star-file', this.makeRelative(this.resolveInputPath(inputFile)));
@@ -121,15 +121,15 @@ class DynamightBuilder extends BaseJobBuilder {
       cmd.push('--initial-model', this.makeRelative(this.resolveInputPath(consensusMap)));
     }
 
-    const numGaussians = getIntParam(data, ['numGaussians', 'num_gaussians', 'n_gaussians'], 10000);
+    const numGaussians = getIntParam(data, ['numGaussians'], 10000);
     cmd.push('--n-gaussians', String(numGaussians));
 
-    const threshold = getParam(data, ['initialMapThreshold', 'initial_map_threshold'], null);
+    const threshold = getParam(data, ['initialMapThreshold'], null);
     if (threshold && String(threshold).trim() !== '') {
       cmd.push('--initial-threshold', String(threshold));
     }
 
-    const regFactor = getFloatParam(data, ['regularizationFactor', 'regularization_factor'], 1);
+    const regFactor = getFloatParam(data, ['regularizationFactor'], 1);
     cmd.push('--regularization-factor', String(regFactor));
 
     if (checkpointFile) {
@@ -139,7 +139,7 @@ class DynamightBuilder extends BaseJobBuilder {
     cmd.push('--gpu-id', gpuDevice);
     cmd.push('--n-threads', String(threads));
 
-    if (getBoolParam(data, ['preloadImages', 'preload_images'], false)) {
+    if (getBoolParam(data, ['preloadImages'], false)) {
       cmd.push('--preload-images');
     }
 
@@ -151,12 +151,12 @@ class DynamightBuilder extends BaseJobBuilder {
     cmd.push('--output-directory', relOutputDir + path.sep);
     cmd.push('--checkpoint-file', checkpointFile);
 
-    const halfSet = getIntParam(data, ['halfSetToVisualize', 'half_set_to_visualize'], 1);
+    const halfSet = getIntParam(data, ['halfSetToVisualize'], 1);
     cmd.push('--half-set', String(halfSet));
 
     cmd.push('--gpu-id', gpuDevice);
 
-    if (getBoolParam(data, ['preloadImages', 'preload_images'], false)) {
+    if (getBoolParam(data, ['preloadImages'], false)) {
       cmd.push('--preload-images');
     }
 
@@ -168,16 +168,16 @@ class DynamightBuilder extends BaseJobBuilder {
     cmd.push('--output-directory', relOutputDir + path.sep);
     cmd.push('--checkpoint-file', checkpointFile);
 
-    const numEpochs = getIntParam(data, ['numEpochs', 'num_epochs', 'n_epochs'], 50);
+    const numEpochs = getIntParam(data, ['numEpochs'], 50);
     cmd.push('--n-epochs', String(numEpochs));
 
-    if (getBoolParam(data, ['storeDeformations', 'store_deformations', 'save_deformations'], false)) {
+    if (getBoolParam(data, ['storeDeformations'], false)) {
       cmd.push('--save-deformations');
     }
 
     cmd.push('--gpu-id', gpuDevice);
 
-    if (getBoolParam(data, ['preloadImages', 'preload_images'], false)) {
+    if (getBoolParam(data, ['preloadImages'], false)) {
       cmd.push('--preload-images');
     }
 
@@ -189,12 +189,12 @@ class DynamightBuilder extends BaseJobBuilder {
     cmd.push('--output-directory', relOutputDir + path.sep);
     cmd.push('--checkpoint-file', checkpointFile);
 
-    const batchSize = getIntParam(data, ['backprojBatchsize', 'backproj_batchsize', 'backprojection_batch_size'], 1);
+    const batchSize = getIntParam(data, ['backprojBatchsize'], 1);
     cmd.push('--backprojection-batch-size', String(batchSize));
 
     cmd.push('--gpu-id', gpuDevice);
 
-    if (getBoolParam(data, ['preloadImages', 'preload_images'], false)) {
+    if (getBoolParam(data, ['preloadImages'], false)) {
       cmd.push('--preload-images');
     }
 

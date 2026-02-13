@@ -10,6 +10,7 @@ const logger = require('../utils/logger');
 const BaseJobBuilder = require('./baseBuilder');
 const {
   getMpiProcs,
+  getThreads,
   getIntParam,
   getFloatParam,
   getBoolParam,
@@ -29,7 +30,7 @@ class ExtractBuilder extends BaseJobBuilder {
 
   validate() {
     // Need micrographs STAR file
-    const micrographStar = getParam(this.data, ['micrograph_star_file', 'micrographStarFile'], null);
+    const micrographStar = getParam(this.data, ['micrographStarFile'], null);
     if (!micrographStar) {
       return { valid: false, error: 'Micrograph STAR file is required' };
     }
@@ -40,15 +41,15 @@ class ExtractBuilder extends BaseJobBuilder {
     }
 
     // Check for input coordinates if not re-extracting
-    if (!getBoolParam(this.data, ['reExtractRefinedParticles', 're_extract_refined_particles'], false)) {
-      const inputCoords = getParam(this.data, ['inputCoordinates', 'coords_star_file', 'coordsStarFile'], null);
+    if (!getBoolParam(this.data, ['reExtractRefinedParticles'], false)) {
+      const inputCoords = getParam(this.data, ['inputCoordinates'], null);
       if (!inputCoords) {
         return { valid: false, error: 'Input coordinates are required when not re-extracting refined particles' };
       }
     }
 
     // Validate box sizes
-    const boxSize = getIntParam(this.data, ['particleBoxSize', 'box_size', 'boxSize'], 128);
+    const boxSize = getIntParam(this.data, ['particleBoxSize'], 128);
     if (boxSize <= 0) {
       return { valid: false, error: `Particle box size must be positive, got ${boxSize}` };
     }
@@ -56,8 +57,8 @@ class ExtractBuilder extends BaseJobBuilder {
       return { valid: false, error: `Particle box size must be an even number, got ${boxSize}` };
     }
 
-    if (getBoolParam(this.data, ['rescaleParticles', 'rescale_particles'], false)) {
-      const rescaledSize = getIntParam(this.data, ['rescaledSize', 'rescaled_size'], 128);
+    if (getBoolParam(this.data, ['rescaleParticles'], false)) {
+      const rescaledSize = getIntParam(this.data, ['rescaledSize'], 128);
       if (rescaledSize <= 0) {
         return { valid: false, error: `Re-scaled size must be positive, got ${rescaledSize}` };
       }
@@ -70,8 +71,8 @@ class ExtractBuilder extends BaseJobBuilder {
     }
 
     // Validate re-extract has required refined particles file
-    if (getBoolParam(this.data, ['reExtractRefinedParticles', 're_extract_refined_particles'], false)) {
-      const refinedStar = getParam(this.data, ['refinedParticlesStarFile', 'refined_particles_star_file'], null);
+    if (getBoolParam(this.data, ['reExtractRefinedParticles'], false)) {
+      const refinedStar = getParam(this.data, ['refinedParticlesStarFile'], null);
       if (!refinedStar) {
         return { valid: false, error: 'Refined particles STAR file is required when re-extracting refined particles' };
       }
@@ -88,15 +89,15 @@ class ExtractBuilder extends BaseJobBuilder {
     logger.info(`[Extract] Command: Building | job_name: ${jobName}`);
 
     // Extract parameters using paramHelper
-    const extractSize = getIntParam(data, ['particleBoxSize', 'box_size', 'boxSize'], 128);
-    const rescaleEnabled = getBoolParam(data, ['rescaleParticles', 'rescale_particles'], false);
-    const rescaledSize = rescaleEnabled ? getIntParam(data, ['rescaledSize', 'rescaled_size'], 128) : extractSize;
+    const extractSize = getIntParam(data, ['particleBoxSize'], 128);
+    const rescaleEnabled = getBoolParam(data, ['rescaleParticles'], false);
+    const rescaledSize = rescaleEnabled ? getIntParam(data, ['rescaledSize'], 128) : extractSize;
 
     // Determine effective box size for bg_radius calculation
     const effectiveSize = rescaleEnabled ? rescaledSize : extractSize;
 
     // Calculate background radius
-    let bgRadius = getFloatParam(data, ['diameterBackgroundCircle', 'bg_radius', 'bgRadius'], -1);
+    let bgRadius = getFloatParam(data, ['diameterBackgroundCircle'], -1);
 
     if (bgRadius > 0) {
       // Convert diameter to radius
@@ -118,7 +119,7 @@ class ExtractBuilder extends BaseJobBuilder {
     }
 
     // Get micrograph STAR file
-    const micrographStar = getParam(data, ['micrographStarFile', 'micrograph_star_file'], null);
+    const micrographStar = getParam(data, ['micrographStarFile'], null);
     const relMics = this.makeRelative(this.resolveInputPath(micrographStar));
 
     // Get MPI processes for parallel extraction
@@ -139,16 +140,33 @@ class ExtractBuilder extends BaseJobBuilder {
     cmd.push('--extract_size', String(extractSize));
 
     // Handle re-extraction logic
-    if (!getBoolParam(data, ['reExtractRefinedParticles', 're_extract_refined_particles'], false)) {
+    if (!getBoolParam(data, ['reExtractRefinedParticles'], false)) {
       // Use coordinates from picking job
-      const inputCoords = getParam(data, ['inputCoordinates', 'coords_star_file', 'coordsStarFile'], null);
+      // RELION uses --coord_dir (directory) + --coord_suffix (suffix pattern)
+      // Coordinate paths follow convention: AutoPick/JobXXX/coords_suffix_autopick.star
+      const inputCoords = getParam(data, ['inputCoordinates'], null);
       if (inputCoords) {
         const relCoords = this.makeRelative(this.resolveInputPath(inputCoords));
-        cmd.push('--coord_list', relCoords);
+        const coordDir = path.dirname(relCoords) + path.sep;
+        const basename = path.basename(relCoords);
+
+        // Extract suffix from RELION pipeline convention: coords_suffix_<suffix>
+        let coordSuffix;
+        const suffixMatch = basename.match(/^coords_suffix(.+)$/);
+        if (suffixMatch) {
+          coordSuffix = suffixMatch[1];
+        } else {
+          // Fallback: use _autopick.star as default suffix
+          coordSuffix = '_autopick.star';
+          logger.warn(`[Extract] Could not extract coord suffix from ${basename}, using default: ${coordSuffix}`);
+        }
+
+        cmd.push('--coord_dir', coordDir);
+        cmd.push('--coord_suffix', coordSuffix);
       }
     } else {
       // Re-extract from refined particles
-      const refinedStar = getParam(data, ['refinedParticlesStarFile', 'refined_particles_star_file'], null);
+      const refinedStar = getParam(data, ['refinedParticlesStarFile'], null);
       if (refinedStar) {
         const relRefined = this.makeRelative(this.resolveInputPath(refinedStar));
         cmd.push('--reextract_data_star', relRefined);
@@ -158,34 +176,34 @@ class ExtractBuilder extends BaseJobBuilder {
     }
 
     // Offsets / recentering
-    if (getBoolParam(data, ['resetRefinedOffsets', 'reset_refined_offsets'], false)) {
+    if (getBoolParam(data, ['resetRefinedOffsets'], false)) {
       cmd.push('--reset_offsets');
     }
 
-    if (getBoolParam(data, ['reCenterRefinedCoordinates', 'recenter_refined_coordinates'], false)) {
+    if (getBoolParam(data, ['reCenterRefinedCoordinates'], false)) {
       cmd.push('--recenter');
-      cmd.push('--recenter_x', String(getFloatParam(data, ['reCenterCoordsX', 'xRec'], 0)));
-      cmd.push('--recenter_y', String(getFloatParam(data, ['reCenterCoordsY', 'yRec'], 0)));
-      cmd.push('--recenter_z', String(getFloatParam(data, ['reCenterCoordsZ', 'zRec'], 0)));
+      cmd.push('--recenter_x', String(getFloatParam(data, ['reCenterCoordsX'], 0)));
+      cmd.push('--recenter_y', String(getFloatParam(data, ['reCenterCoordsY'], 0)));
+      cmd.push('--recenter_z', String(getFloatParam(data, ['reCenterCoordsZ'], 0)));
     }
 
     // Image format
-    if (getBoolParam(data, ['writeOutputInFloat16', 'write_output_in_float16'], false)) {
+    if (getBoolParam(data, ['writeOutputInFloat16'], false)) {
       cmd.push('--float16');
     }
 
     // Invert contrast
-    if (getBoolParam(data, ['invertContrast', 'invert_contrast', 'do_invert', 'doInvert'], false)) {
+    if (getBoolParam(data, ['invertContrast'], false)) {
       cmd.push('--invert_contrast');
     }
 
     // Normalization
-    if (getBoolParam(data, ['normalizeParticles', 'normalize_particles', 'do_normalize', 'doNormalize'], true)) {
+    if (getBoolParam(data, ['normalizeParticles'], true)) {
       cmd.push('--norm');
       cmd.push('--bg_radius', String(bgRadius.toFixed(2)));
 
-      const whiteDust = getFloatParam(data, ['stddevWhiteDust', 'white_dust', 'whiteDust'], -1);
-      const blackDust = getFloatParam(data, ['stddevBlackDust', 'black_dust', 'blackDust'], -1);
+      const whiteDust = getFloatParam(data, ['stddevWhiteDust'], -1);
+      const blackDust = getFloatParam(data, ['stddevBlackDust'], -1);
       cmd.push('--white_dust', String(whiteDust));
       cmd.push('--black_dust', String(blackDust));
     }
@@ -197,34 +215,40 @@ class ExtractBuilder extends BaseJobBuilder {
 
     // FOM threshold for autopick filtering
     // Note: RELION 4+ uses --minimum_pick_fom instead of deprecated --minimum_fom_threshold
-    if (getBoolParam(data, ['useAutopickFomThreshold', 'useAutopickFOMThreshold', 'use_autopick_fom_threshold'], false)) {
-      const minFom = getFloatParam(data, ['minimumAutopickFom', 'minimumAutopickFOM', 'minimum_autopick_fom'], 0);
+    if (getBoolParam(data, ['useAutopickFomThreshold'], false)) {
+      const minFom = getFloatParam(data, ['minimumAutopickFom'], 0);
       cmd.push('--minimum_pick_fom', String(minFom));
     }
 
     // Helix mode
-    if (getBoolParam(data, ['extractHelicalSegments', 'extract_helical_segments'], false)) {
+    if (getBoolParam(data, ['extractHelicalSegments'], false)) {
       cmd.push('--helix');
-      cmd.push('--helical_outer_diameter', String(getFloatParam(data, ['tubeDiameter', 'tube_diameter'], 200)));
+      cmd.push('--helical_outer_diameter', String(getFloatParam(data, ['tubeDiameter'], 200)));
 
-      if (getBoolParam(data, ['useBimodalAngularPriors', 'use_bimodal_angular_priors'], false)) {
+      if (getBoolParam(data, ['useBimodalAngularPriors'], false)) {
         cmd.push('--helical_bimodal_angular_priors');
       }
 
-      if (getBoolParam(data, ['coordinatesStartEndOnly', 'coordinates_start_end_only'], false)) {
+      if (getBoolParam(data, ['coordinatesStartEndOnly'], false)) {
         cmd.push('--helical_tubes');
       }
 
-      if (getBoolParam(data, ['cutHelicalSegments', 'cut_helical_segments'], false)) {
+      if (getBoolParam(data, ['cutHelicalSegments'], false)) {
         cmd.push('--helical_cut_into_segments');
       }
 
-      cmd.push('--helical_nr_asu', String(getIntParam(data, ['numAsymmetricalUnits', 'num_asymmetrical_units'], 1)));
-      cmd.push('--helical_rise', String(getFloatParam(data, ['helicalRise', 'helical_rise'], 1)));
+      cmd.push('--helical_nr_asu', String(getIntParam(data, ['numAsymmetricalUnits'], 1)));
+      cmd.push('--helical_rise', String(getFloatParam(data, ['helicalRise'], 1)));
+    }
+
+    // Threads
+    const threads = getThreads(data);
+    if (threads > 1) {
+      cmd.push('--j', String(threads));
     }
 
     // Pipeline control
-    cmd.push('--pipeline_control', path.resolve(outputDir) + path.sep);
+    cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     // Additional arguments
     this.addAdditionalArguments(cmd);

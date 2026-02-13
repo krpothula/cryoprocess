@@ -83,6 +83,12 @@ const userSchema = new mongoose.Schema({
   cluster_enabled: {
     type: Boolean,
     default: false
+  },
+  api_key_hash: {
+    type: String,
+    default: null,
+    index: true,
+    select: false
   }
 }, {
   collection: 'users',

@@ -9,6 +9,8 @@ const fs = require('fs');
 const logger = require('../utils/logger');
 const { getProjectPath } = require('../utils/pathUtils');
 const settings = require('../config/settings');
+const { getKnownFlags } = require('../config/relionFlags');
+const { getThreads, isGpuEnabled, getGpuIds, getParam } = require('../utils/paramHelper');
 
 class BaseJobBuilder {
   constructor(data, project, user) {
@@ -68,28 +70,37 @@ class BaseJobBuilder {
       // STAR file inputs
       'inputStarFile', 'inputMicrographs', 'micrographStarFile',
       'inputCoordinates', 'inputParticles', 'particlesStarFile',
-      'input_star_file', 'inputMovies', 'ctfStarFile', 'autopickStarFile',
+      'inputMovies', 'ctfStarFile', 'autopickStarFile',
       'refinementStarFile', 'particleStarFile', 'inputImages',
       'inputStarMicrograph', 'micrographsCtfFile', 'coordinatesFile',
       // MRC/Map file inputs
-      'maskFile', 'referenceMap', 'inputMap', 'inputVolume',
+      'maskFile', 'referenceMap', 'referenceMask', 'inputMap', 'inputVolume',
       'halfMap1', 'halfMap2', 'inputModel', 'sharpenedMap',
       'referenceVolume', 'solventMask', 'inputMask',
       // Model inputs
       'inputPdb', 'inputPdbFile', 'pdbFile',
       // Multi-body inputs
       'bodyStarFile',
+      // CTF Refine inputs
+      'particlesStar', 'postProcessStar', 'postprocessStar',
       // Polish inputs
-      'polishStarFile',
+      'polishStarFile', 'particlesFile', 'micrographsFile', 'postProcessStarFile',
       // Subtract inputs
-      'subtractStarFile',
+      'subtractStarFile', 'optimiserStar', 'maskOfSignal',
+      'inputParticlesStar', 'revertParticles',
       // Local resolution inputs
       'localresStarFile',
       // Join star inputs
       'particlesStarFile1', 'particlesStarFile2', 'particlesStarFile3', 'particlesStarFile4',
+      'micrographStarFile1', 'micrographStarFile2', 'micrographStarFile3', 'micrographStarFile4',
+      'movieStarFile1', 'movieStarFile2', 'movieStarFile3', 'movieStarFile4',
+      // Subset inputs
+      'microGraphsStar', 'micrographsStar',
+      // DynaMight inputs
+      'micrographs', 'inputFile', 'checkpointFile', 'consensusMap',
       // Class selection / subset inputs (ManualSelect, Subset)
-      'classFromJob', 'class_from_job',
-      'selectClassesFromJob', 'select_classes_from_job'
+      'classFromJob',
+      'selectClassesFromJob'
     ];
 
     for (const field of inputFields) {
@@ -177,7 +188,7 @@ class BaseJobBuilder {
    */
   addCommonFlags(cmd, outputDir, jobName) {
     const relOutputDir = this.makeRelative(outputDir);
-    cmd.push('--pipeline_control', path.resolve(outputDir) + path.sep);
+    cmd.push('--pipeline_control', relOutputDir + path.sep);
   }
 
   /**
@@ -185,7 +196,7 @@ class BaseJobBuilder {
    * @param {string[]} cmd - Command array
    */
   addMpiFlags(cmd) {
-    const threads = this.data.threads || this.data.numberOfThreads || 1;
+    const threads = getThreads(this.data);
     if (threads > 1) {
       cmd.push('--j', String(threads));
     }
@@ -196,10 +207,9 @@ class BaseJobBuilder {
    * @param {string[]} cmd - Command array
    */
   addGpuFlags(cmd) {
-    const useGpu = this.data.use_gpu || this.data.useGpu;
-    if (useGpu === 'Yes' || useGpu === true) {
-      const gpuIds = this.data.gpu_ids || this.data.gpuIds || '0';
-      cmd.push('--gpu', String(gpuIds));
+    if (isGpuEnabled(this.data)) {
+      const gpuIds = getGpuIds(this.data);
+      cmd.push('--gpu', gpuIds);
     }
   }
 
@@ -218,9 +228,7 @@ class BaseJobBuilder {
    * @param {string[]} cmd - Command array to append to
    */
   addAdditionalArguments(cmd) {
-    const additionalArgs = this.data.AdditionalArguments
-      || this.data.additionalArguments
-      || this.data.arguments;
+    const additionalArgs = getParam(this.data, ['additionalArguments', 'arguments'], null);
     if (!additionalArgs || !String(additionalArgs).trim()) return;
 
     const raw = String(additionalArgs).trim();
@@ -232,6 +240,12 @@ class BaseJobBuilder {
       return;
     }
 
+    // Extract RELION program name from command array for flag validation
+    // Handles both direct (relion_import) and MPI (relion_refine_mpi) names
+    const rawProgram = cmd.find(c => typeof c === 'string' && c.startsWith('relion_'));
+    const relionProgram = rawProgram ? rawProgram.replace(/_mpi$/, '') : null;
+    const knownFlags = relionProgram ? getKnownFlags(relionProgram) : null;
+
     // Parse respecting quoted strings
     const args = raw.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
     for (const arg of args) {
@@ -240,6 +254,10 @@ class BaseJobBuilder {
       if (clean.startsWith('-') && !/^--?[\w][\w-]*$/.test(clean)) {
         logger.warn(`[BaseBuilder] Skipping invalid flag: ${clean}`);
         continue;
+      }
+      // Warn if flag is not in the known registry (still pass through — RELION versions may differ)
+      if (knownFlags && clean.startsWith('--') && !knownFlags.has(clean)) {
+        logger.warn(`[${this.stageName}] Unknown RELION flag for ${relionProgram}: ${clean} (passing through)`);
       }
       cmd.push(clean);
     }

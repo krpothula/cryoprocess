@@ -12,15 +12,15 @@ const PixelSizeInput = ({
   onChange,
   handleInputChange,
   disabled = false,
-  disabledHint,
   autoFilled = false,
   step = "any",
+  error = false,
 }) => {
   const [isTooltipVisible, setTooltipVisible] = useState(false);
 
   // Check if value is odd when step=2 (must be even)
   const isOddError = step === 2 && value && Number(value) % 2 !== 0;
-  const hasError = isOddError;
+  const hasError = isOddError || error;
 
   return (
     <div className="flex items-center" style={{ gap: "8px" }}>
@@ -68,11 +68,6 @@ const PixelSizeInput = ({
             {isOddError && (
               <div style={{ color: "var(--color-danger-text)", fontSize: "11px", marginTop: "2px" }}>
                 Must be an even number
-              </div>
-            )}
-            {disabled && disabledHint && (
-              <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "1px", lineHeight: "1.3" }}>
-                {disabledHint}
               </div>
             )}
           </div>

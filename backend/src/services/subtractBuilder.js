@@ -26,12 +26,12 @@ class SubtractBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    const optimiserStar = getParam(this.data, ['optimiserStar', 'optimiser_star'], null);
+    const optimiserStar = getParam(this.data, ['optimiserStar'], null);
     if (!optimiserStar) {
       return { valid: false, error: 'Optimiser STAR file is required' };
     }
 
-    const maskOfSignal = getParam(this.data, ['maskOfSignal', 'mask_of_signal'], null);
+    const maskOfSignal = getParam(this.data, ['maskOfSignal'], null);
     if (!maskOfSignal) {
       return { valid: false, error: 'Mask of signal to be subtracted is required' };
     }
@@ -44,8 +44,8 @@ class SubtractBuilder extends BaseJobBuilder {
     const relOutputDir = this.makeRelative(outputDir);
     const data = this.data;
 
-    const optimiserStar = getParam(data, ['optimiserStar', 'optimiser_star'], null);
-    const maskOfSignal = getParam(data, ['maskOfSignal', 'mask_of_signal'], null);
+    const optimiserStar = getParam(data, ['optimiserStar'], null);
+    const maskOfSignal = getParam(data, ['maskOfSignal'], null);
 
     const cmd = [
       'relion_particle_subtract',
@@ -60,8 +60,8 @@ class SubtractBuilder extends BaseJobBuilder {
       cmd.push('--float16');
     }
 
-    if (getBoolParam(data, ['differentParticle'], false)) {
-      const inputParticleStar = getParam(data, ['inputParticleStar', 'input_particle_star'], null);
+    if (getBoolParam(data, ['differentParticles'], false)) {
+      const inputParticleStar = getParam(data, ['inputParticlesStar'], null);
       if (inputParticleStar) {
         cmd.push('--data', this.makeRelative(this.resolveInputPath(inputParticleStar)));
       }
@@ -84,7 +84,7 @@ class SubtractBuilder extends BaseJobBuilder {
       }
     }
 
-    cmd.push('--pipeline_control', relOutputDir);
+    cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     // Additional arguments
     this.addAdditionalArguments(cmd);

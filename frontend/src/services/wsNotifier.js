@@ -2,14 +2,16 @@
  * Singleton WebSocket notification service.
  *
  * Maintains ONE shared WebSocket connection and dispatches job_update
- * messages to registered per-job callbacks. Dashboards subscribe via
- * the useJobNotification hook.
+ * messages to registered callbacks:
+ *   - Per-job callbacks  (subscribe/unsubscribe)       — used by dashboards
+ *   - Project-level callbacks (subscribeProject/...)    — used by job list & tree
  */
 
 class WsNotifier {
   constructor() {
     this.ws = null;
     this.listeners = new Map(); // jobId -> Set<callback>
+    this.projectListeners = new Set(); // project-level callbacks (any job_update)
     this.projectId = null;
     this.reconnectTimer = null;
     this.connected = false;
@@ -36,7 +38,10 @@ class WsNotifier {
     }
     clearTimeout(this.reconnectTimer);
 
-    const wsUrl = `ws://${window.location.hostname}:8001/ws`;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsHost = process.env.REACT_APP_WS_HOST || window.location.hostname;
+    const wsPort = process.env.REACT_APP_WS_PORT || '8001';
+    const wsUrl = `${wsProtocol}://${wsHost}:${wsPort}/ws`;
     try {
       this.ws = new WebSocket(wsUrl);
 
@@ -54,11 +59,16 @@ class WsNotifier {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'job_update' && data.id) {
+            // Per-job callbacks (dashboards)
             const callbacks = this.listeners.get(data.id);
             if (callbacks) {
               for (const cb of callbacks) {
-                try { cb(); } catch (_) { /* dashboard callback error */ }
+                try { cb(data); } catch (_) { /* dashboard callback error */ }
               }
+            }
+            // Project-level callbacks (job list, tree)
+            for (const cb of this.projectListeners) {
+              try { cb(data); } catch (_) { /* project callback error */ }
             }
           }
         } catch (_) { /* non-JSON message */ }
@@ -69,7 +79,9 @@ class WsNotifier {
         this.reconnectTimer = setTimeout(() => this._connect(), 5000);
       };
 
-      this.ws.onerror = () => {};
+      this.ws.onerror = (err) => {
+        console.warn('[WS] Connection error — will retry');
+      };
     } catch (_) {
       this.reconnectTimer = setTimeout(() => this._connect(), 5000);
     }
@@ -87,7 +99,7 @@ class WsNotifier {
   }
 
   /**
-   * Remove a previously registered callback.
+   * Remove a previously registered per-job callback.
    */
   unsubscribe(jobId, callback) {
     const set = this.listeners.get(jobId);
@@ -95,6 +107,22 @@ class WsNotifier {
       set.delete(callback);
       if (set.size === 0) this.listeners.delete(jobId);
     }
+  }
+
+  /**
+   * Register a callback for ANY job_update in the project.
+   * Callback receives the full message: { id, status, oldStatus, newStatus, ... }
+   */
+  subscribeProject(callback) {
+    if (!callback) return;
+    this.projectListeners.add(callback);
+  }
+
+  /**
+   * Remove a project-level callback.
+   */
+  unsubscribeProject(callback) {
+    this.projectListeners.delete(callback);
   }
 }
 

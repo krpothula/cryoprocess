@@ -13,11 +13,14 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiRefreshCw,
-  FiTrendingUp,
   FiZap,
   FiDownload,
+  FiCrosshair,
+  FiGrid,
+  FiTrendingUp,
 } from "react-icons/fi";
 import MolstarViewer from "../InitialModelDashboard/MolstarViewer";
+import FscChart from "../common/FscChart";
 import axiosInstance from "../../services/config";
 import useJobNotification from "../../hooks/useJobNotification";
 
@@ -27,20 +30,24 @@ const getPostProcessResultsApi = async (jobId) => {
   return axiosInstance.get(`${API_BASE_URL}/postprocess/results/?job_id=${jobId}`);
 };
 
+const getPostProcessFscApi = async (jobId) => {
+  return axiosInstance.get(`${API_BASE_URL}/postprocess/fsc/?job_id=${jobId}`);
+};
+
 const PostProcessDashboard = () => {
   const { selectedJob } = useBuilder();
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState(null);
-  const [mapType, setMapType] = useState("masked");
   const [error, setError] = useState(null);
   const [showCommand, setShowCommand] = useState(false);
   const [commandCopied, setCommandCopied] = useState(false);
+  const [fscData, setFscData] = useState([]);
 
   const handleDownload = () => {
-    const url = `${API_BASE_URL}/postprocess/mrc/?type=${mapType}&job_id=${selectedJob?.id}`;
+    const url = `${API_BASE_URL}/postprocess/mrc/?type=unmasked&job_id=${selectedJob?.id}`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedJob?.job_name || 'postprocess'}_${mapType}.mrc`;
+    a.download = `${selectedJob?.job_name || 'postprocess'}.mrc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -68,6 +75,17 @@ const PostProcessDashboard = () => {
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
+
+        // Fetch FSC data if available
+        if (response.data.data?.has_fsc) {
+          getPostProcessFscApi(selectedJob.id)
+            .then((fscRes) => {
+              if (mountedRef.current && fscRes?.data?.data?.fsc_curve) {
+                setFscData(fscRes.data.data.fsc_curve);
+              }
+            })
+            .catch(() => {}); // FSC is optional — don't block on failure
+        }
       }
     } catch (err) {
       setError("Failed to load post-processing results");
@@ -145,11 +163,11 @@ const PostProcessDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -157,7 +175,7 @@ const PostProcessDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -210,39 +228,56 @@ const PostProcessDashboard = () => {
         </div>
       </div>
 
-      {/* Stats Card - Merged */}
+      {/* Stats Card - Single Row */}
+      {(() => {
+        const stats = selectedJob?.pipeline_stats || {};
+        return (
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiTarget className="text-[var(--color-text-muted)]" size={14} />
+            <FiTarget className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Resolution:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {results?.final_resolution ? `${results.final_resolution.toFixed(2)} Å` : "N/A"}
+              {stats.resolution ? `${stats.resolution.toFixed(2)} Å` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiZap className="text-[var(--color-text-muted)]" size={14} />
+            <FiZap className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>B-factor:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.bfactor ? `${Math.abs(results.bfactor).toFixed(0)} Å²` : "N/A"}
+              {stats.bfactor ? `${Math.abs(stats.bfactor).toFixed(0)} Å²` : "N/A"}
             </span>
+            {stats.bfactor && (
+              <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
+                ({selectedJob?.parameters?.ownBfactor === "Yes" ? "manual" : "auto"})
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <FiBox className="text-[var(--color-text-muted)]" size={14} />
+            <FiBox className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Masked Map:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.has_masked_map ? "Yes" : "No"}
+              {selectedJob?.parameters?.solventMask ? "Yes" : "No"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiTrendingUp className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>FSC Curve:</span>
+            <FiCrosshair className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.has_fsc ? "Available" : "N/A"}
+              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiGrid className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.box_size || 0} px
             </span>
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* 3D Visualization */}
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
@@ -253,16 +288,6 @@ const PostProcessDashboard = () => {
           </h3>
 
           <div className="flex items-center gap-3">
-            <select
-              value={mapType}
-              onChange={(e) => setMapType(e.target.value)}
-              className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-blue-300"
-              style={{ fontSize: "12px" }}
-            >
-              <option value="masked">Masked Map</option>
-              <option value="unmasked">Unmasked Map</option>
-            </select>
-
             <button
               onClick={fetchResults}
               className="flex items-center gap-1 px-3 py-1 bg-[var(--color-bg-hover)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
@@ -272,12 +297,12 @@ const PostProcessDashboard = () => {
               Refresh
             </button>
 
-            {(results?.has_masked_map || results?.has_unmasked_map) && (
+            {results?.has_unmasked_map && (
               <button
                 onClick={handleDownload}
                 className="flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
                 style={{ fontSize: "12px" }}
-                title={`Download ${mapType} map (.mrc)`}
+                title="Download unmasked map (.mrc)"
               >
                 <FiDownload size={13} />
                 Download
@@ -286,12 +311,14 @@ const PostProcessDashboard = () => {
           </div>
         </div>
 
-        {results?.has_masked_map || results?.has_unmasked_map ? (
+        {results?.has_unmasked_map ? (
           <MolstarViewer
+            key={`${selectedJob?.id}-unmasked`}
             jobId={selectedJob?.id}
             iteration="latest"
             classNum={1}
-            apiEndpoint={`/postprocess/mrc/?type=${mapType}`}
+            apiEndpoint="/postprocess/mrc/?type=unmasked"
+            isoValue={1.5}
           />
         ) : (
           <div className="h-[500px] flex flex-col items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)] rounded-lg">
@@ -305,6 +332,26 @@ const PostProcessDashboard = () => {
             </p>
           </div>
         )}
+      </div>
+
+      {/* FSC Curve */}
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
+            <FiTrendingUp className="text-blue-500" size={13} />
+            FSC Curve
+          </h3>
+          {results?.final_resolution && (
+            <span style={{ fontSize: "11px", color: "var(--color-success-text)", fontWeight: 600 }}>
+              Resolution at FSC=0.143: {results.final_resolution.toFixed(2)} Å
+            </span>
+          )}
+        </div>
+        <FscChart
+          data={fscData}
+          goldStdRes={results?.final_resolution}
+          height={320}
+        />
       </div>
 
     </div>

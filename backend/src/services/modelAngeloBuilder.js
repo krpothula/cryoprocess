@@ -27,15 +27,15 @@ class ModelAngeloBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    const inputMap = getParam(this.data, ['bFactorSharpenedMap', 'b_factor_sharpened_map', 'input_map', 'inputMap'], null);
+    const inputMap = getParam(this.data, ['bFactorSharpenedMap'], null);
     if (!inputMap) {
       return { valid: false, error: 'B-factor sharpened map is required' };
     }
 
     // At least one FASTA file should be provided
-    const fastaProtein = getParam(this.data, ['fastaProtein', 'fasta_protein'], null);
-    const fastaDNA = getParam(this.data, ['fastaDNA', 'fasta_dna'], null);
-    const fastaRNA = getParam(this.data, ['fastaRNA', 'fasta_rna'], null);
+    const fastaProtein = getParam(this.data, ['fastaProtein'], null);
+    const fastaDNA = getParam(this.data, ['fastaDNA'], null);
+    const fastaRNA = getParam(this.data, ['fastaRNA'], null);
 
     if (!fastaProtein && !fastaDNA && !fastaRNA) {
       return { valid: false, error: 'At least one FASTA sequence file (protein, DNA, or RNA) is required' };
@@ -49,17 +49,17 @@ class ModelAngeloBuilder extends BaseJobBuilder {
     const relOutputDir = this.makeRelative(outputDir);
     const data = this.data;
 
-    const executable = getParam(data, ['modelAngeloExecutable', 'model_angelo_executable'], null) || settings.MODELANGELO_EXE || 'relion_python_modelangelo';
-    const inputMap = getParam(data, ['bFactorSharpenedMap', 'b_factor_sharpened_map', 'input_map', 'inputMap'], null);
-    const gpuDevice = String(getIntParam(data, ['gpuToUse', 'gpu_to_use'], 0));
+    const executable = getParam(data, ['modelAngeloExecutable'], null) || settings.MODELANGELO_EXE || 'relion_python_modelangelo';
+    const inputMap = getParam(data, ['bFactorSharpenedMap'], null);
+    const gpuDevice = String(getIntParam(data, ['gpuToUse'], 0));
 
     // Build the 'build' subcommand
     const cmd = [executable, 'build'];
 
     // Add FASTA files for different chain types
-    const fastaProtein = getParam(data, ['fastaProtein', 'fasta_protein'], null);
-    const fastaDNA = getParam(data, ['fastaDNA', 'fasta_dna'], null);
-    const fastaRNA = getParam(data, ['fastaRNA', 'fasta_rna'], null);
+    const fastaProtein = getParam(data, ['fastaProtein'], null);
+    const fastaDNA = getParam(data, ['fastaDNA'], null);
+    const fastaRNA = getParam(data, ['fastaRNA'], null);
 
     if (fastaProtein) {
       cmd.push('-pf', fastaProtein);
@@ -78,27 +78,27 @@ class ModelAngeloBuilder extends BaseJobBuilder {
     cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     // If HMMER search is enabled, chain the hmm_search command
-    if (getBoolParam(data, ['performHmmerSearch', 'perform_hmmer_search'], false)) {
+    if (getBoolParam(data, ['performHmmerSearch'], false)) {
       cmd.push('&&');
       cmd.push(executable);
       cmd.push('hmm_search');
       cmd.push('-i', relOutputDir);
 
       // Use HMMER sequence library if provided
-      const fastaFile = getParam(data, ['hmmerSequenceLibrary', 'hmmer_sequence_library'], null) ||
+      const fastaFile = getParam(data, ['hmmerSequenceLibrary'], null) ||
         fastaProtein || fastaDNA || fastaRNA || '';
       cmd.push('-f', fastaFile);
       cmd.push('-o', relOutputDir);
 
       // Alphabet type
-      const alphabet = getParam(data, ['hmmerAlphabet', 'hmmer_alphabet'], 'amino');
+      const alphabet = getParam(data, ['hmmerAlphabet'], 'amino');
       cmd.push('-a', alphabet);
 
       // HMMER search parameters
-      cmd.push('--F1', String(getFloatParam(data, ['hmmerF1', 'hmmer_f1'], 0.02)));
-      cmd.push('--F2', String(getFloatParam(data, ['hmmerF2', 'hmmer_f2'], 0.001)));
-      cmd.push('--F3', String(getFloatParam(data, ['hmmerF3', 'hmmer_f3'], 1e-05)));
-      cmd.push('--E', String(getFloatParam(data, ['hmmerE', 'hmmer_e'], 10)));
+      cmd.push('--F1', String(getFloatParam(data, ['hmmerF1'], 0.02)));
+      cmd.push('--F2', String(getFloatParam(data, ['hmmerF2'], 0.001)));
+      cmd.push('--F3', String(getFloatParam(data, ['hmmerF3'], 1e-05)));
+      cmd.push('--E', String(getFloatParam(data, ['hmmerE'], 10)));
       cmd.push('--pipeline_control', relOutputDir + path.sep);
     }
 

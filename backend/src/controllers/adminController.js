@@ -17,13 +17,22 @@ const generateTempPassword = () => {
 };
 
 /**
+ * Generate API key (raw) and its SHA-256 hash
+ */
+const generateApiKeyPair = () => {
+  const raw = crypto.randomBytes(32).toString('hex'); // 64 characters, 256 bits entropy
+  const hash = crypto.createHash('sha256').update(raw).digest('hex');
+  return { raw, hash };
+};
+
+/**
  * List all users
  * GET /api/admin/users
  */
 exports.listUsers = async (req, res) => {
   try {
     const users = await User.find({})
-      .select('-password')
+      .select('-password +api_key_hash')
       .sort({ created_at: -1 })
       .lean();
 
@@ -40,6 +49,7 @@ exports.listUsers = async (req, res) => {
         is_staff: u.is_staff || false,
         is_superuser: u.is_superuser || false,
         must_change_password: u.must_change_password || false,
+        has_api_key: !!u.api_key_hash,
         created_at: u.created_at,
         last_login: u.last_login
       })),
@@ -141,7 +151,7 @@ exports.getUser = async (req, res) => {
     const { userId } = req.params;
 
     const user = await User.findOne({ id: parseInt(userId, 10) })
-      .select('-password')
+      .select('-password +api_key_hash')
       .lean();
 
     if (!user) {
@@ -161,6 +171,7 @@ exports.getUser = async (req, res) => {
         is_staff: user.is_staff || false,
         is_superuser: user.is_superuser || false,
         must_change_password: user.must_change_password || false,
+        has_api_key: !!user.api_key_hash,
         created_at: user.created_at,
         last_login: user.last_login
       }
@@ -316,6 +327,85 @@ exports.resetPassword = async (req, res) => {
     });
   } catch (error) {
     logger.error('[Admin] resetPassword error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Generate API key for user
+ * POST /api/admin/users/:userId/generate-api-key
+ * Staff can generate for regular users only
+ * Superuser can generate for anyone
+ */
+exports.generateApiKey = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findOne({ id: parseInt(userId, 10) }).select('+api_key_hash');
+
+    if (!user) {
+      return response.notFound(res, 'User not found');
+    }
+
+    // Staff cannot generate API keys for staff/superuser accounts
+    if (!req.user.is_superuser && (user.is_staff || user.is_superuser)) {
+      return response.forbidden(res, 'Only superusers can generate API keys for staff or superuser accounts');
+    }
+
+    const { raw, hash } = generateApiKeyPair();
+
+    user.api_key_hash = hash;
+    await user.save();
+
+    logger.info(`[Admin] API key generated for: ${user.username} by admin ${req.user.username}`);
+
+    res.json({
+      success: true,
+      status: 'success',
+      data: {
+        api_key: raw
+      },
+      message: 'API key generated. Store it securely — it cannot be shown again.'
+    });
+  } catch (error) {
+    logger.error('[Admin] generateApiKey error:', error);
+    return response.serverError(res, error.message);
+  }
+};
+
+/**
+ * Revoke API key for user
+ * DELETE /api/admin/users/:userId/api-key
+ * Staff can revoke for regular users only
+ * Superuser can revoke for anyone
+ */
+exports.revokeApiKey = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findOne({ id: parseInt(userId, 10) }).select('+api_key_hash');
+
+    if (!user) {
+      return response.notFound(res, 'User not found');
+    }
+
+    // Staff cannot revoke API keys for staff/superuser accounts
+    if (!req.user.is_superuser && (user.is_staff || user.is_superuser)) {
+      return response.forbidden(res, 'Only superusers can revoke API keys for staff or superuser accounts');
+    }
+
+    if (!user.api_key_hash) {
+      return response.badRequest(res, 'User does not have an API key');
+    }
+
+    user.api_key_hash = null;
+    await user.save();
+
+    logger.info(`[Admin] API key revoked for: ${user.username} by admin ${req.user.username}`);
+
+    return response.success(res, { message: 'API key revoked successfully' });
+  } catch (error) {
+    logger.error('[Admin] revokeApiKey error:', error);
     return response.serverError(res, error.message);
   }
 };

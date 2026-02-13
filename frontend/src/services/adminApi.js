@@ -42,6 +42,22 @@ const resetUserPassword = (userId) => {
   return axiosInstance.post(`/api/admin/users/${userId}/reset-password`);
 };
 
+/**
+ * Generate API key for a user (admin only)
+ * @param {number} userId
+ */
+const generateApiKey = (userId) => {
+  return axiosInstance.post(`/api/admin/users/${userId}/generate-api-key`);
+};
+
+/**
+ * Revoke API key for a user (admin only)
+ * @param {number} userId
+ */
+const revokeApiKey = (userId) => {
+  return axiosInstance.delete(`/api/admin/users/${userId}/api-key`);
+};
+
 // Auth APIs
 
 /**
@@ -65,6 +81,8 @@ const adminApi = {
   updateUser,
   deleteUser,
   resetUserPassword,
+  generateApiKey,
+  revokeApiKey,
   changePassword,
   checkPasswordStatus
 };

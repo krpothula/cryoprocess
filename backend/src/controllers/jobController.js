@@ -10,6 +10,7 @@ const logger = require('../utils/logger');
 const Job = require('../models/Job');
 const Project = require('../models/Project');
 const { submitJobDirect } = require('../services/jobSubmission');
+const { isSSHMode } = require('../utils/remoteExec');
 const { getProjectPath } = require('../utils/pathUtils');
 const response = require('../utils/responseHelper');
 const { JOB_STATUS } = require('../config/constants');
@@ -153,8 +154,28 @@ exports.submitJob = async (req, res) => {
       particle_count: 0,
       box_size: null,
       resolution: null,
+      bfactor: null,
       class_count: 0,
-      iteration_count: 0
+      iteration_count: 0,
+      movie_count: 0,
+      // Parameter-derived fields (defaults, overridden below)
+      total_iterations: 0,
+      voltage: null,
+      cs: null,
+      import_type: null,
+      symmetry: null,
+      mask_diameter: null,
+      bin_factor: 1,
+      pick_method: null,
+      rescaled_size: null,
+      // CTF refinement fields
+      defocus_mean: null,
+      astigmatism_mean: null,
+      beam_tilt_x: null,
+      beam_tilt_y: null,
+      ctf_fitting: null,
+      beam_tilt_enabled: null,
+      aniso_mag: null
     };
 
     if (resolvedInputJobIds.length > 0) {
@@ -165,7 +186,7 @@ exports.submitJob = async (req, res) => {
         inheritedStats.micrograph_count = us.micrograph_count || upstreamJob.micrograph_count || 0;
         inheritedStats.particle_count = us.particle_count || upstreamJob.particle_count || 0;
         inheritedStats.pixel_size = us.pixel_size || upstreamJob.pixel_size ||
-          upstreamJob.pipeline_metadata?.original_pixel_size || null;
+          (upstreamJob.parameters?.angpix ? parseFloat(upstreamJob.parameters.angpix) : null);
         inheritedStats.box_size = us.box_size || upstreamJob.box_size ||
           upstreamJob.parameters?.particleBoxSize || null;
         inheritedStats.resolution = us.resolution || null;
@@ -192,7 +213,7 @@ exports.submitJob = async (req, res) => {
             }
             if (!inheritedStats.pixel_size) {
               inheritedStats.pixel_size = as.pixel_size || ancestorJob.pixel_size ||
-                ancestorJob.pipeline_metadata?.original_pixel_size || null;
+                (ancestorJob.parameters?.angpix ? parseFloat(ancestorJob.parameters.angpix) : null);
             }
             if (!inheritedStats.micrograph_count) {
               inheritedStats.micrograph_count = as.micrograph_count || ancestorJob.micrograph_count || 0;
@@ -225,6 +246,52 @@ exports.submitJob = async (req, res) => {
       if (!isNaN(parsed) && parsed > 0) {
         inheritedStats.box_size = parsed;
       }
+    }
+
+    // =========================================================================
+    // Submission-time parameter-derived stats
+    // These fields are known at submission and should not change.
+    // =========================================================================
+    switch (stageName) {
+      case 'Import':
+        inheritedStats.voltage = data.kV ? parseFloat(data.kV) : null;
+        inheritedStats.cs = data.Cs ? parseFloat(data.Cs) : null;
+        if (data.rawMovies === 'Yes' || data.rawMovies === true) {
+          inheritedStats.import_type = 'movies';
+        } else if (data.rawMicrographs === 'Yes' || data.rawMicrographs === true) {
+          inheritedStats.import_type = 'micrographs';
+        }
+        break;
+      case 'MotionCorr':
+        inheritedStats.bin_factor = parseInt(data.binningFactor) || 1;
+        break;
+      case 'AutoPick':
+        inheritedStats.pick_method = data.useTopaz === 'Yes' ? 'Topaz'
+          : data.useTemplateMatching === 'Yes' ? 'Template' : 'LoG';
+        break;
+      case 'Extract':
+        inheritedStats.rescaled_size = (data.rescaleParticles === 'Yes' && data.rescaledSize)
+          ? parseInt(data.rescaledSize) : null;
+        break;
+      case 'Class2D':
+        inheritedStats.class_count = parseInt(data.numberOfClasses) || 0;
+        inheritedStats.mask_diameter = data.maskDiameter ? parseFloat(data.maskDiameter) : null;
+        if (data.useVDAM === 'Yes') {
+          inheritedStats.total_iterations = parseInt(data.vdamMiniBatches) || 0;
+        } else {
+          inheritedStats.total_iterations = parseInt(data.numberEMIterations) || parseInt(data.numberOfIterations) || 0;
+        }
+        break;
+      case 'Class3D':
+      case 'InitialModel':
+        inheritedStats.class_count = parseInt(data.numberOfClasses) || 0;
+        inheritedStats.mask_diameter = data.maskDiameter ? parseFloat(data.maskDiameter) : null;
+        inheritedStats.total_iterations = parseInt(data.numberEMIterations) || parseInt(data.numberOfIterations) || 0;
+        inheritedStats.symmetry = data.symmetry || 'C1';
+        break;
+      case 'AutoRefine':
+        inheritedStats.symmetry = data.symmetry || 'C1';
+        break;
     }
 
     const newJob = await Job.create({
@@ -321,8 +388,10 @@ exports.submitJob = async (req, res) => {
     }
 
     // Check if submitting user has per-user cluster credentials enabled
+    // Only relevant when SSH mode is active (remote cluster); for local SLURM,
+    // sbatch runs directly on the host and no SSH session is needed.
     let userCredentials = null;
-    if (executionMode === 'slurm') {
+    if (executionMode === 'slurm' && isSSHMode()) {
       try {
         const submittingUser = await User.findOne({ id: req.user.id }).select('+cluster_ssh_key').lean();
         if (submittingUser?.cluster_enabled && submittingUser.cluster_ssh_key && submittingUser.cluster_username) {
@@ -365,8 +434,8 @@ exports.submitJob = async (req, res) => {
         logger.job.error(jobType, new Error(result.message), jobId);
       }
 
-      return res.status(result.status === 'success' ? 200 : 500).json({
-        status: result.status,
+      return res.status(jobStatus === JOB_STATUS.SUCCESS ? 200 : 500).json({
+        status: jobStatus,
         id: jobId,
         job_name: jobName,
         message: result.message,
@@ -404,7 +473,7 @@ exports.submitJob = async (req, res) => {
       }
 
       return res.status(isSuccess ? 200 : 500).json({
-        status: isSuccess ? 'success' : 'error',
+        status: isSuccess ? JOB_STATUS.SUCCESS : JOB_STATUS.FAILED,
         id: jobId,
         job_name: jobName,
         message: isSuccess ? `Selected ${selectionResult.num_particles} particles` : 'No particles found in selected classes',
@@ -421,6 +490,7 @@ exports.submitJob = async (req, res) => {
       jobId,
       jobName,
       stageName,
+      projectId: project.id,
       projectPath: getProjectPath(project),
       outputDir,
       executionMode,
@@ -441,8 +511,9 @@ exports.submitJob = async (req, res) => {
     }
     logger.info(`[JOB:${jobType.toUpperCase()}] Duration: ${duration}ms`);
 
-    // Return response
-    const responseStatus = submissionResult.success ? 'running' : 'error';
+    // Return response — use canonical JOB_STATUS values so frontend
+    // receives the same strings stored in the database.
+    const responseStatus = submissionResult.success ? JOB_STATUS.RUNNING : JOB_STATUS.FAILED;
 
     res.status(submissionResult.success ? 202 : 500).json({
       status: responseStatus,
@@ -626,7 +697,8 @@ exports.listJobs = async (req, res) => {
       input_job_ids: job.input_job_ids || [],
       error_message: job.error_message,
       command: job.command || null,
-      parameters: job.parameters || {}
+      parameters: job.parameters || {},
+      pipeline_stats: job.pipeline_stats || {}
     }));
 
     const total = await Job.countDocuments({ project_id: projectId });
@@ -672,12 +744,13 @@ exports.getJobsTree = async (req, res) => {
 
     const jobs = await Job.find(
       { project_id: projectId },
-      { id: 1, job_name: 1, job_type: 1, status: 1, created_at: 1, command: 1, output_file_path: 1, input_job_ids: 1 }
+      { id: 1, job_name: 1, job_type: 1, status: 1, created_at: 1, command: 1, output_file_path: 1, input_job_ids: 1, parameters: 1 }
     ).sort({ created_at: 1 }).lean();
 
-    // Build job lookup maps
+    // Build lookup maps
     const jobMap = new Map();       // id -> tree node
-    const jobDataMap = new Map();   // id -> raw job data (for created_at comparison)
+    const jobDataMap = new Map();   // id -> raw job data
+    const nameToId = new Map();     // job_name -> id (for fallback resolution)
 
     jobs.forEach(job => {
       jobMap.set(job.id, {
@@ -692,13 +765,42 @@ exports.getJobsTree = async (req, res) => {
         children: []
       });
       jobDataMap.set(job.id, job);
+      nameToId.set(job.job_name, job.id);
     });
 
-    // Build parent-child relationships using single primary parent.
-    // Primary parent = the most recently created job among input_job_ids.
-    // This prevents diamond patterns (e.g., Extract connecting to both CTF and AutoPick).
+    // Helper: pick most recently created parent from a set of candidate IDs
+    const pickPrimaryParent = (candidateIds) => {
+      let primaryParentId = candidateIds[0];
+      let latestTime = new Date(0);
+      for (const parentId of candidateIds) {
+        const parentData = jobDataMap.get(parentId);
+        if (parentData) {
+          const parentTime = new Date(parentData.created_at);
+          if (parentTime > latestTime) {
+            latestTime = parentTime;
+            primaryParentId = parentId;
+          }
+        }
+      }
+      return primaryParentId;
+    };
+
+    // Helper: extract Job### references from a string, excluding self
+    const extractJobRefs = (text, selfName) => {
+      const refs = new Set();
+      if (!text) return refs;
+      const pattern = /Job(\d+)/gi;
+      let m;
+      while ((m = pattern.exec(text)) !== null) {
+        const name = `Job${String(parseInt(m[1], 10)).padStart(3, '0')}`;
+        if (name !== selfName) refs.add(name);
+      }
+      return refs;
+    };
+
+    // --- Pass 1: Build tree from input_job_ids ---
     const rootJobs = [];
-    const childOf = new Set(); // track which nodes are children
+    const childOf = new Set();
 
     jobs.forEach(job => {
       const node = jobMap.get(job.id);
@@ -707,21 +809,7 @@ exports.getJobsTree = async (req, res) => {
       if (inputIds.length === 0) {
         rootJobs.push(node);
       } else {
-        // Pick the most recent parent (highest created_at) as the primary parent
-        let primaryParentId = inputIds[0];
-        let latestTime = new Date(0);
-
-        for (const parentId of inputIds) {
-          const parentData = jobDataMap.get(parentId);
-          if (parentData) {
-            const parentTime = new Date(parentData.created_at);
-            if (parentTime > latestTime) {
-              latestTime = parentTime;
-              primaryParentId = parentId;
-            }
-          }
-        }
-
+        const primaryParentId = pickPrimaryParent(inputIds);
         node.parent_id = primaryParentId;
         const parent = jobMap.get(primaryParentId);
         if (parent) {
@@ -733,8 +821,68 @@ exports.getJobsTree = async (req, res) => {
       }
     });
 
+    // --- Pass 2: Fix orphaned jobs by parsing command + parameters ---
+    // Only Import and LinkMovies should be true roots.
+    const trueRoots = [];
+    const orphans = [];
+
+    for (const node of rootJobs) {
+      if (node.job_type === 'Import' || node.job_type === 'LinkMovies') {
+        trueRoots.push(node);
+      } else {
+        orphans.push(node);
+      }
+    }
+
+    for (const orphan of orphans) {
+      const jobData = jobDataMap.get(orphan.id);
+      const jobRefs = new Set();
+
+      // Extract job references from command string
+      const cmdRefs = extractJobRefs(jobData?.command, orphan.job_name);
+      cmdRefs.forEach(r => jobRefs.add(r));
+
+      // Extract job references from parameter values (file paths)
+      if (jobData?.parameters && typeof jobData.parameters === 'object') {
+        for (const val of Object.values(jobData.parameters)) {
+          if (typeof val === 'string') {
+            const paramRefs = extractJobRefs(val, orphan.job_name);
+            paramRefs.forEach(r => jobRefs.add(r));
+          }
+        }
+      }
+
+      // Resolve job names to IDs and pick best parent
+      const candidateIds = [];
+      for (const name of jobRefs) {
+        const id = nameToId.get(name);
+        if (id && jobMap.has(id)) candidateIds.push(id);
+      }
+
+      if (candidateIds.length > 0) {
+        const parentId = pickPrimaryParent(candidateIds);
+        orphan.parent_id = parentId;
+        jobMap.get(parentId).children.push(orphan);
+        childOf.add(orphan.id);
+        logger.info(`[Jobs] Fallback: attached ${orphan.job_name} (${orphan.job_type}) to parent ${jobMap.get(parentId).job_name}`);
+      } else {
+        // Still orphaned — keep as root
+        trueRoots.push(orphan);
+      }
+    }
+
+    // Sort children chronologically at every level for consistent arrangement
+    const sortChildren = (node) => {
+      if (node.children && node.children.length > 0) {
+        node.children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        node.children.forEach(sortChildren);
+      }
+    };
+    trueRoots.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    trueRoots.forEach(sortChildren);
+
     return response.success(res, {
-      data: rootJobs,
+      data: trueRoots,
       total_jobs: jobs.length
     });
   } catch (error) {

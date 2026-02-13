@@ -354,7 +354,7 @@ const MolstarViewer = ({
             onChange={(e) => handleIsoChange(parseFloat(e.target.value))}
             className="flex-1 h-1 rounded-lg appearance-none cursor-pointer"
             style={{
-              background: `linear-gradient(to right, var(--color-primary) 0%, var(--color-primary) ${((currentIso - 0.1) / 4.9) * 100}%, var(--color-border) ${((currentIso - 0.1) / 4.9) * 100}%, var(--color-border) 100%)`,
+              background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((currentIso - 0.1) / 4.9) * 100}%, var(--color-border) ${((currentIso - 0.1) / 4.9) * 100}%, var(--color-border) 100%)`,
             }}
           />
           <span className="text-gray-500 dark:text-slate-400 font-mono" style={{ fontSize: "10px", minWidth: "32px", textAlign: "right" }}>
@@ -410,6 +410,26 @@ const MolstarViewer = ({
         .msp-plugin .msp-viewport {
           position: absolute !important;
           inset: 0 !important;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #9ca3af;
+          cursor: pointer;
+          border: 2px solid #fff;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #9ca3af;
+          cursor: pointer;
+          border: 2px solid #fff;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
       `}</style>
     </div>

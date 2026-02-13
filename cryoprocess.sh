@@ -246,6 +246,17 @@ MODELANGELO_EXE=${OLD_MODELANGELO_EXE:-}
 # SMTP_USER=your-email@youruni.edu
 # SMTP_PASS=your-password
 # SMTP_FROM=CryoProcess <your-email@youruni.edu>
+
+# =============================================================================
+# 9. SMARTSCOPE INTEGRATION (Optional)
+# Machine-to-machine auth for SmartScope microscope automation.
+# SmartScope sends X-API-Key header; CryoProcess validates against this key.
+# Requires a "smartscope" user account (create via Admin > Users after install).
+# =============================================================================
+
+# Shared API key (must match SmartScope's config)
+# Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# SMARTSCOPE_API_KEY=
 ENVEOF
 
     echo ""

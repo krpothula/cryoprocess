@@ -6,15 +6,13 @@ import {
   FiCheckCircle,
   FiAlertCircle,
   FiClock,
-  FiImage,
-  FiFilm,
   FiTerminal,
   FiCopy,
   FiChevronDown,
   FiChevronUp,
-  FiRefreshCw,
-  FiSettings,
   FiLayers,
+  FiTarget,
+  FiBox,
 } from "react-icons/fi";
 import axiosInstance from "../../services/config";
 import useJobNotification from "../../hooks/useJobNotification";
@@ -58,7 +56,6 @@ const PolishDashboard = () => {
       }
     } catch (err) {
       setError("Failed to load polishing results");
-      console.error("Error fetching results:", err);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -132,11 +129,9 @@ const PolishDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -144,7 +139,7 @@ const PolishDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -197,95 +192,41 @@ const PolishDashboard = () => {
         </div>
       </div>
 
-      {/* Stats Card - Merged */}
+      {/* Stats Card */}
+      {(() => {
+        const stats = selectedJob?.pipeline_stats || {};
+        return (
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FiImage className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.particles_polished?.toLocaleString() || 0}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FiFilm className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.micrographs_processed || 0}
-            </span>
-          </div>
+        <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Frames:</span>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.first_frame || 1} - {results?.last_frame === -1 ? "All" : results?.last_frame}
+              {(stats.particle_count || 0).toLocaleString()}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <FiCheckCircle className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Output:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: results?.has_output ? "var(--color-success-text)" : "var(--color-text-heading)" }}>
-              {results?.has_output ? "Ready" : "Pending"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Motion Parameters */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-        <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
-          <FiSettings className="text-blue-500" />
-          Motion Parameters
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-[var(--color-bg)] rounded-lg p-4">
-            <span className="text-sm text-[var(--color-text-secondary)]">Sigma Velocity</span>
-            <p className="text-xl font-bold text-[var(--color-text-heading)] mt-1">
-              {results?.sigma_velocity || 0.2}
-            </p>
-          </div>
-          <div className="bg-[var(--color-bg)] rounded-lg p-4">
-            <span className="text-sm text-[var(--color-text-secondary)]">Sigma Divergence</span>
-            <p className="text-xl font-bold text-[var(--color-text-heading)] mt-1">
-              {results?.sigma_divergence || 5000}
-            </p>
-          </div>
-          <div className="bg-[var(--color-bg)] rounded-lg p-4">
-            <span className="text-sm text-[var(--color-text-secondary)]">Sigma Acceleration</span>
-            <p className="text-xl font-bold text-[var(--color-text-heading)] mt-1">
-              {results?.sigma_acceleration || 2}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Status Info */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-        <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
-          <FiActivity className="text-green-500" />
-          Job Status
-        </h3>
-        <div className="flex items-center gap-4">
-          {results?.has_output ? (
-            <div className="flex items-center gap-2 text-green-600">
-              <FiCheckCircle />
-              <span>Polished particles available at: <code className="text-sm bg-[var(--color-bg-hover)] px-2 py-1 rounded">{results?.output_dir}/shiny.star</code></span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-yellow-600">
-              <FiClock />
-              <span>Waiting for output...</span>
+          {stats.pixel_size && (
+            <div className="flex items-center gap-2">
+              <FiTarget className="text-[var(--color-text-muted)]" size={14} />
+              <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+                {stats.pixel_size} Å
+              </span>
             </div>
           )}
-          <button
-            onClick={fetchResults}
-            className="ml-auto flex items-center gap-1 px-3 py-1.5 text-sm bg-[var(--color-bg-hover)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
-          >
-            <FiRefreshCw />
-            Refresh
-          </button>
+          {stats.box_size && (
+            <div className="flex items-center gap-2">
+              <FiBox className="text-[var(--color-text-muted)]" size={14} />
+              <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+                {stats.box_size} px
+              </span>
+            </div>
+          )}
         </div>
       </div>
+        );
+      })()}
     </div>
   );
 };

@@ -12,7 +12,7 @@
 }
 
 /* Consistent form field heights - Compact */
-.main-component input,
+.main-component input:not([type="range"]):not([type="checkbox"]),
 .main-component select,
 .main-component textarea {
   height: 32px !important;
@@ -27,7 +27,7 @@
   box-sizing: border-box !important;
 }
 
-.main-component .input-group input {
+.main-component .input-group input:not([type="range"]):not([type="checkbox"]) {
   width: auto !important;
   min-width: 0 !important;
   max-width: none !important;

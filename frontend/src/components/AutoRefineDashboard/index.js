@@ -15,9 +15,13 @@ import {
   FiRefreshCw,
   FiRotateCw,
   FiTarget,
+  FiGrid,
+  FiCrosshair,
   FiDownload,
+  FiTrendingUp,
 } from "react-icons/fi";
 import MolstarViewer from "../InitialModelDashboard/MolstarViewer";
+import FscChart from "../common/FscChart";
 import axiosInstance from "../../services/config";
 import useJobNotification from "../../hooks/useJobNotification";
 
@@ -25,6 +29,10 @@ const API_BASE_URL = process.env.REACT_APP_API_HOST || "";
 
 const getAutoRefineResultsApi = async (jobId) => {
   return axiosInstance.get(`${API_BASE_URL}/autorefine/results/?job_id=${jobId}`);
+};
+
+const getAutoRefineFscApi = async (jobId) => {
+  return axiosInstance.get(`${API_BASE_URL}/autorefine/fsc/?job_id=${jobId}`);
 };
 
 const AutoRefineDashboard = () => {
@@ -36,6 +44,7 @@ const AutoRefineDashboard = () => {
   const [error, setError] = useState(null);
   const [showCommand, setShowCommand] = useState(false);
   const [commandCopied, setCommandCopied] = useState(false);
+  const [fscData, setFscData] = useState([]);
 
   const handleDownload = () => {
     const iter = selectedIteration === "latest" ? (results?.latest_iteration || "") : selectedIteration;
@@ -70,6 +79,17 @@ const AutoRefineDashboard = () => {
       if (response?.data?.status === "success") {
         setResults(response.data.data);
         setError(null);
+
+        // Fetch FSC curve data
+        if (response.data.data?.total_iterations > 0) {
+          getAutoRefineFscApi(selectedJob.id)
+            .then((fscRes) => {
+              if (mountedRef.current && fscRes?.data?.data?.fsc_curve) {
+                setFscData(fscRes.data.data.fsc_curve);
+              }
+            })
+            .catch(() => {}); // FSC is optional
+        }
       }
     } catch (err) {
       setError("Failed to load auto-refinement results");
@@ -147,11 +167,11 @@ const AutoRefineDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -159,7 +179,7 @@ const AutoRefineDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -212,39 +232,70 @@ const AutoRefineDashboard = () => {
         </div>
       </div>
 
-      {/* Stats Card - Merged */}
+      {/* Stats Card - Two Rows */}
+      {(() => {
+        const stats = selectedJob?.pipeline_stats || {};
+        return (
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-        <div className="flex items-center justify-between">
+        {/* Row 1: Resolution, Iteration, Particles, Micrographs */}
+        <div className="grid grid-cols-4 gap-4 mb-3">
           <div className="flex items-center gap-2">
-            <FiTarget className="text-[var(--color-text-muted)]" size={14} />
+            <FiTarget className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Resolution:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {results?.final_resolution ? `${results.final_resolution.toFixed(2)} Å` : "N/A"}
+              {stats.resolution ? `${stats.resolution.toFixed(2)} Å` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiLayers className="text-[var(--color-text-muted)]" size={14} />
+            <FiLayers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Iteration:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.latest_iteration || 0}/{results?.total_iterations || 0}
+              {stats.iteration_count || 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiRotateCw className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Symmetry:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.symmetry || "C1"}
+            <FiLayers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
+              {(stats.particle_count || 0).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiBox className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Half Maps:</span>
+            <FiLayers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.has_half_maps ? "Yes" : "No"}
+              {stats.micrograph_count || 0}
             </span>
           </div>
         </div>
+        {/* Row 2: Pixel Size, Box Size, Symmetry */}
+        <div className="grid grid-cols-4 gap-4">
+          <div className="flex items-center gap-2">
+            <FiCrosshair className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiGrid className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.box_size || 0} px
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiRotateCw className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Symmetry:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.symmetry || "C1"}
+            </span>
+          </div>
+          <div />
+        </div>
       </div>
+        );
+      })()}
 
       {/* 3D Visualization */}
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
@@ -325,6 +376,26 @@ const AutoRefineDashboard = () => {
             </p>
           </div>
         )}
+      </div>
+
+      {/* FSC Curve */}
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
+            <FiTrendingUp className="text-blue-500" size={13} />
+            FSC Curve
+          </h3>
+          {results?.resolution && (
+            <span style={{ fontSize: "11px", color: "var(--color-success-text)", fontWeight: 600 }}>
+              Gold-Standard Resolution: {Number(results.resolution).toFixed(2)} Å
+            </span>
+          )}
+        </div>
+        <FscChart
+          data={fscData}
+          goldStdRes={results?.resolution}
+          height={320}
+        />
       </div>
 
     </div>

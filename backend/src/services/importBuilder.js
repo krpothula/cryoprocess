@@ -9,30 +9,24 @@ const fs = require('fs');
 const glob = require('glob');
 const logger = require('../utils/logger');
 const { getProjectPath } = require('../utils/pathUtils');
-const settings = require('../config/settings');
+// Note: Import doesn't extend BaseJobBuilder because it has unique
+// path handling (validation with glob patterns, no MPI/GPU support)
 const { isPathSafe } = require('../utils/security');
 const {
   getBoolParam,
   getFloatParam,
   getParam
 } = require('../utils/paramHelper');
+const { getKnownFlags } = require('../config/relionFlags');
 
-// RELION node type mapping
-const NODE_TYPE_MAP = {
-  '2D references': 'refs2d',
-  'Particle coordinates': 'coords',
-  '3D reference': 'ref3d',
-  '3D mask': 'mask',
-  'Unfiltered half-map': 'halfmap'
-};
-
-// Output file mapping for node types
-const OUTPUT_FILE_MAP = {
-  'refs2d': 'class_averages.star',
-  'coords': 'coords_suffix_autopick.star',
-  'ref3d': 'ref3d.mrc',
-  'mask': 'mask.mrc',
-  'halfmap': 'halfmap.mrc'
+// RELION import flag and output file mapping per node type
+// Each entry: { flag: RELION --do_* flag, ofile: output filename }
+const NODE_TYPE_CONFIG = {
+  'Particle coordinates': { flag: '--do_coordinates', ofile: 'coords_suffix_autopick.star' },
+  'Unfiltered half-map':  { flag: '--do_halfmaps',    ofile: 'halfmap.mrc' },
+  '2D references':        { flag: '--do_other',        ofile: 'class_averages.star' },
+  '3D reference':         { flag: '--do_other',        ofile: 'ref3d.mrc' },
+  '3D mask':              { flag: '--do_other',        ofile: 'mask.mrc' },
 };
 
 /**
@@ -62,7 +56,7 @@ class ImportJobBuilder {
    * @returns {{valid: boolean, error: string|null}}
    */
   validate() {
-    const isOtherImport = getBoolParam(this.data, ['nodetype', 'nodeType', 'node_type'], false);
+    const isOtherImport = getBoolParam(this.data, ['nodetype'], false);
 
     if (isOtherImport) {
       return this._validateOtherImport();
@@ -75,16 +69,17 @@ class ImportJobBuilder {
    * Validate other node type import
    */
   _validateOtherImport() {
-    const otherInput = getParam(this.data, ['otherInputFile', 'other_input_file'], '');
-    const otherNodeType = getParam(this.data, ['otherNodeType', 'other_node_type'], '');
+    const otherInput = getParam(this.data, ['otherInputFile'], '');
+    const otherNodeType = getParam(this.data, ['otherNodeType'], '');
 
     if (!otherInput) {
       logger.warn('[Import] Validation: Failed | otherInputFile is required');
       return { valid: false, error: 'Input file is required for other node types' };
     }
 
-    // Security: validate path doesn't contain shell metacharacters
-    if (!isPathSafe(otherInput)) {
+    // Security: validate path doesn't contain shell metacharacters (allow * for glob)
+    const safePath = otherInput.includes('*') ? otherInput.replace(/\*/g, '') : otherInput;
+    if (!isPathSafe(safePath)) {
       logger.warn(`[Import] Validation: Failed | invalid characters in path: ${otherInput}`);
       return { valid: false, error: 'Input path contains invalid characters' };
     }
@@ -92,6 +87,13 @@ class ImportJobBuilder {
     if (!otherNodeType) {
       logger.warn('[Import] Validation: Failed | otherNodeType is required');
       return { valid: false, error: 'Node type must be selected' };
+    }
+
+    // Validate against known node types
+    if (!NODE_TYPE_CONFIG[otherNodeType]) {
+      const validTypes = Object.keys(NODE_TYPE_CONFIG).join(', ');
+      logger.warn(`[Import] Validation: Failed | unknown node type: ${otherNodeType}`);
+      return { valid: false, error: `Unknown node type: ${otherNodeType}. Valid types: ${validTypes}` };
     }
 
     // Check if file exists
@@ -128,7 +130,7 @@ class ImportJobBuilder {
    * Validate raw movies/micrographs import
    */
   _validateMoviesImport() {
-    const inputFiles = getParam(this.data, ['input_files', 'inputFiles'], '');
+    const inputFiles = getParam(this.data, ['input_files'], '');
 
     if (!inputFiles) {
       logger.warn('[Import] Validation: Failed | input_files is required');
@@ -258,7 +260,7 @@ class ImportJobBuilder {
       relOutputDir = outputDir;
     }
 
-    const isOtherImport = getBoolParam(this.data, ['nodetype', 'nodeType', 'node_type'], false);
+    const isOtherImport = getBoolParam(this.data, ['nodetype'], false);
     logger.info(`[Import] Command: nodetype = '${this.data.nodetype}', import_other = ${isOtherImport}`);
 
     if (isOtherImport) {
@@ -269,14 +271,14 @@ class ImportJobBuilder {
   }
 
   /**
-   * Build command for other node type import
+   * Build command for other node type import (coordinates, half-maps, references, masks)
    */
   _buildOtherImportCommand(outputDir, relOutputDir) {
-    const otherInput = getParam(this.data, ['otherInputFile', 'other_input_file'], '');
-    const otherNodeType = getParam(this.data, ['otherNodeType', 'other_node_type'], '3D reference');
+    const otherInput = getParam(this.data, ['otherInputFile'], '');
+    const otherNodeType = getParam(this.data, ['otherNodeType'], '3D reference');
 
-    // Get RELION node type value
-    const relionNodeType = NODE_TYPE_MAP[otherNodeType] || 'ref3d';
+    // Get RELION config for this node type
+    const config = NODE_TYPE_CONFIG[otherNodeType] || { flag: '--do_other', ofile: 'imported.star' };
 
     // Make input path relative to project
     let relativeInput;
@@ -286,25 +288,25 @@ class ImportJobBuilder {
       relativeInput = otherInput;
     }
 
-    const outputFile = OUTPUT_FILE_MAP[relionNodeType] || 'imported.star';
-
     const cmd = [
       'relion_import',
-      '--do_other',
-      '--node_type', relionNodeType,
+      config.flag,
       '--i', relativeInput,
       '--odir', relOutputDir + path.sep,
-      '--ofile', outputFile,
-      '--pipeline_control', path.resolve(outputDir) + path.sep
+      '--ofile', config.ofile,
+      '--pipeline_control', relOutputDir + path.sep
     ];
 
-    // Add optics group rename if specified
-    const renameOptics = getParam(this.data, ['renameopticsgroup', 'renameOpticsGroup', 'rename_optics_group'], '');
-    if (renameOptics && ['coords', 'refs2d'].includes(relionNodeType)) {
-      cmd.push('--optics_group_name', renameOptics);
+    // Add optics group rename if specified (RELION uses --particles_optics_group_name for particle/coord imports)
+    const renameOptics = getParam(this.data, ['renameopticsgroup'], '');
+    if (renameOptics && config.flag === '--do_coordinates') {
+      cmd.push('--particles_optics_group_name', renameOptics);
     }
 
-    logger.info(`[Import] Command: Built other import | node_type: ${otherNodeType} -> ${relionNodeType}`);
+    // Append user additional arguments (from Running tab)
+    this._addAdditionalArguments(cmd);
+
+    logger.info(`[Import] Command: Built other import | node_type: ${otherNodeType} -> ${config.flag}`);
     logger.info(`[Import] Command: Full | ${cmd.join(' ')}`);
 
     return cmd;
@@ -315,7 +317,7 @@ class ImportJobBuilder {
    */
   _buildMoviesImportCommand(outputDir, relOutputDir) {
     // Decide output file based on multiframemovies
-    const multiframe = getBoolParam(this.data, ['multiframemovies', 'multiFrameMovies', 'multi_frame_movies'], false);
+    const multiframe = getBoolParam(this.data, ['multiframemovies'], false);
     let outputFile, movieFlag;
 
     if (multiframe) {
@@ -327,10 +329,10 @@ class ImportJobBuilder {
     }
 
     // Handle naming mismatch between frontend/backend
-    const optics = getParam(this.data, ['optics_group_name', 'opticsgroupname', 'opticsGroupName'], 'opticsGroup1');
+    const optics = getParam(this.data, ['opticsgroupname'], 'opticsGroup1');
 
     // Get input path and make it relative
-    let inputPath = getParam(this.data, ['input_files', 'inputFiles'], '');
+    let inputPath = getParam(this.data, ['input_files'], '');
     let relativeInput;
     if (inputPath.startsWith(this.projectPath)) {
       relativeInput = path.relative(this.projectPath, inputPath);
@@ -342,26 +344,80 @@ class ImportJobBuilder {
       'relion_import',
       movieFlag,
       '--optics_group_name', optics,
-      '--angpix', String(getFloatParam(this.data, ['angpix', 'pixelSize', 'pixel_size'], 1.4)),
-      '--kV', String(getFloatParam(this.data, ['kV', 'voltage'], 300)),
-      '--Cs', String(getFloatParam(this.data, ['spherical', 'Cs', 'sphericalAberration'], 2.7)),
-      '--Q0', String(getFloatParam(this.data, ['amplitudeContrast', 'amplitude_contrast', 'Q0'], 0.1)),
-      '--beamtilt_x', String(getFloatParam(this.data, ['beamtilt_x', 'beamTiltX'], 0.0)),
-      '--beamtilt_y', String(getFloatParam(this.data, ['beamtilt_y', 'beamTiltY'], 0.0)),
+      '--angpix', String(getFloatParam(this.data, ['angpix'], 1.4)),
+      '--kV', String(getFloatParam(this.data, ['kV'], 300)),
+      '--Cs', String(getFloatParam(this.data, ['spherical'], 2.7)),
+      '--Q0', String(getFloatParam(this.data, ['amplitudeContrast'], 0.1)),
+      '--beamtilt_x', String(getFloatParam(this.data, ['beamtilt_x'], 0.0)),
+      '--beamtilt_y', String(getFloatParam(this.data, ['beamtilt_y'], 0.0)),
       '--i', relativeInput,
       '--odir', relOutputDir + path.sep,
       '--ofile', outputFile,
-      '--pipeline_control', path.resolve(outputDir) + path.sep,
+      '--pipeline_control', relOutputDir + path.sep,
       // Enable PNG thumbnail generation
       '--do_thumbnails', 'true',
       '--thumbnail_size', '512',
       '--thumbnail_count', '50'
     ];
 
+    // MTF of the detector — RELION stores this in the optics table via --optics_group_mtf
+    const mtfFile = getParam(this.data, ['mtf'], '');
+    if (mtfFile) {
+      // Relativize MTF path like we do for input files
+      let relativeMtf;
+      if (mtfFile.startsWith(this.projectPath)) {
+        relativeMtf = path.relative(this.projectPath, mtfFile);
+      } else {
+        relativeMtf = mtfFile;
+      }
+      cmd.push('--optics_group_mtf', relativeMtf);
+    }
+
+    // Append user additional arguments (from Running tab)
+    this._addAdditionalArguments(cmd);
+
     logger.info(`[Import] Command: Built | output_dir: ${outputDir}`);
     logger.info(`[Import] Command: Full | ${cmd.join(' ')}`);
 
     return cmd;
+  }
+
+  /**
+   * Append additional RELION arguments from user input.
+   * Same safe parsing as BaseJobBuilder.addAdditionalArguments().
+   * @param {string[]} cmd - Command array to append to
+   */
+  _addAdditionalArguments(cmd) {
+    const additionalArgs = this.data.AdditionalArguments
+      || this.data.additionalArguments
+      || this.data.arguments;
+    if (!additionalArgs || !String(additionalArgs).trim()) return;
+
+    const raw = String(additionalArgs).trim();
+
+    // Block shell injection patterns
+    const dangerous = /[;|&`$()<>{}!\\\n\r]/;
+    if (dangerous.test(raw)) {
+      logger.warn(`[Import] Blocked dangerous characters in additional arguments: ${raw.substring(0, 80)}`);
+      return;
+    }
+
+    const knownFlags = getKnownFlags('relion_import');
+
+    // Parse respecting quoted strings
+    const args = raw.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+    for (const arg of args) {
+      const clean = arg.replace(/"/g, '');
+      if (clean.startsWith('-') && !/^--?[\w][\w-]*$/.test(clean)) {
+        logger.warn(`[Import] Skipping invalid flag: ${clean}`);
+        continue;
+      }
+      // Warn if flag is not in the known registry (still pass through)
+      if (knownFlags && clean.startsWith('--') && !knownFlags.has(clean)) {
+        logger.warn(`[Import] Unknown RELION flag for relion_import: ${clean} (passing through)`);
+      }
+      cmd.push(clean);
+    }
   }
 
   /**

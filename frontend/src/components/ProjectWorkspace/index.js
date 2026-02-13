@@ -1,10 +1,10 @@
 import React, { Suspense, useEffect, useCallback, useState, useRef } from "react";
 import "../../App.css";
-import JobList from "../JobList";
-import MainComponent from "../MainComponent";
+import PipelineMenu from "../PipelineMenu";
+import JobBuilder from "../JobBuilder";
 import { useParams, useSearchParams } from "react-router-dom";
-import Meta from "../Meta";
-import LogsArea from "../Meta/Logs";
+import JobMonitor from "../JobMonitor";
+import JobDashboard from "../JobMonitor/Logs";
 import { BuilderContextProvider, useBuilder } from "../../context/BuilderContext";
 import {
   IoChevronBackCircleOutline,
@@ -15,9 +15,9 @@ import { FiLayers, FiActivity } from "react-icons/fi";
 import { getJobOutputsApi } from "../../services/builders/jobs";
 
 // Lazy-load heavy tree view — only downloaded when user opens Job Tree
-const LazyTreeView = React.lazy(() =>
+const LazyPipelineTree = React.lazy(() =>
   Promise.all([
-    import("../Tree"),
+    import("../PipelineTree"),
     import("@xyflow/react"),
   ]).then(([treeModule, xyflowModule]) => ({
     default: (props) => (
@@ -52,7 +52,7 @@ const BuilderSyncBridge = ({ selectedJob, onJobSelect, setActiveTab, builderRef 
   return null;
 };
 
-const Home1 = ({
+const ProjectWorkspace = ({
   showJobTree,
   setShowJobTree,
 }) => {
@@ -61,7 +61,7 @@ const Home1 = ({
   const [expandedView, setExpandedView] = useState(false);
   const [selectedTreeJob, setSelectedTreeJob] = useState("");
   const [jobRefreshKey, setJobRefreshKey] = useState(0);
-  const builderRef = useRef(null); // ref to access context's populateInputs from Home1
+  const builderRef = useRef(null); // ref to access context's populateInputs from ProjectWorkspace
   const params = useParams();
   const { id: projectId } = params || {};
   const [searchParams] = useSearchParams();
@@ -78,11 +78,12 @@ const Home1 = ({
 
   const handleJobSelect = useCallback((job) => {
     setSelectedJob(job);
+    setJobRefreshKey((k) => k + 1);
   }, []);
 
   const tabs = [
-    { value: "builder", label: "Pipeline", icon: FiLayers },
-    { value: "metadata", label: "Job Status", icon: FiActivity },
+    { value: "builder", label: "Builder", icon: FiLayers },
+    { value: "metadata", label: "Monitor", icon: FiActivity },
   ];
 
   const onJobSuccess = () => {
@@ -167,10 +168,10 @@ const Home1 = ({
           </div>
           {/* Tab Content */}
           {activeTab === "builder" ? (
-            <JobList selectedJob={selectedJob} onSelectJob={handleJobSelect} />
+            <PipelineMenu selectedJob={selectedJob} onSelectJob={handleJobSelect} />
           ) : (
             <div className="w-full">
-              <Meta
+              <JobMonitor
                 selectedTreeJob={selectedTreeJob}
                 refreshKey={jobRefreshKey}
                 onStatusChange={() => setJobRefreshKey((k) => k + 1)}
@@ -180,9 +181,9 @@ const Home1 = ({
         </div>
         <div className="right-panel !pt-0 !p-0" style={showJobTree ? { paddingRight: expandedView ? '50%' : '25%' } : {}}>
           {activeTab === "builder" ? (
-            <MainComponent selectedJob={selectedJob} />
+            <JobBuilder selectedJob={selectedJob} />
           ) : (
-            <LogsArea projectId={projectId} />
+            <JobDashboard projectId={projectId} />
           )}
         </div>
         {showJobTree && (
@@ -243,7 +244,7 @@ const Home1 = ({
               </button>
             </div>
             <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--color-text-muted)", fontSize: 13 }}>Loading tree...</div>}>
-              <LazyTreeView
+              <LazyPipelineTree
                 projectId={projectId}
                 expanded={expandedView}
                 setSelectedTreeJob={handleTreeJobSelect}
@@ -299,4 +300,4 @@ const Home1 = ({
   );
 };
 
-export default Home1;
+export default ProjectWorkspace;

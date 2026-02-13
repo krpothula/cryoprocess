@@ -17,7 +17,8 @@ const Navbar = ({ setShowJobTree, showJobTree }) => {
   const { isDark, toggleTheme } = useTheme();
 
   // Check if user is admin (staff or superuser)
-  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+  let userInfo = {};
+  try { userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}"); } catch (_) { /* corrupted storage */ }
   const isAdmin = userInfo.is_superuser || userInfo.is_staff;
 
   // Get user initials

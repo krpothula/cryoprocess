@@ -25,8 +25,8 @@ class ManualSelectBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    const classFromJob = getParam(this.data, ['classFromJob', 'class_from_job'], null);
-    let selectedClasses = getParam(this.data, ['selectedClasses', 'selected_classes'], null);
+    const classFromJob = getParam(this.data, ['classFromJob'], null);
+    let selectedClasses = getParam(this.data, ['selectedClasses'], null);
 
     if (!classFromJob) {
       return { valid: false, error: 'Please select a classification job' };
@@ -57,8 +57,8 @@ class ManualSelectBuilder extends BaseJobBuilder {
     // ManualSelect doesn't return a command to run
     // Instead, we perform the selection directly here
     const data = this.data;
-    const classFromJob = getParam(data, ['classFromJob', 'class_from_job'], null);
-    let selectedClasses = getParam(data, ['selectedClasses', 'selected_classes'], null);
+    const classFromJob = getParam(data, ['classFromJob'], null);
+    let selectedClasses = getParam(data, ['selectedClasses'], null);
 
     logger.info(`[ManualSelect] Building selection | job_name: ${jobName}`);
     logger.info(`[ManualSelect] Input: ${classFromJob}`);

@@ -6,20 +6,6 @@ const Io = ({ handleInputChange, formData, handleRangeChange, jobType }) => {
   return (
     <div className="tab-content">
       <CustomInput
-        stageStarFiles="CtfFind,MotionCorr"
-        onChange={(val = "") => {
-          handleInputChange({
-            target: { name: "microGraphsStar", value: val },
-          });
-        }}
-        name="microGraphsStar"
-        label="Select from micrographs star:"
-        placeholder="Select micrographs STAR file"
-        tooltipText="Select micrographs STAR file from CTF or Motion Correction"
-        value={formData?.["microGraphsStar"]}
-        jobType={jobType}
-      />
-      <CustomInput
         stageStarFiles="Extract,Class2D,Subset,InitialModel,Class3D,AutoRefine,CtfRefine,Polish,ManualSelect,Subtract,JoinStar"
         stageRole="particlesStar"
         onChange={(val = "") => {

@@ -127,6 +127,10 @@ const STAGES = {
   manual_class_selection: {
     name: 'ManualSelect',
     aliases: ['manual_class_selection', 'manualselect']
+  },
+  smartscope_process: {
+    name: 'SmartScopeProcess',
+    aliases: ['smartscope_process', 'smartscope']
   }
 };
 
@@ -301,10 +305,15 @@ const STAGE_OUTPUT_CATALOG = {
   AutoRefine: [
     { role: 'particlesStar', pattern: 'run_data.star', fileType: 'star' },
     { role: 'particlesStar', pattern: '_data.star', fileType: 'star' },
+    { role: 'modelStar', pattern: 'run_model.star', fileType: 'star' },
+    { role: 'modelStar', pattern: 'run_it*_model.star', fileType: 'star', iterationAware: true },
+    { role: 'optimiserStar', pattern: 'run_it*_optimiser.star', fileType: 'star', iterationAware: true },
     { role: 'referenceMrc', pattern: 'run_class001.mrc', fileType: 'mrc' },
     { role: 'referenceMrc', pattern: '_class001.mrc', fileType: 'mrc' },
     { role: 'halfMapMrc', pattern: 'run_half1_class001_unfil.mrc', fileType: 'mrc' },
     { role: 'halfMapMrc', pattern: '_half1_class001_unfil.mrc', fileType: 'mrc' },
+    { role: 'halfMapMrc', pattern: 'run_half2_class001_unfil.mrc', fileType: 'mrc' },
+    { role: 'halfMapMrc', pattern: '_half2_class001_unfil.mrc', fileType: 'mrc' },
   ],
   PostProcess: [
     { role: 'postprocessStar', pattern: 'postprocess.star', fileType: 'star' },
@@ -448,7 +457,7 @@ const DOWNSTREAM_INPUT_MAP = {
     { downstream: 'DynaMight flexibility', field: 'consensusMap', role: 'referenceMrc' },
     { downstream: 'Subset selection', field: 'particlesStar', role: 'particlesStar' },
     { downstream: 'Join star files', field: 'particlesStarFile1', role: 'particlesStar' },
-    { downstream: '3D multi-body', field: 'refinementStarFile', role: 'particlesStar' },
+    { downstream: '3D multi-body', field: 'refinementStarFile', role: 'optimiserStar' },
   ],
   MaskCreate: [
     { downstream: 'Post-processing', field: 'solventMask', role: 'maskMrc' },

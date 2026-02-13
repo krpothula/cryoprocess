@@ -4,6 +4,7 @@
  * Validates JWT tokens and attaches user to request.
  */
 
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const settings = require('../config/settings');
 const User = require('../models/User');
@@ -134,6 +135,77 @@ const isSuperuser = (req, res, next) => {
   next();
 };
 
+/**
+ * SmartScope API key middleware
+ *
+ * Accepts an API key via X-API-Key header for machine-to-machine auth.
+ * Falls back to standard JWT auth if no API key is provided.
+ */
+const smartscopeAuth = async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+
+  if (apiKey) {
+    // 1. Legacy .env SMARTSCOPE_API_KEY (backwards compatible)
+    if (settings.SMARTSCOPE_API_KEY && apiKey === settings.SMARTSCOPE_API_KEY) {
+      const serviceUser = await User.findOne({ username: 'smartscope' }).lean();
+      if (!serviceUser) {
+        logger.error('[Auth] SmartScope service account not found in database. Create a user with username "smartscope".');
+        return res.status(500).json({
+          status: 'error',
+          message: 'SmartScope service account not found. Contact admin.'
+        });
+      }
+
+      req.user = {
+        id: serviceUser.id,
+        username: serviceUser.username,
+        email: serviceUser.email,
+        first_name: serviceUser.first_name || 'SmartScope',
+        last_name: serviceUser.last_name || 'Service',
+        is_staff: serviceUser.is_staff || false,
+        is_superuser: serviceUser.is_superuser || false
+      };
+
+      return next();
+    }
+
+    // 2. Per-user API key (SHA-256 hash lookup)
+    const apiKeyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+    const user = await User.findOne({ api_key_hash: apiKeyHash }).lean();
+
+    if (user) {
+      if (!user.is_active) {
+        return res.status(401).json({
+          status: 'error',
+          message: 'User account is disabled'
+        });
+      }
+
+      req.user = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        is_staff: user.is_staff || false,
+        is_superuser: user.is_superuser || false
+      };
+
+      return next();
+    }
+
+    // API key provided but doesn't match anything
+    logger.warn('[Auth] Invalid API key');
+    return res.status(401).json({
+      status: 'error',
+      message: 'Invalid API key'
+    });
+  }
+
+  // No API key provided — fall back to JWT auth
+  return authMiddleware(req, res, next);
+};
+
 // Alias for backwards compatibility
 const isAdmin = isStaff;
 
@@ -141,3 +213,4 @@ module.exports = authMiddleware;
 module.exports.isAdmin = isAdmin;
 module.exports.isStaff = isStaff;
 module.exports.isSuperuser = isSuperuser;
+module.exports.smartscopeAuth = smartscopeAuth;

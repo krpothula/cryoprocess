@@ -180,8 +180,9 @@ const ImportDashboard = () => {
   }
 
   // Movies/Micrographs import
-  const importType = results?.summary?.type || "micrographs";
-  const totalImported = results?.summary?.total_imported || 0;
+  const pStats = selectedJob?.pipeline_stats || {};
+  const importType = pStats.import_type || (selectedJob?.parameters?.rawMovies === "Yes" ? "movies" : (results?.summary?.type || "micrographs"));
+  const totalImported = pStats.micrograph_count || pStats.movie_count || results?.summary?.total_imported || 0;
   const importedFiles = results?.imported_files || [];
 
   return (
@@ -200,11 +201,11 @@ const ImportDashboard = () => {
                 fontWeight: 500,
                 color: (selectedJob?.status || results?.job_status) === "success"
                   ? "var(--color-success-text)"
-                  : (selectedJob?.status || results?.job_status) === "error"
+                  : (selectedJob?.status || results?.job_status) === "failed"
                   ? "var(--color-danger-text)"
                   : (selectedJob?.status || results?.job_status) === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {(selectedJob?.status || results?.job_status) === "success"
                   ? "Success"
@@ -212,7 +213,7 @@ const ImportDashboard = () => {
                   ? "Running..."
                   : (selectedJob?.status || results?.job_status) === "pending"
                   ? "Pending"
-                  : (selectedJob?.status || results?.job_status) === "error"
+                  : (selectedJob?.status || results?.job_status) === "failed"
                   ? "Error"
                   : selectedJob?.status || results?.job_status}
               </p>
@@ -294,21 +295,21 @@ const ImportDashboard = () => {
             <FiMaximize2 className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.angpix ? `${parseFloat(results.angpix).toFixed(3)} Å/px` : "N/A"}
+              {pStats.pixel_size ? `${parseFloat(pStats.pixel_size).toFixed(3)} Å/px` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiZap className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Voltage:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.kV ? `${results.kV} kV` : "N/A"}
+              {pStats.voltage ? `${pStats.voltage} kV` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiTarget className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Cs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.cs ? `${results.cs} mm` : "N/A"}
+              {pStats.cs ? `${pStats.cs} mm` : "N/A"}
             </span>
           </div>
         </div>
@@ -400,11 +401,11 @@ const OtherNodeTypeDashboard = ({
                 fontWeight: 500,
                 color: (selectedJob?.status || results?.job_status) === "success"
                   ? "var(--color-success-text)"
-                  : (selectedJob?.status || results?.job_status) === "error"
+                  : (selectedJob?.status || results?.job_status) === "failed"
                   ? "var(--color-danger-text)"
                   : (selectedJob?.status || results?.job_status) === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {(selectedJob?.status || results?.job_status) === "success"
                   ? "Success"
@@ -412,7 +413,7 @@ const OtherNodeTypeDashboard = ({
                   ? "Running..."
                   : (selectedJob?.status || results?.job_status) === "pending"
                   ? "Pending"
-                  : (selectedJob?.status || results?.job_status) === "error"
+                  : (selectedJob?.status || results?.job_status) === "failed"
                   ? "Error"
                   : selectedJob?.status || results?.job_status}
               </p>

@@ -34,10 +34,9 @@ class SubsetBuilder extends BaseJobBuilder {
 
   validate() {
     const inputFile = getParam(this.data, [
-      'classFromJob', 'class_from_job',
-      'selectClassesFromJob', 'select_classes_from_job',
-      'particlesStar', 'particles_star',
-      'microGraphsStar', 'micrographsStar', 'micrographs_star'
+      'classFromJob',
+      'particlesStar',
+      'microGraphsStar'
     ], null);
 
     if (!inputFile) {
@@ -53,15 +52,15 @@ class SubsetBuilder extends BaseJobBuilder {
     const data = this.data;
 
     // Input file
-    const classInput = getParam(data, ['classFromJob', 'class_from_job', 'selectClassesFromJob', 'select_classes_from_job'], null);
-    const particlesInput = getParam(data, ['particlesStar', 'particles_star'], null);
-    const micrographsInput = getParam(data, ['microGraphsStar', 'micrographsStar', 'micrographs_star'], null);
+    const classInput = getParam(data, ['classFromJob'], null);
+    const particlesInput = getParam(data, ['particlesStar'], null);
+    const micrographsInput = getParam(data, ['microGraphsStar'], null);
     const inputFile = classInput || particlesInput || micrographsInput;
 
     const outputFile = path.join(relOutputDir, 'particles.star');
 
     // Check if auto-select 2D classes is enabled
-    const autoSelect = getBoolParam(data, ['select2DClass', 'select_2d_class', 'autoSelect'], false);
+    const autoSelect = getBoolParam(data, ['select2DClass'], false);
 
     if (autoSelect) {
       return this.buildClassRankerCommand(data, inputFile, outputFile, relOutputDir);
@@ -100,19 +99,19 @@ class SubsetBuilder extends BaseJobBuilder {
     ];
 
     // Threshold for auto-selection
-    const threshold = getFloatParam(data, ['minThresholdAutoSelect', 'min_threshold_auto_select'], 0.5);
+    const threshold = getFloatParam(data, ['minThresholdAutoSelect'], 0.5);
     cmd.push('--min_score', String(threshold));
 
-    // Minimum particles
-    const minParticles = getIntParam(data, ['manyParticles', 'many_particles', 'minParticles'], -1);
+    // Minimum particles (RELION uses --select_min_nr_particles)
+    const minParticles = getIntParam(data, ['manyParticles'], -1);
     if (minParticles > 0) {
-      cmd.push('--min_particles', String(minParticles));
+      cmd.push('--select_min_nr_particles', String(minParticles));
     }
 
-    // Minimum classes
-    const minClasses = getIntParam(data, ['manyClasses', 'many_classes', 'minClasses'], -1);
+    // Minimum classes (RELION uses --select_min_nr_classes)
+    const minClasses = getIntParam(data, ['manyClasses'], -1);
     if (minClasses > 0) {
-      cmd.push('--min_classes', String(minClasses));
+      cmd.push('--select_min_nr_classes', String(minClasses));
     }
 
     cmd.push('--pipeline_control', relOutputDir + path.sep);
@@ -129,10 +128,10 @@ class SubsetBuilder extends BaseJobBuilder {
     ];
 
     // Selection based on metadata values
-    if (getBoolParam(data, ['metaDataValues', 'meta_data_values'], false)) {
-      const metadataLabel = getParam(data, ['metaDataLabel', 'meta_data_label'], 'rlnCtfMaxResolution');
-      const minVal = getFloatParam(data, ['minMetaData', 'min_meta_data'], -9999);
-      const maxVal = getFloatParam(data, ['maxMetaData', 'max_meta_data'], 9999);
+    if (getBoolParam(data, ['metaDataValues'], false)) {
+      const metadataLabel = getParam(data, ['metaDataLabel'], 'rlnCtfMaxResolution');
+      const minVal = getFloatParam(data, ['minMetaData'], -9999);
+      const maxVal = getFloatParam(data, ['maxMetaData'], 9999);
 
       cmd.push('--select', metadataLabel);
       cmd.push('--minval', String(minVal));
@@ -140,9 +139,9 @@ class SubsetBuilder extends BaseJobBuilder {
     }
 
     // Select on image statistics
-    if (getBoolParam(data, ['imageStatics', 'image_statics', 'imageStatistics'], false)) {
-      const imageLabel = getParam(data, ['metaDataForImage', 'meta_data_for_image'], 'rlnImageName');
-      const sigma = getFloatParam(data, ['SigmaValue', 'sigmaValue', 'sigma_value'], 4);
+    if (getBoolParam(data, ['imageStatics'], false)) {
+      const imageLabel = getParam(data, ['metaDataForImage'], 'rlnImageName');
+      const sigma = getFloatParam(data, ['SigmaValue'], 4);
       cmd.push('--discard_on_stats');
       cmd.push('--discard_label', imageLabel);
       cmd.push('--discard_sigma', String(sigma));
@@ -152,12 +151,12 @@ class SubsetBuilder extends BaseJobBuilder {
     if (getBoolParam(data, ['split'], false)) {
       cmd.push('--split');
 
-      if (getBoolParam(data, ['randomise', 'randomize'], false)) {
+      if (getBoolParam(data, ['randomise'], false)) {
         cmd.push('--random_order');
       }
 
-      const numSubsets = getIntParam(data, ['numberSubsets', 'number_subsets'], -1);
-      const subsetSize = getIntParam(data, ['subsetSize', 'subset_size'], 100);
+      const numSubsets = getIntParam(data, ['numberSubsets'], -1);
+      const subsetSize = getIntParam(data, ['subsetSize'], 100);
 
       if (numSubsets > 0) {
         cmd.push('--nr_split', String(numSubsets));
@@ -167,8 +166,23 @@ class SubsetBuilder extends BaseJobBuilder {
     }
 
     // Remove duplicates
-    if (getBoolParam(data, ['removeDuplicates', 'remove_duplicates'], false)) {
-      cmd.push('--check_duplicates', 'rlnImageName');
+    if (getBoolParam(data, ['removeDuplicates'], false)) {
+      const minDistance = getFloatParam(data, ['minParticleDistance'], -1);
+      const pixelSize = getFloatParam(data, ['pixelSizeExtraction'], -1);
+
+      if (minDistance > 0) {
+        // Spatial duplicate removal: --remove_duplicates takes distance in Angstroms
+        cmd.push('--remove_duplicates', String(minDistance));
+        if (pixelSize > 0) {
+          cmd.push('--image_angpix', String(pixelSize));
+        }
+      } else {
+        // No distance specified: use minimum distance of 0 to remove exact positional duplicates
+        cmd.push('--remove_duplicates', '0');
+        if (pixelSize > 0) {
+          cmd.push('--image_angpix', String(pixelSize));
+        }
+      }
     }
 
     logger.info(`[Subset] StarHandler command built | ${cmd.join(' ')}`);

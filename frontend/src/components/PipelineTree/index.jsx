@@ -12,6 +12,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import { getJobsTreeApi } from "../../services/builders/jobs";
 import { transformApiResponseToTree } from "../../utils/tree";
+import { getStatusColor } from "../../utils/jobStatus";
+import useProjectNotification from "../../hooks/useProjectNotification";
 import { useTheme } from "../../context/ThemeContext";
 import { BiLoader } from "react-icons/bi";
 import { FiGitBranch, FiDownload } from "react-icons/fi";
@@ -50,7 +52,7 @@ const getJobTypeDisplayName = (jobType) => {
 // Card-style node with status indicator
 const JobNode = memo(({ data, selected }) => {
   const isRunning = data.status === "running";
-  const isFailed = data.status === "failed" || data.status === "error";
+  const isFailed = data.status === "failed";
   return (
     <div className={`job-node-wrapper ${selected ? "selected" : ""}`}>
       <Handle type="target" position={Position.Top} className="job-handle-top" />
@@ -194,7 +196,7 @@ function buildFlowData(
   return { nodes, edges };
 }
 
-export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPopulateJob, refreshKey }) {
+export default function PipelineTree({ projectId, expanded, setSelectedTreeJob, onPopulateJob, refreshKey }) {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -244,12 +246,46 @@ export default function TreeView({ projectId, expanded, setSelectedTreeJob, onPo
     }
   }, [projectId]);
 
-  // Re-fetch tree when jobs change (same refreshKey as Meta/job list)
+  // Re-fetch tree when new jobs are added (refreshKey from job submission)
   useEffect(() => {
     if (refreshKey > 0 && projectId) {
       fetchTree();
     }
   }, [refreshKey]);
+
+  // Real-time status updates via shared WebSocket — update node/edge inline (no re-fetch)
+  useProjectNotification(projectId, useCallback((data) => {
+    if (!data.id || !data.status) return;
+    const jobId = data.id;
+    const newStatus = data.status;
+    const newStatusColor = getStatusColor(newStatus);
+    const isRunning = newStatus === "running";
+
+    // Update node status + color inline
+    setNodes((prev) =>
+      prev.map((node) =>
+        node.id === jobId
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                status: newStatus,
+                statusColor: newStatusColor,
+              },
+            }
+          : node
+      )
+    );
+
+    // Update edge animation (animated when target job is running)
+    setEdges((prev) =>
+      prev.map((edge) =>
+        edge.target === jobId
+          ? { ...edge, animated: isRunning }
+          : edge
+      )
+    );
+  }, []));
 
   useEffect(() => {
     if (expanded) {

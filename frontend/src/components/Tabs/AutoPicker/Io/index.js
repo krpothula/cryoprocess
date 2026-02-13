@@ -51,17 +51,6 @@ const Io = ({
         onChange={handleInputChange}
         tooltipText="Template-free picking using blob detection. Good for initial picking when no templates are available. Works well for spherical particles. Specify min/max diameter in the Laplacian tab."
       />
-      {/* Topaz picking hidden - not currently supported */}
-      {/* Hidden: Continue manually - not currently supported */}
-      {/* <CustomDropdown
-        label="OR: continue manually? "
-        options={dropdownOptions}
-        value={formData.continueManually}
-        name="continueManually"
-        onChange={handleInputChange}
-        tooltipText="Continue manual picking from a previous session. Loads existing coordinates for editing."
-        disabled={true}
-      /> */}
     </div>
   );
 };

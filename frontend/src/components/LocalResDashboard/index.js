@@ -165,11 +165,11 @@ const LocalResDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
-                  ? "var(--color-warning-text)"
-                  : "var(--color-warning-text)"
+                  ? "var(--color-warning)"
+                  : "var(--color-warning)"
               }}>
                 {selectedJob?.status === "success"
                   ? "Success"
@@ -177,7 +177,7 @@ const LocalResDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -230,39 +230,37 @@ const LocalResDashboard = () => {
         </div>
       </div>
 
-      {/* Stats Card - Merged */}
+      {/* Stats Card */}
+      {(() => {
+        const stats = selectedJob?.pipeline_stats || {};
+        return (
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <FiTarget className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Mean Resolution:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {results?.mean_resolution ? `${results.mean_resolution.toFixed(2)} Å` : "N/A"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FiBox className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Local Res Map:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: results?.has_locres_map ? "var(--color-success-text)" : "var(--color-text-heading)" }}>
-              {results?.has_locres_map ? "Available" : "N/A"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FiImage className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Filtered Map:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: results?.has_locres_filtered ? "var(--color-success-text)" : "var(--color-text-heading)" }}>
-              {results?.has_locres_filtered ? "Available" : "N/A"}
+              {stats.resolution ? `${stats.resolution.toFixed(2)} Å` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiZap className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>B-factor:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.b_factor || -100} Å²
+              {stats.bfactor != null ? `${stats.bfactor} Å²` : "N/A"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiImage className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.pixel_size ? `${stats.pixel_size} Å` : "N/A"}
             </span>
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* 3D Visualization - Filtered Map with Resolution Coloring */}
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">

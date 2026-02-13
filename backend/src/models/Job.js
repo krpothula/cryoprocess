@@ -135,26 +135,65 @@ const jobSchema = new mongoose.Schema({
 
   /**
    * Uniform pipeline statistics that every job carries.
+   * All stats cards on dashboards read ONLY from this object.
    *
-   * Fields:
+   * PIPELINE-FLOW FIELDS (computed at completion, inherited from upstream):
    *   pixel_size        - Pixel size in Å (changes at Import, MotionCorr, Extract)
    *   micrograph_count  - Number of micrographs (set by Import/Motion/CTF)
    *   particle_count    - Number of particles (set by Extract, inherited downstream)
    *   box_size          - Box size in pixels (set by Extract, inherited downstream)
    *   resolution        - Resolution in Å (set by AutoRefine, PostProcess)
+   *   bfactor           - B-factor (set by PostProcess, LocalRes)
    *   class_count       - Number of classes (set by Class2D/3D/InitialModel)
-   *   iteration_count   - Iterations completed (set by Class2D/3D/AutoRefine)
+   *   iteration_count   - Iterations completed (LIVE-UPDATED during execution)
+   *   movie_count       - Number of movies (set by Import, JoinStar, LinkMovies)
+   *
+   * PARAMETER-DERIVED FIELDS (set at submission time from job parameters):
+   *   total_iterations  - Total iterations requested (Class2D/3D/InitialModel/DynaMight)
+   *   voltage           - Microscope voltage kV (Import)
+   *   cs                - Spherical aberration (Import)
+   *   import_type       - 'movies' | 'micrographs' (Import)
+   *   symmetry          - Point group e.g. 'C1', 'D2' (Class3D/InitialModel/AutoRefine)
+   *   mask_diameter     - Mask diameter in Å (Class2D/3D/InitialModel)
+   *   bin_factor        - Binning factor, default 1 (MotionCorr)
+   *   pick_method       - 'LoG' | 'Topaz' | 'Template' (AutoPick)
+   *   rescaled_size     - Rescaled box size in px (Extract)
+   *
+   * CTF REFINEMENT FIELDS (set at completion):
+   *   defocus_mean, astigmatism_mean, beam_tilt_x, beam_tilt_y
+   *   ctf_fitting, beam_tilt_enabled, aniso_mag
    */
   pipeline_stats: {
     type: mongoose.Schema.Types.Mixed,
     default: () => ({
+      // Pipeline-flow fields
       pixel_size: null,
       micrograph_count: 0,
       particle_count: 0,
       box_size: null,
       resolution: null,
+      bfactor: null,
       class_count: 0,
-      iteration_count: 0
+      iteration_count: 0,
+      movie_count: 0,
+      // Parameter-derived fields (set at submission)
+      total_iterations: 0,
+      voltage: null,
+      cs: null,
+      import_type: null,
+      symmetry: null,
+      mask_diameter: null,
+      bin_factor: 1,
+      pick_method: null,
+      rescaled_size: null,
+      // CTF refinement fields
+      defocus_mean: null,
+      astigmatism_mean: null,
+      beam_tilt_x: null,
+      beam_tilt_y: null,
+      ctf_fitting: null,
+      beam_tilt_enabled: null,
+      aniso_mag: null
     })
   },
 
@@ -223,39 +262,6 @@ const jobSchema = new mongoose.Schema({
    *   - symmetry: Point group symmetry (C1, D2, etc.)
    */
   parameters: {
-    type: mongoose.Schema.Types.Mixed,
-    default: {}
-  },
-
-  // ============================================================================
-  // PIPELINE METADATA (Derivation Context)
-  // HOW pipeline_stats values were derived. No duplicate counts/stats here.
-  // Populated by pipelineMetadata.js when job completes.
-  // ============================================================================
-
-  /**
-   * Derivation context explaining HOW pipeline_stats values were computed.
-   * Does NOT duplicate counts or stats (those live in pipeline_stats).
-   *
-   * Import:
-   *   - import_type: 'movies' | 'micrographs'
-   *   - original_pixel_size: Raw angpix value
-   *   - voltage_kv, spherical_aberration: Optics parameters
-   *
-   * MotionCorr:
-   *   - original_pixel_size: From Import (before binning)
-   *   - binning_factor: Applied binning multiplier
-   *   - dose_per_frame: Electron dose per frame
-   *
-   * Extract:
-   *   - micrograph_pixel_size: Pixel size before extraction
-   *   - rescaled_size: Rescaled box size (if rescaling)
-   *   - rescale_factor: box_size / rescaled_size
-   *
-   * PostProcess:
-   *   - final_resolution: Marks resolution as the final FSC-based value
-   */
-  pipeline_metadata: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
   },
@@ -433,7 +439,7 @@ jobSchema.methods.setStatus = function(status, errorMessage = null) {
   this.status = status;
   this.updated_at = new Date();
 
-  if (status === JOB_STATUS.RUNNING) {
+  if (status === JOB_STATUS.RUNNING && !this.start_time) {
     this.start_time = new Date();
   } else if ([JOB_STATUS.SUCCESS, JOB_STATUS.FAILED, JOB_STATUS.CANCELLED].includes(status)) {
     this.end_time = new Date();

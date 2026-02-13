@@ -342,16 +342,15 @@ const getMoviesResults = async (job, outputDir, projectPath, req, res) => {
   }
 
   // Get import type and parameters
-  const pipelineMetadata = job.pipeline_metadata || {};
-  let importType = pipelineMetadata.import_type;
-  if (!importType) {
+  const params = job.parameters || {};
+  let importType = params.rawMovies === 'Yes' ? 'movies' : 'micrographs';
+  if (!params.rawMovies) {
     importType = starFile && starFile.includes('movies') ? 'movies' : 'micrographs';
   }
 
-  const params = job.parameters || {};
-  const angpix = pipelineMetadata.original_pixel_size || params.angpix;
-  const kv = pipelineMetadata.voltage_kv || params.kV;
-  const cs = pipelineMetadata.spherical_aberration || params.spherical;
+  const angpix = params.angpix;
+  const kv = params.kV;
+  const cs = params.spherical;
 
   logger.info(`[Import] Results: job_id=${job.id} | import_type=${importType} | files=${totalFiles}`);
 

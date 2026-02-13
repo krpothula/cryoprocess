@@ -28,15 +28,13 @@ class PolishBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    // Accept both frontend names (particlesFile) and backend names (inputParticles)
-    const inputParticles = getParam(this.data, ['particlesFile', 'inputParticles', 'input_particles'], null);
+    const inputParticles = getParam(this.data, ['particlesFile'], null);
     let result = this.validateFileExists(inputParticles, 'Input particles STAR file');
     if (!result.valid) {
       return result;
     }
 
-    // Accept both frontend names (micrographsFile) and backend names (inputMovies)
-    const inputMovies = getParam(this.data, ['micrographsFile', 'inputMovies', 'input_movies'], null);
+    const inputMovies = getParam(this.data, ['micrographsFile'], null);
     result = this.validateFileExists(inputMovies, 'Input movies STAR file');
     if (!result.valid) {
       return result;
@@ -60,45 +58,65 @@ class PolishBuilder extends BaseJobBuilder {
     // Build command with MPI if requested (using configurable launcher)
     const cmd = this.buildMpiCommand('relion_motion_refine', mpiProcs, gpuEnabled);
 
-    // Core arguments - accept both frontend and backend parameter names
-    const inputParticles = getParam(data, ['particlesFile', 'inputParticles', 'input_particles'], null);
+    // Core arguments
+    const inputParticles = getParam(data, ['particlesFile'], null);
     cmd.push('--i', this.makeRelative(this.resolveInputPath(inputParticles)));
     cmd.push('--o', relOutputDir + path.sep);
 
-    // Corrected micrographs - accept both frontend and backend parameter names
-    const inputMovies = getParam(data, ['micrographsFile', 'inputMovies', 'input_movies'], null);
+    // Corrected micrographs
+    const inputMovies = getParam(data, ['micrographsFile'], null);
     if (inputMovies) {
       cmd.push('--corr_mic', this.makeRelative(this.resolveInputPath(inputMovies)));
     }
 
-    // PostProcess FSC file - accept both frontend and backend parameter names
-    const postprocessStar = getParam(data, ['postProcessStarFile', 'postprocessStar', 'postprocess_star'], null);
+    // PostProcess FSC file
+    const postprocessStar = getParam(data, ['postProcessStarFile'], null);
     if (postprocessStar) {
       cmd.push('--f', this.makeRelative(this.resolveInputPath(postprocessStar)));
     }
 
-    // Frame range - accept both frontend and backend parameter names
-    cmd.push('--first_frame', String(getIntParam(data, ['firstMovieFrame', 'firstFrame', 'first_frame'], 1)));
-    cmd.push('--last_frame', String(getIntParam(data, ['lastMovieFrame', 'lastFrame', 'last_frame'], -1)));
+    // Frame range
+    cmd.push('--first_frame', String(getIntParam(data, ['firstMovieFrame'], 1)));
+    cmd.push('--last_frame', String(getIntParam(data, ['lastMovieFrame'], -1)));
+
+    // Extraction/rescaling options
+    const extractSize = getIntParam(data, ['extractionSize'], -1);
+    if (extractSize > 0) {
+      cmd.push('--window', String(extractSize));
+    }
+    const rescaleSize = getIntParam(data, ['rescaledSize'], -1);
+    if (rescaleSize > 0) {
+      cmd.push('--scale', String(rescaleSize));
+    }
+
+    // Float16 output (default false — consistent with other builders; float16 reduces precision)
+    if (getBoolParam(data, ['float16'], false)) {
+      cmd.push('--float16');
+    }
 
     // Motion sigma parameters
     if (getBoolParam(data, ['trainOptimalBfactors'], false)) {
       cmd.push('--params3');
-      cmd.push('--align_frac', '0.5');
-      cmd.push('--eval_frac', '0.5');
+      const fractionFourier = getFloatParam(data, ['fractionFourierPixels'], 0.5);
+      cmd.push('--align_frac', String(fractionFourier));
+      cmd.push('--eval_frac', String(fractionFourier));
+      const minParticles = getIntParam(data, ['useParticles'], 10000);
+      if (minParticles > 0) {
+        cmd.push('--min_p', String(minParticles));
+      }
     } else {
       cmd.push('--s_vel', String(getFloatParam(data, ['sigmaVelocity'], 0.2)));
       cmd.push('--s_div', String(getFloatParam(data, ['sigmaDivergence'], 5000)));
       cmd.push('--s_acc', String(getFloatParam(data, ['sigmaAcceleration'], 2)));
-    }
 
-    // Combine frames for polished particles
-    if (getBoolParam(data, ['performBfactorWeighting'], true)) {
-      cmd.push('--combine_frames');
-      cmd.push('--bfac_minfreq', String(getFloatParam(data, ['minResolutionBfac'], 20)));
-      const maxRes = getFloatParam(data, ['maxResolutionBfac'], -1);
-      if (maxRes > 0) {
-        cmd.push('--bfac_maxfreq', String(maxRes));
+      // Combine frames for polished particles (only in polish mode, not training)
+      if (getBoolParam(data, ['performBfactorWeighting'], true)) {
+        cmd.push('--combine_frames');
+        cmd.push('--bfac_minfreq', String(getFloatParam(data, ['minResolutionBfac'], 20)));
+        const maxRes = getFloatParam(data, ['maxResolutionBfac'], -1);
+        if (maxRes > 0) {
+          cmd.push('--bfac_maxfreq', String(maxRes));
+        }
       }
     }
 
@@ -106,7 +124,7 @@ class PolishBuilder extends BaseJobBuilder {
     cmd.push('--j', String(threads));
 
     // Pipeline control
-    cmd.push('--pipeline_control', path.resolve(outputDir) + path.sep);
+    cmd.push('--pipeline_control', relOutputDir + path.sep);
 
     // Additional arguments
     this.addAdditionalArguments(cmd);

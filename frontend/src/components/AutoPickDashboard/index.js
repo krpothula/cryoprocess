@@ -220,7 +220,7 @@ const AutoPickDashboard = () => {
                 fontWeight: 500,
                 color: selectedJob?.status === "success"
                   ? "var(--color-success)"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "var(--color-danger-text)"
                   : selectedJob?.status === "running"
                   ? "#f59e0b"
@@ -232,7 +232,7 @@ const AutoPickDashboard = () => {
                   ? "Running..."
                   : selectedJob?.status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "error"
+                  : selectedJob?.status === "failed"
                   ? "Error"
                   : selectedJob?.status}
               </p>
@@ -286,28 +286,30 @@ const AutoPickDashboard = () => {
       </div>
 
       {/* Stats Card */}
+      {(() => {
+        const pStats = selectedJob?.pipeline_stats || {};
+        return (
       <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FiImage className="text-gray-400 dark:text-slate-500" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {liveStats?.processed ?? stats?.total_micrographs ?? 0}/{liveStats?.total ?? stats?.total_micrographs ?? 0}
+              {pStats.micrograph_count || liveStats?.processed || 0}/{liveStats?.total ?? pStats.micrograph_count ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiTarget className="text-gray-400 dark:text-slate-500" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Method:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {selectedJob?.parameters?.useTopaz === "Yes"
-                ? selectedJob?.parameters?.performTopazTraining === "Yes"
-                  ? "Topaz Train"
-                  : "Topaz"
-                : selectedJob?.parameters?.laplacianGaussian === "Yes"
-                ? "LoG"
-                : selectedJob?.parameters?.templateMatching === "Yes"
-                ? "Template"
-                : "Unknown"}
+              {pStats.pick_method || "Unknown"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiTarget className="text-gray-400 dark:text-slate-500" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
+              {(pStats.particle_count || 0).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -326,6 +328,8 @@ const AutoPickDashboard = () => {
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* Main Content - Two Column Layout */}
       <div
