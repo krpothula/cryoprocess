@@ -509,10 +509,47 @@
   border: 1px solid var(--color-border);
 }
 
-.jl-issue-context {
+.jl-issue-details {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px dashed var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jl-issue-detail-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.jl-issue-detail-text {
+  font-size: 12px;
+  color: var(--color-text);
+  margin: 2px 0 0 0;
+  line-height: 1.5;
+}
+
+.jl-issue-explanation {
+  /* inherits from details gap */
+}
+
+.jl-issue-suggestion {
+  padding: 8px 10px;
+  background: var(--color-info-light-bg, #eff6ff);
+  border-radius: 6px;
+  border: 1px solid var(--color-info-light-border, #bfdbfe);
+}
+
+.jl-issue-suggestion .jl-issue-detail-label {
+  color: var(--color-info-light-text, #1d4ed8);
+}
+
+.jl-issue-context {
+  /* no top border when inside details wrapper */
 }
 
 .jl-issue-context pre {
@@ -526,6 +563,7 @@
   color: var(--color-text);
   white-space: pre-wrap;
   overflow-x: auto;
+  max-height: 120px;
 }
 
 /* Log Content */

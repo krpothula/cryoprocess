@@ -47,6 +47,10 @@ const projectSchema = new mongoose.Schema({
   last_accessed_at: {
     type: Date,
     default: null
+  },
+  webhook_urls: {
+    type: [String],
+    default: []
   }
 }, {
   collection: 'projects',

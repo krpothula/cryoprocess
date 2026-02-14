@@ -20,6 +20,7 @@ const User = require('../models/User');
 const { decryptField } = require('../utils/crypto');
 const ProjectMember = require('../models/ProjectMember');
 const { checkProjectAccess } = require('./projectMemberController');
+const auditLog = require('../utils/auditLogger');
 
 // Import unified job registry (single source of truth)
 const {
@@ -510,6 +511,10 @@ exports.submitJob = async (req, res) => {
       logger.project.error(projectPath, project.id, jobType, new Error(submissionResult.error || 'Submission failed'), jobId);
     }
     logger.info(`[JOB:${jobType.toUpperCase()}] Duration: ${duration}ms`);
+
+    if (submissionResult.success) {
+      auditLog(req, 'job_submit', { resourceType: 'job', resourceId: jobId, details: `${stageName} (${jobName})` });
+    }
 
     // Return response — use canonical JOB_STATUS values so frontend
     // receives the same strings stored in the database.

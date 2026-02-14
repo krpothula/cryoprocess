@@ -12,7 +12,7 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
+const requestLogger = require('./middleware/requestLogger');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const mongoSanitize = require('express-mongo-sanitize');
@@ -28,6 +28,7 @@ const { getWebSocketServer } = require('./services/websocket');
 const { onJobStatusChange } = require('./services/thumbnailGenerator');
 const { getEmailService } = require('./services/emailService');
 const { onJobStatusChange: emailOnStatusChange } = require('./services/emailNotifier');
+const { onJobStatusChange: webhookOnStatusChange } = require('./services/webhookNotifier');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -42,6 +43,10 @@ const dashboardRoutes = require('./routes/dashboard');
 const userRoutes = require('./routes/users');
 const liveSessionRoutes = require('./routes/liveSession');
 const smartscopeRoutes = require('./routes/smartscope');
+const usageRoutes = require('./routes/usage');
+const auditRoutes = require('./routes/audit');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 
 const app = express();
 const server = http.createServer(app);
@@ -76,9 +81,29 @@ app.use(helmet({
   xssFilter: true,
   frameguard: { action: 'deny' }
 }));
+// Parse comma-separated CORS origins from env
+const parseCorsOrigins = (envValue) => {
+  if (!envValue) return null;
+  const origins = envValue.split(',').map(o => o.trim()).filter(Boolean);
+  if (origins.length === 0) return null;
+  if (origins.length === 1 && origins[0] === '*') return null; // reject wildcard
+  return origins.length === 1 ? origins[0] : origins;
+};
+
+const corsOrigin = process.env.NODE_ENV === 'production'
+  ? parseCorsOrigins(process.env.CORS_ORIGIN)
+  : (process.env.CORS_ORIGIN || 'http://localhost:3000');
+
+if (!corsOrigin && process.env.NODE_ENV === 'production') {
+  logger.error('[CORS] CORS_ORIGIN must be set to specific domain(s) in production. Wildcard "*" is not allowed.');
+  process.exit(1);
+}
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true
+  origin: corsOrigin || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
 }));
 app.use(cookieParser());
 app.use(mongoSanitize());
@@ -120,25 +145,44 @@ const searchLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 3,
+  message: { error: 'Too many password reset attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Apply stricter rate limiting to auth routes
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', registerLimiter);
+app.use('/api/auth/forgot-password', passwordResetLimiter);
 app.use('/api/users/search', searchLimiter);
 
-// Logging middleware
-app.use(morgan('combined', { stream: { write: msg => logger.info(msg.trim()) } }));
+// Request logging middleware (replaces morgan)
+app.use(requestLogger());
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Input sanitization (trim strings, strip HTML, reject null bytes)
+const sanitize = require('./middleware/sanitize');
+app.use(sanitize());
+
 // Static files (React frontend) - serve directly from frontend/build
 app.use(express.static(path.join(__dirname, '../../frontend/build')));
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Swagger API docs (relax CSP for Swagger UI assets)
+app.use('/api/docs', (req, res, next) => {
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:");
+  next();
+}, swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'CryoProcess API Docs' }));
+
+// Health check endpoint (rich: DB status, uptime, memory, load)
+const healthController = require('./controllers/healthController');
+app.get('/api/health', healthController.getHealth);
 
 // Software configuration endpoint (returns executable paths from .env)
 const settings = require('./config/settings');
@@ -161,6 +205,8 @@ app.use('/api/jobs', authMiddleware, jobRoutes);
 app.use('/api/import', authMiddleware, importRoutes);
 app.use('/api/files', authMiddleware, fileRoutes);
 app.use('/api/admin', authMiddleware, adminRoutes);
+app.use('/api/admin/usage', authMiddleware, usageRoutes);
+app.use('/api/admin/audit', authMiddleware, auditRoutes);
 app.use('/api/cluster', authMiddleware, clusterRoutes);
 app.use('/api/slurm', authMiddleware, slurmRoutes);
 app.use('/api/dashboard', authMiddleware, dashboardRoutes);
@@ -273,6 +319,9 @@ app.get('/motion/logs', authMiddleware, dashboardController.getMotionLogs);
 const fileController = require('./controllers/fileController');
 app.get('/api/browse-folder/', authMiddleware, fileController.browseFolder);
 
+// Particle metadata API (for smart defaults in forms)
+app.get('/api/particle-metadata/', authMiddleware, dashboardController.getParticleMetadata);
+
 // Stage files API routes (for job input selection)
 app.get('/api/stage-files/', authMiddleware, fileController.getStageStarFiles);
 app.get('/api/stage-mrc-files/', authMiddleware, fileController.getStageMrcFiles);
@@ -319,6 +368,7 @@ const startServer = async () => {
     const emailService = getEmailService();
     emailService.initialize();
     slurmMonitor.on('statusChange', emailOnStatusChange);
+    slurmMonitor.on('statusChange', webhookOnStatusChange);
 
     const { getLiveOrchestrator } = require('./services/liveOrchestrator');
     const liveOrchestrator = getLiveOrchestrator();

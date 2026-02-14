@@ -14,6 +14,7 @@ const User = require('../models/User');
 const LiveSession = require('../models/LiveSession');
 const settings = require('../config/settings');
 const response = require('../utils/responseHelper');
+const auditLog = require('../utils/auditLogger');
 
 /**
  * Helper to get user display name
@@ -36,6 +37,8 @@ function getUserDisplayName(user) {
 exports.listProjects = async (req, res) => {
   try {
     const { include_archived = 'false' } = req.query;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const skip = Math.max(parseInt(req.query.skip) || 0, 0);
     const currentUserName = getUserDisplayName(req.user);
 
     // Staff and Superusers see ALL projects
@@ -45,12 +48,15 @@ exports.listProjects = async (req, res) => {
         query.is_archived = { $ne: true };
       }
 
+      const totalCount = await Project.countDocuments(query);
       const allProjects = await Project.find(query)
         .sort({ creation_date: -1 })
+        .skip(skip)
+        .limit(limit)
         .lean();
 
       if (allProjects.length === 0) {
-        return response.success(res, { data: [], count: 0 });
+        return response.success(res, { data: [], count: totalCount });
       }
 
       // Batch: Get all job counts in one aggregation
@@ -90,7 +96,7 @@ exports.listProjects = async (req, res) => {
 
       return response.success(res, {
         data: allProjects,
-        count: allProjects.length
+        count: totalCount
       });
     }
 
@@ -178,9 +184,12 @@ exports.listProjects = async (req, res) => {
     // Sort combined list by creation date
     allProjects.sort((a, b) => new Date(b.creation_date) - new Date(a.creation_date));
 
+    const totalCount = allProjects.length;
+    const paginatedProjects = allProjects.slice(skip, skip + limit);
+
     return response.success(res, {
-      data: allProjects,
-      count: allProjects.length
+      data: paginatedProjects,
+      count: totalCount
     });
   } catch (error) {
     logger.error('[Projects] listProjects error:', error);
@@ -266,6 +275,7 @@ exports.createProject = async (req, res) => {
     });
 
     logger.info(`[Projects] Created project: ${projectId} | name: ${project_name}${movie_directory ? ` | movies: ${movie_directory}` : ''}`);
+    auditLog(req, 'project_create', { resourceType: 'project', resourceId: projectId, details: project_name });
 
     return response.created(res, { data: project.toObject() });
   } catch (error) {
@@ -379,7 +389,22 @@ exports.updateProject = async (req, res) => {
       project.description = description;
     }
 
+    // Webhook URLs
+    if (req.body.webhook_urls !== undefined) {
+      const urls = req.body.webhook_urls;
+      if (!Array.isArray(urls) || urls.length > 5) {
+        return response.badRequest(res, 'webhook_urls must be an array of up to 5 URLs');
+      }
+      for (const url of urls) {
+        if (typeof url !== 'string' || !url.startsWith('https://')) {
+          return response.badRequest(res, 'Each webhook URL must start with https://');
+        }
+      }
+      project.webhook_urls = urls;
+    }
+
     await project.save();
+    auditLog(req, 'project_update', { resourceType: 'project', resourceId: projectId, details: project.project_name });
 
     return response.successData(res, project.toObject());
   } catch (error) {
@@ -429,6 +454,7 @@ exports.deleteProject = async (req, res) => {
       logger.info(`[Projects] Deleted project folder: ${projectPath}`);
     }
 
+    auditLog(req, 'project_delete', { resourceType: 'project', resourceId: projectId, details: projectName });
     return response.success(res, { message: `Project "${projectName}" deleted successfully` });
   } catch (error) {
     logger.error('[Projects] deleteProject error:', error);

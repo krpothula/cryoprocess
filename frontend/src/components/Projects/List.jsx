@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import { getProjectListApi, deleteProjectApi, archiveProjectApi, restoreProjectApi } from "../../services/projects/projects";
 import { formatDateString } from "../../utils/datetime";
-import { FiArrowUpRight, FiLoader, FiInbox, FiMoreVertical, FiTrash2, FiUser, FiUsers, FiZap, FiArchive, FiRefreshCw } from "react-icons/fi";
+import { FiArrowUpRight, FiLoader, FiInbox, FiMoreVertical, FiTrash2, FiUser, FiUsers, FiZap, FiArchive, FiRefreshCw, FiLink } from "react-icons/fi";
 import useToast from "../../hooks/useToast";
 import Pagination from "../Tabs/common/Pagination";
 import { Link } from "react-router-dom";
 import ProjectMembers from "./ProjectMembers";
+import ProjectWebhooks from "./ProjectWebhooks";
 
 const PAGE_SIZE = 10;
 
@@ -39,6 +40,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [archiveConfirm, setArchiveConfirm] = useState(null);
   const [sharingProject, setSharingProject] = useState(null);
+  const [webhookProject, setWebhookProject] = useState(null);
   const dropdownRef = useRef(null);
   const showToast = useToast();
   const totalPages = Math.ceil(totalRecords / PAGE_SIZE) || 0;
@@ -242,6 +244,13 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
                           <FiUsers />
                           Share
                         </button>
+                        <button
+                          className="dropdown-item"
+                          onClick={() => { setOpenDropdown(null); setWebhookProject(project); }}
+                        >
+                          <FiLink />
+                          Webhooks
+                        </button>
                         {project.is_archived ? (
                           <button
                             className="dropdown-item"
@@ -325,6 +334,15 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
           projectName={sharingProject.project_name}
           isOwner={sharingProject.is_owner}
           onClose={() => setSharingProject(null)}
+        />
+      )}
+
+      {/* Project Webhooks Modal */}
+      {webhookProject && (
+        <ProjectWebhooks
+          projectId={webhookProject.id}
+          projectName={webhookProject.project_name}
+          onClose={() => setWebhookProject(null)}
         />
       )}
 

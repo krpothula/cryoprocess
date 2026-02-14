@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import "./App.css";
 import { MyContext } from "./useContext/authContext";
 import { loginApi } from "./services/auth/auth";
@@ -115,7 +115,13 @@ const Login = () => {
             {isLoading ? "Please wait ..." : "Log In"}
           </button>
 
-          <div className="mt-6 text-sm text-center dark:text-slate-400">
+          <div className="text-sm text-center">
+            <Link to="/forgot-password" className="font-semibold text-indigo-600 dark:text-blue-400">
+              Forgot password?
+            </Link>
+          </div>
+
+          <div className="text-sm text-center dark:text-slate-400">
             Don't have an account?{" "}
             <span className="font-semibold text-indigo-600 dark:text-blue-400">
               Contact Admin

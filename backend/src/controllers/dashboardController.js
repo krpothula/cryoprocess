@@ -6179,3 +6179,79 @@ exports.getImportMrc = async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Failed to serve MRC file' });
   }
 };
+
+/**
+ * Get particle metadata for smart defaults.
+ * Looks up the job that produced the given star file and returns
+ * particle count, pixel size, box size, and suggested mask diameter.
+ *
+ * GET /api/particle-metadata/?project_id=...&star_file=...
+ */
+exports.getParticleMetadata = async (req, res) => {
+  try {
+    const { project_id, star_file } = req.query;
+    if (!project_id || !star_file) {
+      return res.status(400).json({ status: 'error', message: 'project_id and star_file are required' });
+    }
+
+    // Find the job that produced this star file by matching output_files or job_name
+    // star_file is typically like "Extract/job005/particles.star" or just "job005"
+    const jobNameMatch = star_file.match(/(job\d+)/i);
+    let sourceJob = null;
+
+    if (jobNameMatch) {
+      sourceJob = await Job.findOne({ project_id, job_name: jobNameMatch[1] }).lean();
+    }
+
+    if (!sourceJob) {
+      // Try finding by matching output_files path
+      sourceJob = await Job.findOne({
+        project_id,
+        'output_files.relativePath': { $regex: star_file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
+      }).lean();
+    }
+
+    if (!sourceJob) {
+      return res.json({
+        success: true,
+        status: 'success',
+        data: { metadata: null, hint: 'Could not find source job for this file' }
+      });
+    }
+
+    const ps = sourceJob.pipeline_stats || {};
+    const particleCount = ps.particle_count || 0;
+    const pixelSize = ps.pixel_size || null;
+    const boxSize = ps.box_size || null;
+
+    // Compute suggested mask diameter: 75% of box extent in Angstroms
+    // Max safe mask = full box extent (box_size * pixel_size)
+    let suggestedMaskDiameter = 0;
+    let maxSafeMaskDiameter = 0;
+    if (boxSize && pixelSize) {
+      const boxExtentA = boxSize * pixelSize;
+      suggestedMaskDiameter = Math.round(boxExtentA * 0.75);
+      maxSafeMaskDiameter = Math.round(boxExtentA);
+    }
+
+    res.json({
+      success: true,
+      status: 'success',
+      data: {
+        metadata: {
+          particle_count: particleCount,
+          pixel_size: pixelSize,
+          box_size: boxSize,
+          suggested_mask_diameter: suggestedMaskDiameter,
+          max_safe_mask_diameter: maxSafeMaskDiameter,
+        },
+        hint: suggestedMaskDiameter > 0
+          ? `Based on box size ${boxSize}px at ${pixelSize} A/px`
+          : ''
+      }
+    });
+  } catch (error) {
+    logger.error(`[Dashboard] Particle metadata error: ${error.message}`);
+    res.status(500).json({ status: 'error', message: 'Failed to get particle metadata' });
+  }
+};

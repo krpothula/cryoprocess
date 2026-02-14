@@ -39,7 +39,11 @@ const CreateLiveProject = React.lazy(() => import("./components/Projects/CreateL
 const LiveDashboard = React.lazy(() => import("./components/LiveDashboard"));
 const ClusterConfig = React.lazy(() => import("./components/ClusterConfig"));
 const AdminUsers = React.lazy(() => import("./components/Admin/Users"));
+const AdminUsage = React.lazy(() => import("./components/Admin/Usage"));
+const AdminAuditLog = React.lazy(() => import("./components/Admin/AuditLog"));
 const ChangePassword = React.lazy(() => import("./components/Auth/ChangePassword"));
+const ForgotPassword = React.lazy(() => import("./components/Auth/ForgotPassword"));
+const ResetPassword = React.lazy(() => import("./components/Auth/ResetPassword"));
 const UserProfile = React.lazy(() => import("./components/Profile/UserProfile"));
 const Jobs = React.lazy(() => import("./components/Jobs"));
 const JobMonitor = React.lazy(() => import("./components/JobMonitor"));
@@ -99,6 +103,14 @@ function App() {
           <Route
             path="/login"
             element={isAuthenticated() ? <Navigate to="/projects" /> : <Login />}
+          />
+          <Route
+            path="/forgot-password"
+            element={isAuthenticated() ? <Navigate to="/projects" /> : <ForgotPassword />}
+          />
+          <Route
+            path="/reset-password"
+            element={isAuthenticated() ? <Navigate to="/projects" /> : <ResetPassword />}
           />
           <Route
             path="/projects"
@@ -163,6 +175,14 @@ function App() {
           <Route
             path="/admin/users"
             element={<AdminRoute element={<AdminUsers />} />}
+          />
+          <Route
+            path="/admin/usage"
+            element={<AdminRoute element={<AdminUsage />} />}
+          />
+          <Route
+            path="/admin/audit"
+            element={<AdminRoute element={<AdminAuditLog />} />}
           />
           <Route
             path="/profile"

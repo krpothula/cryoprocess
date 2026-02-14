@@ -3,7 +3,7 @@ import { useBuilder } from "../../../../context/BuilderContext";
 import CtaLoading from "../Animation/CtaLoading";
 import ResourceAlert from "../ResourceAlert";
 
-const SubmitButton = ({ isLoading, handleSubmit, formData, activeTab, previewComponent }) => {
+const SubmitButton = ({ isLoading, handleSubmit, formData, activeTab, previewComponent, hasValidationErrors, validationSummary }) => {
   const { resourceError, emailNotificationsEnabled } = useBuilder();
   const [notifyEmail, setNotifyEmail] = useState(false);
   const submittingRef = useRef(false);
@@ -39,7 +39,7 @@ const SubmitButton = ({ isLoading, handleSubmit, formData, activeTab, previewCom
             type="submit"
             className={"bg-primary cursor-pointer w-fit min-w-[150px] ml-[5px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"}
             onClick={onSubmitClick}
-            disabled={isLoading || !!resourceError}
+            disabled={isLoading || !!resourceError || !!hasValidationErrors}
           >
             {isLoading ? <CtaLoading /> : "Submit"}
           </button>
@@ -66,6 +66,13 @@ const SubmitButton = ({ isLoading, handleSubmit, formData, activeTab, previewCom
             </label>
           )}
         </div>
+        {/* Validation errors */}
+        {hasValidationErrors && validationSummary && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', marginLeft: '5px', padding: '6px 12px', backgroundColor: 'var(--color-danger-bg, #fef2f2)', border: '1px solid var(--color-danger-border, #fecaca)', borderRadius: '6px', fontSize: '12px', color: 'var(--color-danger-text, #dc2626)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {validationSummary}
+          </div>
+        )}
         {/* Resource validation error */}
         <ResourceAlert message={resourceError} />
         {/* Command preview below submit button */}

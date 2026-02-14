@@ -48,46 +48,41 @@ const Optimization = ({ formData, handleInputChange, handleRangeChange, dropdown
         tooltipText="Use subsets for faster classification of large datasets (>100k particles). Speeds up early iterations but may reduce accuracy for final class assignments."
       />
 
-      <div className="mask-diameter-wrapper" style={{ position: 'relative' }}>
-        <PixelSizeInput
-          label="Mask diameter (A):"
-          placeholder=""
-          min={10}
-          max={1000}
-          value={formData.maskDiameter}
-          name="maskDiameter"
-          onChange={handleRangeChange}
-          handleInputChange={handleInputChange}
-          tooltipText="Circular mask diameter in Angstroms. WARNING: If the mask is too large relative to the box size, RELION will report 'No pixels in background are found. Radius of circular mask is too large.' Ensure the mask diameter is smaller than the box size to leave background pixels for normalization."
-        />
-        {particleMetadata && (
-          <div style={{
-            position: 'absolute',
-            right: '0',
-            bottom: '0',
-            fontSize: '10px',
-            color: '#065f46',
-            padding: '4px 8px',
-            backgroundColor: '#d1fae5',
-            border: '1px solid #059669',
-            borderRadius: '4px',
-            textAlign: 'left',
-            lineHeight: '1.4',
-            whiteSpace: 'nowrap',
-            height: '36px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center'
-          }}>
-            <div>
-              <span style={{ color: 'var(--color-text-secondary)' }}>Box:</span> {particleMetadata.image_size}px | <span style={{ color: 'var(--color-text-secondary)' }}>Pixel:</span> {particleMetadata.pixel_size}Å
-            </div>
-            <div>
-              <span style={{ color: 'var(--color-text-secondary)' }}>Recommended:</span> <strong>{particleMetadata.suggested_mask_diameter}Å</strong> | <span style={{ color: 'var(--color-text-secondary)' }}>Max:</span> {particleMetadata.max_safe_mask_diameter}Å
-            </div>
-          </div>
-        )}
-      </div>
+      <PixelSizeInput
+        label="Mask diameter (A):"
+        placeholder=""
+        min={10}
+        max={1000}
+        value={formData.maskDiameter}
+        name="maskDiameter"
+        onChange={handleRangeChange}
+        handleInputChange={handleInputChange}
+        tooltipText="Circular mask diameter in Angstroms. WARNING: If the mask is too large relative to the box size, RELION will report 'No pixels in background are found. Radius of circular mask is too large.' Ensure the mask diameter is smaller than the box size to leave background pixels for normalization."
+      />
+      {particleMetadata && particleMetadata.box_size && particleMetadata.pixel_size && (
+        <div style={{
+          fontSize: '10px',
+          color: '#065f46',
+          padding: '3px 8px',
+          backgroundColor: '#d1fae5',
+          border: '1px solid #059669',
+          borderRadius: '4px',
+          lineHeight: '1.4',
+          whiteSpace: 'nowrap',
+          display: 'inline-flex',
+          gap: '8px',
+          marginLeft: '30%',
+          marginTop: '-4px',
+          marginBottom: '4px',
+        }}>
+          <span><span style={{ color: 'var(--color-text-secondary)' }}>Box:</span> {particleMetadata.box_size}px</span>
+          <span><span style={{ color: 'var(--color-text-secondary)' }}>Pixel:</span> {particleMetadata.pixel_size}Å</span>
+          <span><span style={{ color: 'var(--color-text-secondary)' }}>Recommended:</span> <strong>{particleMetadata.suggested_mask_diameter}Å</strong></span>
+          {particleMetadata.max_safe_mask_diameter > 0 && (
+            <span><span style={{ color: 'var(--color-text-secondary)' }}>Max:</span> {particleMetadata.max_safe_mask_diameter}Å</span>
+          )}
+        </div>
+      )}
       <CustomDropdown
         label="Mask individual particles with zeros:"
         options={dropdownOptions}

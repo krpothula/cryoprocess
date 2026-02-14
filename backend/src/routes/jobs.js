@@ -9,46 +9,201 @@ const router = express.Router();
 const jobController = require('../controllers/jobController');
 const asyncHandler = require('../utils/asyncHandler');
 
-// Get job tree for a project (hierarchical view)
-// GET /api/jobs/tree?project_id=...
-// NOTE: Must be before /:jobType routes to avoid matching 'tree' as a job type
+/**
+ * @swagger
+ * /jobs/tree:
+ *   get:
+ *     tags: [Jobs]
+ *     summary: Get job tree for a project
+ *     parameters:
+ *       - in: query
+ *         name: project_id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Hierarchical job tree }
+ */
 router.get('/tree', asyncHandler(jobController.getJobsTree));
 
-// Get output files from completed jobs by stage (database-backed)
-// GET /api/jobs/stage-outputs?project_id=...&stages=Extract,Subset&file_type=star
+/**
+ * @swagger
+ * /jobs/stage-outputs:
+ *   get:
+ *     tags: [Jobs]
+ *     summary: Get output files from completed jobs by stage
+ *     parameters:
+ *       - in: query
+ *         name: project_id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: stages
+ *         schema: { type: string }
+ *         description: Comma-separated stage names (e.g. Extract,Subset)
+ *       - in: query
+ *         name: file_type
+ *         schema: { type: string }
+ *         description: File extension filter (e.g. star, mrc)
+ *     responses:
+ *       200: { description: Stage output files }
+ */
 router.get('/stage-outputs', asyncHandler(jobController.getStageOutputFiles));
 
-// Save pasted FASTA sequence as a file
-// POST /api/jobs/save-fasta
-// NOTE: Must be before /:jobType to avoid matching 'save-fasta' as a job type
+/**
+ * @swagger
+ * /jobs/save-fasta:
+ *   post:
+ *     tags: [Jobs]
+ *     summary: Save a pasted FASTA sequence as a file
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               project_id: { type: string }
+ *               sequence: { type: string }
+ *     responses:
+ *       200: { description: FASTA file saved }
+ */
 router.post('/save-fasta', asyncHandler(jobController.saveFastaSequence));
 
-// Submit a job
-// POST /api/jobs/:jobType
+/**
+ * @swagger
+ * /jobs/{jobType}:
+ *   post:
+ *     tags: [Jobs]
+ *     summary: Submit a new job
+ *     parameters:
+ *       - in: path
+ *         name: jobType
+ *         required: true
+ *         schema: { type: string }
+ *         description: Job type (e.g. Import, MotionCorr, CtfFind, Class2D)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               project_id: { type: string }
+ *               params: { type: object }
+ *     responses:
+ *       201: { description: Job submitted }
+ *       400: { description: Validation error }
+ */
 router.post('/:jobType', asyncHandler(jobController.submitJob));
 
-// Get job results
-// GET /api/jobs/:jobType/results/:jobId
+/**
+ * @swagger
+ * /jobs/{jobType}/results/{jobId}:
+ *   get:
+ *     tags: [Jobs]
+ *     summary: Get job results
+ *     parameters:
+ *       - in: path
+ *         name: jobType
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Job results }
+ */
 router.get('/:jobType/results/:jobId', asyncHandler(jobController.getJobResults));
 
-// Get job summary for a project
-// GET /api/jobs/:jobType/summary?project_id=...
+/**
+ * @swagger
+ * /jobs/{jobType}/summary:
+ *   get:
+ *     tags: [Jobs]
+ *     summary: Get job summary for a project
+ *     parameters:
+ *       - in: path
+ *         name: jobType
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: project_id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Job summary }
+ */
 router.get('/:jobType/summary', asyncHandler(jobController.getJobSummary));
 
-// Get job output files and downstream suggestions (for auto-population)
-// GET /api/jobs/:jobId/outputs
+/**
+ * @swagger
+ * /jobs/{jobId}/outputs:
+ *   get:
+ *     tags: [Jobs]
+ *     summary: Get job output files and downstream suggestions
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Job outputs }
+ */
 router.get('/:jobId/outputs', asyncHandler(jobController.getJobOutputs));
 
-// Get job progress (on-demand polling for dashboard)
-// GET /api/jobs/:jobId/progress
+/**
+ * @swagger
+ * /jobs/{jobId}/progress:
+ *   get:
+ *     tags: [Jobs]
+ *     summary: Get job progress (for dashboard polling)
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Job progress }
+ */
 router.get('/:jobId/progress', asyncHandler(jobController.getJobProgress));
 
-// Get job details by ID
-// GET /api/jobs/:jobId
+/**
+ * @swagger
+ * /jobs/{jobId}:
+ *   get:
+ *     tags: [Jobs]
+ *     summary: Get job details by ID
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Job details
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Job' }
+ */
 router.get('/:jobId', asyncHandler(jobController.getJobDetails));
 
-// Browse files for job input selection
-// GET /api/files?project_id=...&type=...
+/**
+ * @swagger
+ * /jobs/browse:
+ *   get:
+ *     tags: [Jobs]
+ *     summary: Browse files for job input selection
+ *     parameters:
+ *       - in: query
+ *         name: project_id
+ *         schema: { type: string }
+ *       - in: query
+ *         name: type
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: File listing }
+ */
 router.get('/browse', asyncHandler(jobController.browseFiles));
 
 module.exports = router;

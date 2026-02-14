@@ -114,6 +114,60 @@ class EmailService {
       logger.error(`[Email] Failed to send to ${to}: ${err.message}`);
     }
   }
+  /**
+   * Send a password reset email.
+   * @param {Object} options
+   * @param {string} options.to - Recipient email address
+   * @param {string} options.resetUrl - Full URL to the reset password page
+   * @param {string} options.username - Username for greeting
+   */
+  async sendPasswordReset({ to, resetUrl, username }) {
+    if (!this.enabled || !this.transporter) return;
+
+    const subject = 'CryoProcess - Password Reset';
+
+    const textBody = [
+      `Hi ${username},`,
+      '',
+      'A password reset was requested for your CryoProcess account.',
+      '',
+      `Reset your password: ${resetUrl}`,
+      '',
+      'This link expires in 1 hour. If you did not request this, ignore this email.',
+      '',
+      '-- CryoProcess'
+    ].join('\n');
+
+    const htmlBody = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 500px; margin: 0 auto;">
+        <div style="padding: 20px; background: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+          <h2 style="margin: 0 0 12px; font-size: 16px; color: #111;">Password Reset</h2>
+          <p style="color: #333; font-size: 14px;">Hi ${username},</p>
+          <p style="color: #333; font-size: 14px;">A password reset was requested for your CryoProcess account.</p>
+          <p style="margin: 20px 0;">
+            <a href="${resetUrl}" style="display: inline-block; padding: 10px 24px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600;">
+              Reset Password
+            </a>
+          </p>
+          <p style="color: #666; font-size: 12px;">This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p>
+        </div>
+        <p style="font-size: 12px; color: #999; margin-top: 16px;">CryoProcess Notification</p>
+      </div>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: settings.SMTP_FROM,
+        to,
+        subject,
+        text: textBody,
+        html: htmlBody
+      });
+      logger.info(`[Email] Password reset email sent to ${to}`);
+    } catch (err) {
+      logger.error(`[Email] Failed to send password reset to ${to}: ${err.message}`);
+    }
+  }
 }
 
 // Singleton

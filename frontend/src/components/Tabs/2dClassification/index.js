@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Io from "./Io";
 import Ctf from "./Ctf";
 import Optimization from "./Optimization";
@@ -11,6 +11,8 @@ import { useBuilder } from "../../../context/BuilderContext";
 import { twoDClassificationAPI } from "../../../services/builders/2d-classification/2d-classification";
 import { getParticleMetadataApi } from "../../../services/builders/jobs";
 import { DefaultMessages } from "../common/Data";
+import { useFormValidation } from "../../../hooks/useFormValidation";
+import { mustBePositive, mustBeAtLeast, vdamMiniBatchesRule, gpuIdsFormat } from "../../../utils/validationRules";
 
 const intitalFormData = {
   ctfCorrection: "Yes",
@@ -60,6 +62,18 @@ const DClassification = () => {
   const [maskHint, setMaskHint] = useState("");
 
   const { projectId, onJobSuccess, copiedJobParams, clearCopiedJobParams, autoPopulateInputs, clearAutoPopulate } = useBuilder();
+
+  // Validation rules
+  const validationRules = useMemo(() => [
+    mustBePositive('maskDiameter', 'Mask diameter'),
+    { field: 'maskDiameter', validate: (v) => v && Number(v) > 500 ? { level: 'warning', message: 'Mask diameter >500 A is unusual' } : null },
+    mustBeAtLeast('numberOfClasses', 'Number of classes', 1),
+    vdamMiniBatchesRule(),
+    mustBeAtLeast('numberEMIterations', 'EM iterations', 1),
+    gpuIdsFormat('useGPU'),
+  ], []);
+
+  const { getFieldStatus, hasErrors: hasValidationErrors, errorCount } = useFormValidation(formData, validationRules);
 
   // Load copied job parameters when available
   useEffect(() => {
@@ -256,6 +270,7 @@ const DClassification = () => {
             dropdownOptions={dropdownOptions}
             particleMetadata={particleMetadata}
             maskHint={maskHint}
+            getFieldStatus={getFieldStatus}
           />
         )}
 
@@ -288,6 +303,8 @@ const DClassification = () => {
           formData={formData}
           activeTab={activeTab}
           isLoading={isLoading}
+          hasValidationErrors={hasValidationErrors}
+          validationSummary={errorCount > 0 ? `${errorCount} parameter error${errorCount > 1 ? 's' : ''} must be fixed before submission` : null}
           previewComponent={
             formData.useVDAM === "Yes" ? (
               <div

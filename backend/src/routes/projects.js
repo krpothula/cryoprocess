@@ -10,58 +10,286 @@ const projectController = require('../controllers/projectController');
 const projectMemberController = require('../controllers/projectMemberController');
 const archiveController = require('../controllers/archiveController');
 const asyncHandler = require('../utils/asyncHandler');
+const validate = require('../middleware/validate');
+const { createProjectSchema, updateProjectSchema } = require('../validations/projectSchemas');
 
-// List all projects
-// GET /api/projects
+/**
+ * @swagger
+ * /projects:
+ *   get:
+ *     tags: [Projects]
+ *     summary: List all projects for current user
+ *     parameters:
+ *       - in: query
+ *         name: skip
+ *         schema: { type: integer, default: 0 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *       - in: query
+ *         name: include_archived
+ *         schema: { type: string, enum: ['true','false'], default: 'false' }
+ *     responses:
+ *       200:
+ *         description: List of projects
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data: { type: array, items: { $ref: '#/components/schemas/Project' } }
+ *                 count: { type: integer }
+ */
 router.get('/', asyncHandler(projectController.listProjects));
 
-// Create a new project
-// POST /api/projects
-router.post('/', asyncHandler(projectController.createProject));
+/**
+ * @swagger
+ * /projects:
+ *   post:
+ *     tags: [Projects]
+ *     summary: Create a new project
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [project_name]
+ *             properties:
+ *               project_name: { type: string }
+ *               description: { type: string }
+ *     responses:
+ *       201: { description: Project created }
+ *       400: { description: Validation error }
+ */
+router.post('/', validate(createProjectSchema), asyncHandler(projectController.createProject));
 
-// Get project by ID
-// GET /api/projects/:projectId
+/**
+ * @swagger
+ * /projects/{projectId}:
+ *   get:
+ *     tags: [Projects]
+ *     summary: Get project by ID
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Project details }
+ *       404: { description: Project not found }
+ */
 router.get('/:projectId', asyncHandler(projectController.getProject));
 
-// Update project
-// PUT /api/projects/:projectId
-router.put('/:projectId', asyncHandler(projectController.updateProject));
+/**
+ * @swagger
+ * /projects/{projectId}:
+ *   put:
+ *     tags: [Projects]
+ *     summary: Update project (name, description, webhook URLs)
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               project_name: { type: string }
+ *               description: { type: string }
+ *               webhook_urls:
+ *                 type: array
+ *                 items: { type: string }
+ *                 maxItems: 5
+ *     responses:
+ *       200: { description: Project updated }
+ *       403: { description: Not authorized }
+ */
+router.put('/:projectId', validate(updateProjectSchema), asyncHandler(projectController.updateProject));
 
-// Delete project
-// DELETE /api/projects/:projectId
+/**
+ * @swagger
+ * /projects/{projectId}:
+ *   delete:
+ *     tags: [Projects]
+ *     summary: Delete project
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               confirm: { type: boolean }
+ *     responses:
+ *       200: { description: Project deleted }
+ */
 router.delete('/:projectId', asyncHandler(projectController.deleteProject));
 
-// Archive project (move to archive storage)
-// PUT /api/projects/:projectId/archive
+/**
+ * @swagger
+ * /projects/{projectId}/archive:
+ *   put:
+ *     tags: [Projects]
+ *     summary: Archive a project
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Archive started }
+ */
 router.put('/:projectId/archive', asyncHandler(archiveController.archiveProject));
 
-// Restore archived project (move back to active storage)
-// PUT /api/projects/:projectId/restore
+/**
+ * @swagger
+ * /projects/{projectId}/restore:
+ *   put:
+ *     tags: [Projects]
+ *     summary: Restore an archived project
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Restore started }
+ */
 router.put('/:projectId/restore', asyncHandler(archiveController.restoreProject));
 
-// Relocate project to a new path (superuser only)
-// PUT /api/projects/:projectId/relocate
+/**
+ * @swagger
+ * /projects/{projectId}/relocate:
+ *   put:
+ *     tags: [Projects]
+ *     summary: Relocate project directory (superuser only)
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Relocated }
+ */
 router.put('/:projectId/relocate', asyncHandler(archiveController.relocateProject));
 
-// Get all jobs for a project
-// GET /api/projects/:projectId/jobs
+/**
+ * @swagger
+ * /projects/{projectId}/jobs:
+ *   get:
+ *     tags: [Projects]
+ *     summary: Get all jobs for a project
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: List of jobs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data: { type: array, items: { $ref: '#/components/schemas/Job' } }
+ */
 router.get('/:projectId/jobs', asyncHandler(projectController.getProjectJobs));
 
-// Project member routes
-// List project members
-// GET /api/projects/:projectId/members
+/**
+ * @swagger
+ * /projects/{projectId}/members:
+ *   get:
+ *     tags: [Project Members]
+ *     summary: List project members
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Members list }
+ */
 router.get('/:projectId/members', asyncHandler(projectMemberController.listMembers));
 
-// Add member to project
-// POST /api/projects/:projectId/members
+/**
+ * @swagger
+ * /projects/{projectId}/members:
+ *   post:
+ *     tags: [Project Members]
+ *     summary: Add member to project
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               user_id: { type: integer }
+ *               role: { type: string, enum: [viewer, editor, admin] }
+ *     responses:
+ *       201: { description: Member added }
+ */
 router.post('/:projectId/members', asyncHandler(projectMemberController.addMember));
 
-// Update member role
-// PUT /api/projects/:projectId/members/:userId
+/**
+ * @swagger
+ * /projects/{projectId}/members/{userId}:
+ *   put:
+ *     tags: [Project Members]
+ *     summary: Update member role
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               role: { type: string, enum: [viewer, editor, admin] }
+ *     responses:
+ *       200: { description: Role updated }
+ */
 router.put('/:projectId/members/:userId', asyncHandler(projectMemberController.updateMember));
 
-// Remove member from project
-// DELETE /api/projects/:projectId/members/:userId
+/**
+ * @swagger
+ * /projects/{projectId}/members/{userId}:
+ *   delete:
+ *     tags: [Project Members]
+ *     summary: Remove member from project
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200: { description: Member removed }
+ */
 router.delete('/:projectId/members/:userId', asyncHandler(projectMemberController.removeMember));
 
 module.exports = router;

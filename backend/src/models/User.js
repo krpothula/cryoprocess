@@ -84,6 +84,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  notify_email_default: {
+    type: Boolean,
+    default: true
+  },
   api_key_hash: {
     type: String,
     default: null,

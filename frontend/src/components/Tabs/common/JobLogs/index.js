@@ -498,9 +498,25 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
                   </div>
                 </div>
                 <div className="jl-issue-message">{issue.message}</div>
-                {isExpanded && issue.context && (
-                  <div className="jl-issue-context">
-                    <pre>{issue.context}</pre>
+                {isExpanded && (
+                  <div className="jl-issue-details">
+                    {issue.explanation && (
+                      <div className="jl-issue-explanation">
+                        <span className="jl-issue-detail-label">What happened</span>
+                        <p className="jl-issue-detail-text">{issue.explanation}</p>
+                      </div>
+                    )}
+                    {issue.suggestion && (
+                      <div className="jl-issue-suggestion">
+                        <span className="jl-issue-detail-label">How to fix</span>
+                        <p className="jl-issue-detail-text">{issue.suggestion}</p>
+                      </div>
+                    )}
+                    {issue.context && (
+                      <div className="jl-issue-context">
+                        <pre>{issue.context}</pre>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

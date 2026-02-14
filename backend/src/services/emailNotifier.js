@@ -18,7 +18,7 @@ const onJobStatusChange = async (event) => {
   const { jobId, projectId, newStatus } = event;
 
   // Only notify on terminal states
-  if (newStatus !== 'success' && newStatus !== 'failed') {
+  if (newStatus !== 'success' && newStatus !== 'failed' && newStatus !== 'cancelled') {
     return;
   }
 

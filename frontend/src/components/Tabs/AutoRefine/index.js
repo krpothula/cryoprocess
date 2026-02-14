@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Io from "./Io";
 import Reference from "./Reference";
 import Ctf from "./Ctf";
@@ -14,6 +14,8 @@ import { getParticleMetadataApi } from "../../../services/builders/jobs";
 import { useBuilder } from "../../../context/BuilderContext";
 import { DefaultMessages } from "../common/Data";
 import { FolderBrowserPopup } from "../common/FolderBrowser";
+import { useFormValidation } from "../../../hooks/useFormValidation";
+import { mustBePositive, gpuIdsFormat } from "../../../utils/validationRules";
 
 const initialState = {
   initialLowPassFilter: 60,
@@ -99,6 +101,15 @@ const AutoRefine = () => {
   const [, setParticleMetadata] = useState(null);
 
   const { projectId, onJobSuccess, copiedJobParams, clearCopiedJobParams, autoPopulateInputs, clearAutoPopulate } = useBuilder();
+
+  // Validation rules
+  const validationRules = useMemo(() => [
+    mustBePositive('maskDiameter', 'Mask diameter'),
+    { field: 'maskDiameter', validate: (v) => v && Number(v) > 500 ? { level: 'warning', message: 'Mask diameter >500 A is unusual' } : null },
+    gpuIdsFormat('gpuToUse'),
+  ], []);
+
+  const { getFieldStatus, hasErrors: hasValidationErrors, errorCount } = useFormValidation(formData, validationRules);
 
   // Load copied job parameters when available
   useEffect(() => {
@@ -350,6 +361,8 @@ const AutoRefine = () => {
           formData={formData}
           activeTab={activeTab}
           isLoading={isLoading}
+          hasValidationErrors={hasValidationErrors}
+          validationSummary={errorCount > 0 ? `${errorCount} parameter error${errorCount > 1 ? 's' : ''} must be fixed before submission` : null}
         />
       </form>
 

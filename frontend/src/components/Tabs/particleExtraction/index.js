@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import "../../form.css";
 import Io from "./Io";
 import Extract from "./Extract";
@@ -9,6 +9,8 @@ import { particleExtractionAPI } from "../../../services/builders/particle-extra
 import { useBuilder } from "../../../context/BuilderContext";
 import { DefaultMessages } from "../common/Data";
 import { JobTypes } from "../common/Data/jobs";
+import { useFormValidation } from "../../../hooks/useFormValidation";
+import { mustBeEven, mustBePositive, conditionalEven } from "../../../utils/validationRules";
 
 const ParticleExtraction = () => {
   const intitalFormData = {
@@ -58,6 +60,15 @@ const ParticleExtraction = () => {
   const [activeTab, setActiveTab] = useState("I/O");
   const [message, setMessage] = useState("");
   const { projectId, onJobSuccess, copiedJobParams, clearCopiedJobParams, autoPopulateInputs, clearAutoPopulate } = useBuilder();
+
+  // Validation rules
+  const validationRules = useMemo(() => [
+    mustBeEven('particleBoxSize', 'Box size'),
+    mustBePositive('particleBoxSize', 'Box size'),
+    conditionalEven('rescaledSize', 'Rescaled size', 'rescaleParticles', 'Yes'),
+  ], []);
+
+  const { getFieldStatus, hasErrors: hasValidationErrors, errorCount } = useFormValidation(formData, validationRules);
 
   // Load copied job parameters when available
   useEffect(() => {
@@ -211,6 +222,8 @@ const ParticleExtraction = () => {
           formData={formData}
           activeTab={activeTab}
           isLoading={isLoading}
+          hasValidationErrors={hasValidationErrors}
+          validationSummary={errorCount > 0 ? `${errorCount} parameter error${errorCount > 1 ? 's' : ''} must be fixed before submission` : null}
         />
       </form>
 

@@ -248,15 +248,22 @@ MODELANGELO_EXE=${OLD_MODELANGELO_EXE:-}
 # SMTP_FROM=CryoProcess <your-email@youruni.edu>
 
 # =============================================================================
-# 9. SMARTSCOPE INTEGRATION (Optional)
-# Machine-to-machine auth for SmartScope microscope automation.
-# SmartScope sends X-API-Key header; CryoProcess validates against this key.
-# Requires a "smartscope" user account (create via Admin > Users after install).
+# 9. FRONTEND (Optional — only needed for custom WebSocket host/port)
+# These are baked into the React build at compile time.
 # =============================================================================
 
-# Shared API key (must match SmartScope's config)
-# Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# SMARTSCOPE_API_KEY=
+# REACT_APP_WS_HOST=localhost
+# REACT_APP_WS_PORT=8001
+
+# =============================================================================
+# 10. DATABASE BACKUPS (Optional)
+# Used by: ./scripts/backup-mongodb.sh
+# Schedule with cron: 0 2 * * * /path/to/scripts/backup-mongodb.sh
+# =============================================================================
+
+# BACKUP_DIR=./backups
+# RETENTION_DAYS=14
+# BACKUP_S3_BUCKET=my-bucket-name
 ENVEOF
 
     echo ""

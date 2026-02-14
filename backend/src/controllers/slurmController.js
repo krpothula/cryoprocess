@@ -15,6 +15,7 @@ const { getProjectPath } = require('../utils/pathUtils');
 const { sanitizePartition, sanitizeUsername, sanitizeSlurmJobId } = require('../utils/security');
 const response = require('../utils/responseHelper');
 const { JOB_STATUS, TERMINAL_STATUSES } = require('../config/constants');
+const auditLog = require('../utils/auditLogger');
 
 /**
  * Get available SLURM partitions
@@ -385,6 +386,10 @@ exports.cancelJob = async (req, res) => {
           updated_at: new Date()
         }
       );
+    }
+
+    if (cancelled) {
+      auditLog(req, 'job_cancel', { resourceType: 'job', resourceId: job_id || slurm_job_id });
     }
 
     res.json({

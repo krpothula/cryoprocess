@@ -23,6 +23,13 @@ const getProjectByIdApi = (projectId) => {
   return axiosInstance.get(`/api/projects/${projectId}`);
 };
 
+/**
+ * Update project settings (name, description, webhook_urls, etc.)
+ */
+const updateProjectApi = (projectId, payload) => {
+  return axiosInstance.put(`/api/projects/${projectId}`, payload);
+};
+
 // Delete project (requires confirmation)
 const deleteProjectApi = (projectId, confirm = true) => {
   return axiosInstance.delete(`/api/projects/${projectId}`, {
@@ -100,6 +107,7 @@ export {
   getProjectListApi,
   getProjectByIdApi,
   getProjectApi,
+  updateProjectApi,
   deleteProjectApi,
   archiveProjectApi,
   restoreProjectApi,

@@ -4,9 +4,10 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.js'],
   setupFiles: ['<rootDir>/src/services/__tests__/helpers/jestSetup.js'],
   collectCoverageFrom: [
+    'src/controllers/**/*.js',
+    'src/middleware/**/*.js',
+    'src/utils/**/*.js',
     'src/services/*Builder.js',
-    'src/utils/paramHelper.js',
-    'src/utils/pathUtils.js',
-    'src/controllers/archiveController.js',
+    '!src/**/__tests__/**',
   ],
 };

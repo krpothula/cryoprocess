@@ -57,6 +57,22 @@ const testClusterConnectionApi = () => {
   return axiosInstance.post(`/api/auth/cluster-test`);
 };
 
+/**
+ * Request password reset email
+ * @param {object} payload - { email }
+ */
+const forgotPasswordApi = (payload = {}) => {
+  return axiosInstance.post(`/api/auth/forgot-password`, payload);
+};
+
+/**
+ * Reset password with token
+ * @param {object} payload - { token, new_password, confirm_password }
+ */
+const resetPasswordApi = (payload = {}) => {
+  return axiosInstance.post(`/api/auth/reset-password`, payload);
+};
+
 export {
   loginApi,
   registerApi,
@@ -64,5 +80,7 @@ export {
   updateProfileApi,
   changePasswordApi,
   updateClusterSettingsApi,
-  testClusterConnectionApi
+  testClusterConnectionApi,
+  forgotPasswordApi,
+  resetPasswordApi
 };

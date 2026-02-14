@@ -4,15 +4,19 @@
  * Handles user authentication.
  */
 
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { Client } = require('ssh2');
 const logger = require('../utils/logger');
 const User = require('../models/User');
+const PasswordResetToken = require('../models/PasswordResetToken');
 const settings = require('../config/settings');
 const { validatePassword, isValidEmail } = require('../utils/security');
 const { encryptField, decryptField } = require('../utils/crypto');
 const response = require('../utils/responseHelper');
 const { TIMING } = require('../config/constants');
+const { getEmailService } = require('../services/emailService');
+const auditLog = require('../utils/auditLogger');
 
 const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -81,6 +85,7 @@ exports.register = async (req, res) => {
     setAuthCookie(res, token);
 
     logger.info(`[Auth] User registered: ${username}`);
+    auditLog(req, 'register', { resourceType: 'user', resourceId: userId, details: `User registered: ${username}` });
 
     return response.created(res, {
       data: {
@@ -137,6 +142,7 @@ exports.login = async (req, res) => {
     setAuthCookie(res, token);
 
     logger.info(`[Auth] User logged in: ${user.email}`);
+    auditLog(req, 'login', { resourceType: 'user', resourceId: user.id, details: `Login: ${user.email}` });
 
     return response.successData(res, {
       user: {
@@ -178,6 +184,7 @@ exports.getCurrentUser = async (req, res) => {
       is_superuser: user.is_superuser,
       date_joined: user.date_joined,
       last_login: user.last_login,
+      notify_email_default: user.notify_email_default !== false,
       cluster_username: user.cluster_username || '',
       cluster_connected: user.cluster_connected || false,
       cluster_enabled: user.cluster_enabled || false,
@@ -251,6 +258,7 @@ exports.changePassword = async (req, res) => {
     await user.save();
 
     logger.info(`[Auth] Password changed for user: ${user.username}`);
+    auditLog(req, 'password_change', { resourceType: 'user', resourceId: user.id });
 
     return response.success(res, { message: 'Password changed successfully' });
   } catch (error) {
@@ -265,7 +273,7 @@ exports.changePassword = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
   try {
-    const { first_name, last_name, email } = req.body;
+    const { first_name, last_name, email, notify_email_default } = req.body;
 
     const user = await User.findOne({ id: req.user.id });
     if (!user) {
@@ -287,6 +295,7 @@ exports.updateProfile = async (req, res) => {
     // Update fields if provided
     if (first_name !== undefined) user.first_name = first_name;
     if (last_name !== undefined) user.last_name = last_name;
+    if (notify_email_default !== undefined) user.notify_email_default = !!notify_email_default;
 
     await user.save();
 
@@ -299,7 +308,8 @@ exports.updateProfile = async (req, res) => {
       first_name: user.first_name,
       last_name: user.last_name,
       is_staff: user.is_staff,
-      is_superuser: user.is_superuser
+      is_superuser: user.is_superuser,
+      notify_email_default: user.notify_email_default !== false
     });
   } catch (error) {
     logger.error('[Auth] updateProfile error:', error);
@@ -313,13 +323,18 @@ exports.updateProfile = async (req, res) => {
  */
 exports.refreshToken = async (req, res) => {
   try {
-    // Get token from header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return response.unauthorized(res, 'Token required');
+    // Get token from cookie (primary) or Authorization header (fallback)
+    let token = req.cookies?.atoken;
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
     }
 
-    const token = authHeader.substring(7);
+    if (!token) {
+      return response.unauthorized(res, 'Token required');
+    }
 
     // Verify token (allow expired for refresh)
     let decoded;
@@ -327,6 +342,12 @@ exports.refreshToken = async (req, res) => {
       decoded = jwt.verify(token, settings.JWT_SECRET, { ignoreExpiration: true });
     } catch (err) {
       return response.unauthorized(res, 'Invalid token');
+    }
+
+    // Reject refresh if original token was issued more than 30 days ago
+    const MAX_REFRESH_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
+    if (decoded.iat && (Math.floor(Date.now() / 1000) - decoded.iat) > MAX_REFRESH_AGE) {
+      return response.unauthorized(res, 'Session expired, please login again');
     }
 
     // Get user
@@ -508,6 +529,7 @@ exports.testClusterConnection = async (req, res) => {
  * POST /api/auth/logout
  */
 exports.logout = (req, res) => {
+  auditLog(req, 'logout', { resourceType: 'user', resourceId: req.user?.id });
   res.clearCookie('atoken', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -515,4 +537,113 @@ exports.logout = (req, res) => {
     path: '/'
   });
   return response.success(res, { message: 'Logged out' });
+};
+
+/**
+ * Forgot password - send reset email
+ * POST /api/auth/forgot-password
+ */
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Always return success to prevent email enumeration
+    const genericMsg = 'If an account with that email exists, a password reset link has been sent.';
+
+    if (!email) {
+      return response.success(res, { message: genericMsg });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase(), is_active: true });
+    if (!user) {
+      return response.success(res, { message: genericMsg });
+    }
+
+    // Generate a secure random token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Invalidate any existing tokens for this user
+    await PasswordResetToken.deleteMany({ user_id: user.id });
+
+    await PasswordResetToken.create({
+      token,
+      user_id: user.id,
+      expires_at: expiresAt
+    });
+
+    // Send reset email
+    const emailService = getEmailService();
+    if (emailService.enabled) {
+      const frontendUrl = (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',')[0].trim();
+      const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+      await emailService.sendPasswordReset({
+        to: user.email,
+        resetUrl,
+        username: user.username
+      });
+    }
+
+    logger.info(`[Auth] Password reset requested for: ${user.email}`);
+    auditLog(req, 'forgot_password', { resourceType: 'user', resourceId: user.id });
+    return response.success(res, { message: genericMsg });
+  } catch (error) {
+    logger.error('[Auth] forgotPassword error:', error);
+    return response.success(res, { message: 'If an account with that email exists, a password reset link has been sent.' });
+  }
+};
+
+/**
+ * Reset password with token
+ * POST /api/auth/reset-password
+ */
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, new_password, confirm_password } = req.body;
+
+    if (!token || !new_password) {
+      return response.badRequest(res, 'Token and new password are required');
+    }
+
+    if (new_password !== confirm_password) {
+      return response.badRequest(res, 'New password and confirmation do not match');
+    }
+
+    const passwordValidation = validatePassword(new_password);
+    if (!passwordValidation.valid) {
+      return response.badRequest(res, passwordValidation.errors.join(', '));
+    }
+
+    // Find valid token
+    const resetToken = await PasswordResetToken.findOne({
+      token,
+      used: false,
+      expires_at: { $gt: new Date() }
+    });
+
+    if (!resetToken) {
+      return response.badRequest(res, 'Invalid or expired reset token');
+    }
+
+    // Find user and update password
+    const user = await User.findOne({ id: resetToken.user_id });
+    if (!user || !user.is_active) {
+      return response.badRequest(res, 'Invalid or expired reset token');
+    }
+
+    user.password = new_password;
+    user.must_change_password = false;
+    await user.save();
+
+    // Mark token as used
+    resetToken.used = true;
+    await resetToken.save();
+
+    logger.info(`[Auth] Password reset completed for: ${user.email}`);
+    auditLog(req, 'password_reset', { resourceType: 'user', resourceId: user.id });
+    return response.success(res, { message: 'Password has been reset successfully' });
+  } catch (error) {
+    logger.error('[Auth] resetPassword error:', error);
+    return response.serverError(res, error.message);
+  }
 };

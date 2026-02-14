@@ -24,6 +24,7 @@ import SubsetDashboard from "../SubsetDashboard";
 import LinkMoviesDashboard from "../LinkMoviesDashboard";
 import SubtractDashboard from "../SubtractDashboard";
 import JoinStarDashboard from "../JoinStarDashboard";
+import DashboardErrorBoundary from "../common/DashboardErrorBoundary";
 
 const JobDashboard = () => {
   const [files, setFiles] = useState([]);
@@ -150,68 +151,69 @@ const JobDashboard = () => {
         </div>
       </div>
 
-      {/* Motion Dashboard View */}
-      {isMotionJob && viewMode === "dashboard" && <MotionDashboard />}
-
-      {/* Import Dashboard View */}
-      {isImportJob && viewMode === "dashboard" && <ImportDashboard />}
-
-      {/* CTF Dashboard View */}
-      {isCtfJob && viewMode === "dashboard" && <CtfDashboard />}
-
-      {/* AutoPick Dashboard View */}
-      {isAutoPickJob && viewMode === "dashboard" && <AutoPickDashboard />}
-
-      {/* Particle Extraction Dashboard View */}
-      {isExtractJob && viewMode === "dashboard" && <ExtractDashboard />}
-
-      {/* 2D Classification Dashboard View */}
-      {isClass2DJob && viewMode === "dashboard" && <Class2DDashboard />}
-
-      {/* 3D Initial Model Dashboard View */}
-      {isInitialModelJob && viewMode === "dashboard" && <InitialModelDashboard />}
-
-      {/* 3D Classification Dashboard View */}
-      {isClass3DJob && viewMode === "dashboard" && <Class3DDashboard />}
-
-      {/* 3D Auto-Refinement Dashboard View */}
-      {isAutoRefineJob && viewMode === "dashboard" && <AutoRefineDashboard />}
-
-      {/* Post-Processing Dashboard View */}
-      {isPostProcessJob && viewMode === "dashboard" && <PostProcessDashboard />}
-
-      {/* Bayesian Polishing Dashboard View */}
-      {isPolishJob && viewMode === "dashboard" && <PolishDashboard />}
-
-      {/* CTF Refinement Dashboard View */}
-      {isCTFRefineJob && viewMode === "dashboard" && <CTFRefineDashboard />}
-
-      {/* Mask Creation Dashboard View */}
-      {isMaskCreateJob && viewMode === "dashboard" && <MaskCreateDashboard />}
-
-      {/* Local Resolution Dashboard View */}
-      {isLocalResJob && viewMode === "dashboard" && <LocalResDashboard />}
-
-      {/* ModelAngelo Dashboard View */}
-      {isModelAngeloJob && viewMode === "dashboard" && <ModelAngeloDashboard />}
-
-      {/* DynaMight Dashboard View */}
-      {isDynamightJob && viewMode === "dashboard" && <DynamightDashboard />}
-
-      {/* Select Classes Dashboard View */}
-      {isManualSelectJob && viewMode === "dashboard" && <ManualSelectDashboard />}
-
-      {/* Subset Selection Dashboard View */}
-      {isSubsetJob && viewMode === "dashboard" && <SubsetDashboard />}
-
-      {/* Link Movies Dashboard View */}
-      {isLinkMoviesJob && viewMode === "dashboard" && <LinkMoviesDashboard />}
-
-      {/* Particle Subtraction Dashboard View */}
-      {isSubtractJob && viewMode === "dashboard" && <SubtractDashboard />}
-
-      {/* Join Star Files Dashboard View */}
-      {isJoinStarJob && viewMode === "dashboard" && <JoinStarDashboard />}
+      {isMotionJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Motion Correction" key={`motion-${selectedJob?.id}`}><MotionDashboard /></DashboardErrorBoundary>
+      )}
+      {isImportJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Import" key={`import-${selectedJob?.id}`}><ImportDashboard /></DashboardErrorBoundary>
+      )}
+      {isCtfJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="CTF Estimation" key={`ctf-${selectedJob?.id}`}><CtfDashboard /></DashboardErrorBoundary>
+      )}
+      {isAutoPickJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Auto-Picking" key={`autopick-${selectedJob?.id}`}><AutoPickDashboard /></DashboardErrorBoundary>
+      )}
+      {isExtractJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Extraction" key={`extract-${selectedJob?.id}`}><ExtractDashboard /></DashboardErrorBoundary>
+      )}
+      {isClass2DJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="2D Classification" key={`class2d-${selectedJob?.id}`}><Class2DDashboard /></DashboardErrorBoundary>
+      )}
+      {isInitialModelJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Initial Model" key={`initmodel-${selectedJob?.id}`}><InitialModelDashboard /></DashboardErrorBoundary>
+      )}
+      {isClass3DJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="3D Classification" key={`class3d-${selectedJob?.id}`}><Class3DDashboard /></DashboardErrorBoundary>
+      )}
+      {isAutoRefineJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Auto-Refine" key={`autorefine-${selectedJob?.id}`}><AutoRefineDashboard /></DashboardErrorBoundary>
+      )}
+      {isPostProcessJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Post-Processing" key={`postprocess-${selectedJob?.id}`}><PostProcessDashboard /></DashboardErrorBoundary>
+      )}
+      {isPolishJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Polishing" key={`polish-${selectedJob?.id}`}><PolishDashboard /></DashboardErrorBoundary>
+      )}
+      {isCTFRefineJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="CTF Refinement" key={`ctfrefine-${selectedJob?.id}`}><CTFRefineDashboard /></DashboardErrorBoundary>
+      )}
+      {isMaskCreateJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Mask Creation" key={`mask-${selectedJob?.id}`}><MaskCreateDashboard /></DashboardErrorBoundary>
+      )}
+      {isLocalResJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Local Resolution" key={`localres-${selectedJob?.id}`}><LocalResDashboard /></DashboardErrorBoundary>
+      )}
+      {isModelAngeloJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="ModelAngelo" key={`modelangelo-${selectedJob?.id}`}><ModelAngeloDashboard /></DashboardErrorBoundary>
+      )}
+      {isDynamightJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="DynaMight" key={`dynamight-${selectedJob?.id}`}><DynamightDashboard /></DashboardErrorBoundary>
+      )}
+      {isManualSelectJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Select Classes" key={`manualselect-${selectedJob?.id}`}><ManualSelectDashboard /></DashboardErrorBoundary>
+      )}
+      {isSubsetJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Subset Selection" key={`subset-${selectedJob?.id}`}><SubsetDashboard /></DashboardErrorBoundary>
+      )}
+      {isLinkMoviesJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Link Movies" key={`linkmovies-${selectedJob?.id}`}><LinkMoviesDashboard /></DashboardErrorBoundary>
+      )}
+      {isSubtractJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Subtraction" key={`subtract-${selectedJob?.id}`}><SubtractDashboard /></DashboardErrorBoundary>
+      )}
+      {isJoinStarJob && viewMode === "dashboard" && (
+        <DashboardErrorBoundary name="Join Star" key={`joinstar-${selectedJob?.id}`}><JoinStarDashboard /></DashboardErrorBoundary>
+      )}
 
       {/* Issues & Logs View - JobLogs component with Issues tab */}
       {viewMode === "issues" && selectedJob?.id && (

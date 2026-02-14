@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
+const { enrichIssue } = require('./relionErrorExplanations');
 
 // Error patterns to scan for (ordered by severity)
 const ERROR_PATTERNS = [
@@ -166,7 +167,7 @@ function parseRelionErrors(outputDir, options = {}) {
   // Combine and sort by severity (errors first), then by line number
   const allErrors = [...errResult.errors, ...outResult.errors];
   const allWarnings = includeWarnings ? [...errResult.warnings, ...outResult.warnings] : [];
-  const issues = [...allErrors, ...allWarnings];
+  const issues = [...allErrors, ...allWarnings].map(enrichIssue);
 
   return {
     issues,

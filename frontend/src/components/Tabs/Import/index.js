@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Movies from "./Movies";
 import Other from "./Other";
 import Running from "./Running";
@@ -8,6 +8,8 @@ import { submitImport } from "../../../services/jobs";
 import { useBuilder } from "../../../context/BuilderContext";
 import { DefaultMessages } from "../common/Data";
 import { FolderBrowserPopup } from "../common/FolderBrowser";
+import { useFormValidation } from "../../../hooks/useFormValidation";
+import { mustBePositive } from "../../../utils/validationRules";
 
 const Import = () => {
   const initialFormData = {
@@ -42,6 +44,14 @@ const Import = () => {
   const [isLoading, setLoading] = useState(false);
   const { projectId, onJobSuccess, copiedJobParams, clearCopiedJobParams, autoPopulateInputs, clearAutoPopulate } = useBuilder();
   const [filePopupField, setFilePopup] = useState(""); // set field name for which file browser is open
+
+  // Validation rules
+  const validationRules = useMemo(() => [
+    mustBePositive('angpix', 'Pixel size'),
+    mustBePositive('kV', 'Voltage'),
+  ], []);
+
+  const { hasErrors: hasValidationErrors, errorCount } = useFormValidation(formData, validationRules);
 
   // Load copied job parameters when available
   useEffect(() => {
@@ -243,6 +253,8 @@ const Import = () => {
           formData={formData}
           activeTab={activeTab}
           isLoading={isLoading}
+          hasValidationErrors={hasValidationErrors}
+          validationSummary={errorCount > 0 ? `${errorCount} parameter error${errorCount > 1 ? 's' : ''} must be fixed before submission` : null}
         />
       </form>
 

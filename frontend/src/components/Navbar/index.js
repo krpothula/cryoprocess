@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MyContext } from "../../useContext/authContext";
 import { logout } from "../../utils/session";
-import { FiUser, FiLogOut, FiFolder, FiGitBranch, FiServer, FiChevronRight, FiUsers, FiMoon, FiSun } from "react-icons/fi";
+import { FiUser, FiLogOut, FiFolder, FiGitBranch, FiServer, FiChevronRight, FiUsers, FiMoon, FiSun, FiBarChart2, FiFileText } from "react-icons/fi";
 import { getProjectByIdApi } from "../../services/projects/projects";
 import { getSession } from "../../services/liveSession";
 import { useTheme } from "../../context/ThemeContext";
@@ -144,7 +144,7 @@ const Navbar = ({ setShowJobTree, showJobTree }) => {
               <span>Projects</span>
             </Link>
 
-            {/* Admin Users - Only visible for admin users */}
+            {/* Admin links - Only visible for admin users */}
             {isAdmin && (
               <Link
                 to="/admin/users"
@@ -152,6 +152,24 @@ const Navbar = ({ setShowJobTree, showJobTree }) => {
               >
                 <FiUsers className="nav-icon" />
                 <span>Users</span>
+              </Link>
+            )}
+            {isAdmin && (
+              <Link
+                to="/admin/usage"
+                className={`nav-link ${isActive("/admin/usage") ? "active" : ""}`}
+              >
+                <FiBarChart2 className="nav-icon" />
+                <span>Usage</span>
+              </Link>
+            )}
+            {isAdmin && (
+              <Link
+                to="/admin/audit"
+                className={`nav-link ${isActive("/admin/audit") ? "active" : ""}`}
+              >
+                <FiFileText className="nav-icon" />
+                <span>Audit</span>
               </Link>
             )}
 

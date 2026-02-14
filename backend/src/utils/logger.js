@@ -45,17 +45,26 @@ const fileFormat = winston.format.combine(
   })
 );
 
+// JSON format for production (machine-parsable, ideal for log aggregators)
+const jsonFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.errors({ stack: true }),
+  winston.format.json()
+);
+
+const isProduction = process.env.NODE_ENV === 'production';
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   transports: [
-    // Console output
+    // Console output — JSON in production, pretty colors in dev
     new winston.transports.Console({
-      format: consoleFormat
+      format: isProduction ? jsonFormat : consoleFormat
     }),
     // Combined log file
     new winston.transports.File({
       filename: path.join(logsDir, 'combined.log'),
-      format: fileFormat,
+      format: isProduction ? jsonFormat : fileFormat,
       maxsize: 10 * 1024 * 1024, // 10MB
       maxFiles: 5
     }),
@@ -63,14 +72,14 @@ const logger = winston.createLogger({
     new winston.transports.File({
       filename: path.join(logsDir, 'error.log'),
       level: 'error',
-      format: fileFormat,
+      format: isProduction ? jsonFormat : fileFormat,
       maxsize: 10 * 1024 * 1024,
       maxFiles: 5
     }),
     // Jobs-only log file
     new winston.transports.File({
       filename: path.join(logsDir, 'jobs.log'),
-      format: fileFormat,
+      format: isProduction ? jsonFormat : fileFormat,
       maxsize: 10 * 1024 * 1024,
       maxFiles: 5
     })

@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const logger = require('../utils/logger');
 const User = require('../models/User');
 const response = require('../utils/responseHelper');
+const auditLog = require('../utils/auditLogger');
 
 /**
  * Generate temporary password
@@ -124,6 +125,7 @@ exports.createUser = async (req, res) => {
     });
 
     logger.info(`[Admin] User created: ${normalizedUsername} by admin ${req.user.username}`);
+    auditLog(req, 'admin_create_user', { resourceType: 'user', resourceId: newUser.id, details: normalizedUsername });
 
     res.status(201).json({
       success: true,
@@ -225,6 +227,7 @@ exports.updateUser = async (req, res) => {
     await user.save();
 
     logger.info(`[Admin] User updated: ${user.username} by admin ${req.user.username}`);
+    auditLog(req, 'admin_update_user', { resourceType: 'user', resourceId: user.id, details: user.username });
 
     res.json({
       success: true,
@@ -276,6 +279,7 @@ exports.deleteUser = async (req, res) => {
     await User.deleteOne({ id: userIdInt });
 
     logger.info(`[Admin] User deleted: ${user.username} by admin ${req.user.username}`);
+    auditLog(req, 'admin_delete_user', { resourceType: 'user', resourceId: userIdInt, details: user.username });
 
     return response.success(res, { message: 'User deleted successfully' });
   } catch (error) {
@@ -316,6 +320,7 @@ exports.resetPassword = async (req, res) => {
     await user.save();
 
     logger.info(`[Admin] Password reset for: ${user.username} by admin ${req.user.username}`);
+    auditLog(req, 'admin_reset_password', { resourceType: 'user', resourceId: user.id, details: user.username });
 
     res.json({
       success: true,
@@ -358,6 +363,7 @@ exports.generateApiKey = async (req, res) => {
     await user.save();
 
     logger.info(`[Admin] API key generated for: ${user.username} by admin ${req.user.username}`);
+    auditLog(req, 'admin_generate_api_key', { resourceType: 'user', resourceId: user.id, details: user.username });
 
     res.json({
       success: true,
@@ -402,6 +408,7 @@ exports.revokeApiKey = async (req, res) => {
     await user.save();
 
     logger.info(`[Admin] API key revoked for: ${user.username} by admin ${req.user.username}`);
+    auditLog(req, 'admin_revoke_api_key', { resourceType: 'user', resourceId: user.id, details: user.username });
 
     return response.success(res, { message: 'API key revoked successfully' });
   } catch (error) {

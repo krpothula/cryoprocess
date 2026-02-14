@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FiUser, FiSave, FiLoader, FiLock, FiEye, FiEyeOff, FiServer, FiWifi, FiWifiOff, FiTrash2 } from "react-icons/fi";
+import { FiUser, FiSave, FiLoader, FiLock, FiEye, FiEyeOff, FiServer, FiWifi, FiWifiOff, FiTrash2, FiBell } from "react-icons/fi";
 import { getCurrentUser, updateProfileApi, changePasswordApi, updateClusterSettingsApi, testClusterConnectionApi } from "../../services/auth/auth";
 import useToast from "../../hooks/useToast";
 
@@ -22,6 +22,9 @@ const UserProfile = () => {
     new_password: "",
     confirm_password: ""
   });
+
+  // Notification preferences
+  const [notifyEmail, setNotifyEmail] = useState(true);
 
   // Cluster settings state
   const [clusterUsername, setClusterUsername] = useState("");
@@ -54,6 +57,8 @@ const UserProfile = () => {
         last_name: userData.last_name || "",
         email: userData.email || ""
       });
+      // Notification preferences
+      setNotifyEmail(userData.notify_email_default !== false);
       // Cluster settings
       setClusterUsername(userData.cluster_username || "");
       setClusterStatus({
@@ -70,22 +75,13 @@ const UserProfile = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const hasChanges =
-      profile.first_name !== originalProfile.first_name ||
-      profile.last_name !== originalProfile.last_name ||
-      profile.email !== originalProfile.email;
-
-    if (!hasChanges) {
-      showToast("No changes to save", { type: "info" });
-      return;
-    }
-
     try {
       setSaving(true);
       await updateProfileApi({
         first_name: profile.first_name,
         last_name: profile.last_name,
-        email: profile.email
+        email: profile.email,
+        notify_email_default: notifyEmail
       });
 
       const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
@@ -297,6 +293,19 @@ const UserProfile = () => {
                   placeholder="Email"
                   required
                 />
+              </div>
+              <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  id="notify-email"
+                  checked={notifyEmail}
+                  onChange={(e) => setNotifyEmail(e.target.checked)}
+                  style={{ width: "auto", margin: 0 }}
+                />
+                <label htmlFor="notify-email" style={{ marginBottom: 0, cursor: "pointer" }}>
+                  <FiBell size={12} style={{ marginRight: 4 }} />
+                  Email me when jobs complete or fail
+                </label>
               </div>
               <button type="submit" className="btn-primary" disabled={isSaving}>
                 {isSaving ? <><FiLoader className="spinner" size={14} /> Saving...</> : <><FiSave size={14} /> Save</>}
