@@ -81,7 +81,13 @@ class Class2DBuilder extends BaseJobBuilder {
     const cmd = this.buildMpiCommand('relion_refine', mpiProcs, gpuEnabled);
 
     // Get parameters using paramHelper for consistent naming
-    const iterations = getIterations(data, 25);
+    // When VDAM is enabled, --iter = number of VDAM mini-batches (default 200)
+    // When EM, --iter = number of EM iterations (default 25)
+    const useVDAM = getBoolParam(data, ['useVDAM'], true);
+    const skipAlign = !getBoolParam(data, ['performImageAlignment'], true);
+    const iterations = useVDAM
+      ? getIntParam(data, ['vdamMiniBatches'], 200)
+      : getIterations(data, 25);
     const regularisation = getFloatParam(data, ['regularisationParam'], 2);
     const offsetRange = getIntParam(data, ['offsetSearchRange'], 5);
     const offsetStep = getIntParam(data, ['offsetSearchStep'], 1);
@@ -101,20 +107,48 @@ class Class2DBuilder extends BaseJobBuilder {
 
       cmd.push('--o', relOutputDir + path.sep);
       cmd.push('--i', relInput);
-      cmd.push('--dont_combine_weights_via_disc');
+
+      // Combine iterations through disc (default: No → add --dont_combine_weights_via_disc)
+      if (!getBoolParam(data, ['combineIterations'], false)) {
+        cmd.push('--dont_combine_weights_via_disc');
+      }
+
       cmd.push('--pool', String(pooled));
-      cmd.push('--ctf');
+      cmd.push('--pad', '2');
+
+      // CTF correction (default: Yes)
+      if (getBoolParam(data, ['ctfCorrection'], true)) {
+        cmd.push('--ctf');
+      }
+
       cmd.push('--iter', String(iterations));
       cmd.push('--tau2_fudge', String(regularisation));
       cmd.push('--particle_diameter', String(getMaskDiameter(data, 200)));
       cmd.push('--K', String(getNumberOfClasses(data, 1)));
       cmd.push('--flatten_solvent');
-      cmd.push('--zero_mask');
-      cmd.push('--center_classes');
-      cmd.push('--oversampling', '1');
-      cmd.push('--psi_step', String(getFloatParam(data, ['angularSearchRange'], 6)));
-      cmd.push('--offset_range', String(offsetRange));
-      cmd.push('--offset_step', String(offsetStep));
+
+      if (skipAlign) {
+        // Skip alignment mode: omit alignment-related flags
+        cmd.push('--skip_align');
+      } else {
+        // Normal mode: include alignment flags
+        if (getBoolParam(data, ['maskParticlesWithZeros'], true)) {
+          cmd.push('--zero_mask');
+        }
+        if (getBoolParam(data, ['centerClassAverages'], true)) {
+          cmd.push('--center_classes');
+        }
+        cmd.push('--oversampling', '1');
+        cmd.push('--psi_step', String(getFloatParam(data, ['angularSearchRange'], 6)));
+        cmd.push('--offset_range', String(offsetRange));
+        cmd.push('--offset_step', String(offsetStep));
+
+        // Allow coarser sampling in early iterations
+        if (getBoolParam(data, ['allowCoarseSampling'], false)) {
+          cmd.push('--allow_coarser_sampling');
+        }
+      }
+
       cmd.push('--norm');
       cmd.push('--scale');
       cmd.push('--j', String(threads));
@@ -129,15 +163,10 @@ class Class2DBuilder extends BaseJobBuilder {
       }
 
       // VDAM options (enabled by default)
-      if (getBoolParam(data, ['useVDAM'], true)) {
+      if (useVDAM) {
         cmd.push('--grad');
         cmd.push('--class_inactivity_threshold', '0.1');
         cmd.push('--grad_write_iter', '10');
-
-        const vdamMiniBatches = getIntParam(data, ['vdamMiniBatches'], 200);
-        if (vdamMiniBatches > 0) {
-          cmd.push('--grad_ini_subset', String(vdamMiniBatches));
-        }
       }
 
       // Limit resolution for E-step
@@ -170,6 +199,10 @@ class Class2DBuilder extends BaseJobBuilder {
     }
 
     // Parallel I/O
+    if (!getBoolParam(data, ['useParallelIO'], true)) {
+      cmd.push('--no_parallel_disc_io');
+    }
+
     if (getBoolParam(data, ['preReadAllParticles'], false)) {
       cmd.push('--preread_images');
     }

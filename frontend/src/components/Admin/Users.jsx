@@ -177,15 +177,17 @@ const AdminUsers = () => {
                     </span>
                   </td>
                   <td>
-                    <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                      {user.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                    {user.must_change_password && (
-                      <span className="password-badge">Must change password</span>
-                    )}
-                    {user.has_api_key && (
-                      <span className="api-key-badge">API Key</span>
-                    )}
+                    <div className="status-cell">
+                      <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
+                        {user.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      {user.must_change_password && (
+                        <span className="password-badge">Must change password</span>
+                      )}
+                      {user.has_api_key && (
+                        <span className="api-key-badge">API Key</span>
+                      )}
+                    </div>
                   </td>
                   <td className="last-login">
                     {user.last_login
@@ -658,14 +660,20 @@ const AdminUsers = () => {
           color: var(--color-danger);
         }
 
+        .status-cell {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+        }
+
         .password-badge {
           display: inline-block;
-          margin-left: 8px;
-          padding: 2px 8px;
+          padding: 1px 6px;
           background: var(--color-warning-bg);
           color: var(--color-warning-text);
-          border-radius: 8px;
-          font-size: 11px;
+          border-radius: 6px;
+          font-size: 9px;
         }
 
         .last-login {
@@ -675,25 +683,28 @@ const AdminUsers = () => {
 
         .action-buttons {
           display: flex;
-          gap: 8px;
+          gap: 6px;
+          flex-wrap: nowrap;
         }
 
         .action-btn {
           display: flex;
           align-items: center;
           gap: 4px;
-          padding: 6px 10px;
+          padding: 5px 8px;
           border: 1px solid var(--color-border);
           background: var(--color-bg-card);
           border-radius: 6px;
           cursor: pointer;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 500;
           transition: all 0.15s;
+          white-space: nowrap;
         }
 
         .action-btn span {
           display: inline;
+          white-space: nowrap;
         }
 
         .action-btn.reset {
@@ -764,12 +775,11 @@ const AdminUsers = () => {
 
         .api-key-badge {
           display: inline-block;
-          margin-left: 8px;
-          padding: 2px 8px;
+          padding: 1px 6px;
           background: var(--color-primary-bg);
           color: var(--color-primary);
-          border-radius: 8px;
-          font-size: 11px;
+          border-radius: 6px;
+          font-size: 9px;
         }
 
         .admin-loading {

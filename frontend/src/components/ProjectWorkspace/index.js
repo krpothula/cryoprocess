@@ -32,14 +32,18 @@ const LazyPipelineTree = React.lazy(() =>
 // Also exposes populateInputs via builderRef for use by handleTreeJobClick
 const BuilderSyncBridge = ({ selectedJob, onJobSelect, setActiveTab, builderRef }) => {
   const { selectedBuilder, copiedJobParams, autoPopulateInputs, populateInputs, getActiveInputField } = useBuilder();
+  const prevBuilderRef = useRef(selectedBuilder);
 
   // Expose populateInputs and getActiveInputField to parent via ref
   useEffect(() => {
     if (builderRef) builderRef.current = { populateInputs, getActiveInputField };
   }, [builderRef, populateInputs, getActiveInputField]);
 
+  // Only sync when selectedBuilder actually changes in context
+  // (not when selectedJob changes from direct PipelineMenu clicks)
   useEffect(() => {
-    if (selectedBuilder) {
+    if (selectedBuilder && selectedBuilder !== prevBuilderRef.current) {
+      prevBuilderRef.current = selectedBuilder;
       if ((copiedJobParams || autoPopulateInputs) && setActiveTab) {
         setActiveTab("builder");
       }

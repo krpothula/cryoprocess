@@ -292,8 +292,70 @@ const writeStarFile = (outputPath, starData) => {
   fs.writeFileSync(outputPath, lines.join('\n'));
 };
 
+/**
+ * Synchronously get the first movie/micrograph path from a STAR file.
+ * Reads only enough lines to find the first data row — efficient for large files.
+ * @param {string} starPath - Path to the STAR file
+ * @returns {string|null} First movie or micrograph path, or null if not found
+ */
+const getFirstMoviePathSync = (starPath) => {
+  try {
+    const content = fs.readFileSync(starPath, 'utf-8');
+    const lines = content.split('\n');
+
+    let movieColIdx = -1;
+    let microColIdx = -1;
+    let inLoop = false;
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('#')) continue;
+
+      if (line === 'loop_') {
+        inLoop = true;
+        movieColIdx = -1;
+        microColIdx = -1;
+        continue;
+      }
+
+      if (line.startsWith('data_')) {
+        inLoop = false;
+        movieColIdx = -1;
+        microColIdx = -1;
+        continue;
+      }
+
+      if (inLoop && line.startsWith('_')) {
+        const parts = line.split(/\s+/);
+        const idxMatch = parts[1] && parts[1].match(/#(\d+)/);
+        if (idxMatch) {
+          const idx = parseInt(idxMatch[1], 10) - 1;
+          if (parts[0] === '_rlnMicrographMovieName') movieColIdx = idx;
+          if (parts[0] === '_rlnMicrographName') microColIdx = idx;
+        }
+        continue;
+      }
+
+      // First data row after columns — extract the movie path
+      if (inLoop && (movieColIdx >= 0 || microColIdx >= 0) && !line.startsWith('_')) {
+        const values = line.split(/\s+/);
+        const colIdx = movieColIdx >= 0 ? movieColIdx : microColIdx;
+        if (colIdx < values.length) {
+          return values[colIdx];
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    logger.error(`[STAR Parser] Error reading first movie path: ${error.message}`);
+    return null;
+  }
+};
+
 module.exports = {
   parseStarFile,
   parseOpticsTable,
-  writeStarFile
+  writeStarFile,
+  getFirstMoviePathSync
 };

@@ -302,14 +302,14 @@ const ImportDashboard = () => {
             <FiZap className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Voltage:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {pStats.voltage ? `${pStats.voltage} kV` : "N/A"}
+              {selectedJob?.parameters?.kV ? `${selectedJob.parameters.kV} kV` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiTarget className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Cs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {pStats.cs ? `${pStats.cs} mm` : "N/A"}
+              {selectedJob?.parameters?.spherical ? `${selectedJob.parameters.spherical} mm` : "N/A"}
             </span>
           </div>
         </div>

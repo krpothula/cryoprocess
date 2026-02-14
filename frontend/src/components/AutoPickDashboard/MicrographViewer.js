@@ -2,32 +2,39 @@ import React, { useRef, useState, useEffect } from "react";
 import { BiLoader } from "react-icons/bi";
 import { FiImage } from "react-icons/fi";
 
-const MicrographViewer = ({ imageData, loading, selectedMicrograph, zoom = 1, circleRadius = 50, showPicks = true }) => {
+/**
+ * MicrographViewer with SVG overlay for autopick particle markers.
+ *
+ * Coordinate system:
+ *   RELION autopick coordinates (_rlnCoordinateX/Y) are in **MRC pixels**
+ *   of the motion-corrected micrograph. The backend returns original_width
+ *   and original_height (MRC header nx/ny) so the SVG viewBox can map
+ *   directly from MRC-pixel space to the displayed thumbnail.
+ *
+ * Circle sizing:
+ *   circleDiameterA (Angstroms) / pixelSize (Å/px) → radius in MRC pixels.
+ */
+const MicrographViewer = ({
+  imageData,
+  loading,
+  selectedMicrograph,
+  zoom = 1,
+  circleDiameterA = 200,
+  pixelSize = null,
+  showPicks = true,
+}) => {
   const imgRef = useRef(null);
-  const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 });
+  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
 
-  // Update dimensions when image loads
-  const handleImageLoad = (e) => {
-    const img = e.target;
-    setImgDimensions({
-      width: img.width,
-      height: img.height,
-      naturalWidth: img.naturalWidth,
-      naturalHeight: img.naturalHeight
-    });
+  // Track rendered image size (needed to size the SVG overlay exactly)
+  const updateImgSize = () => {
+    if (imgRef.current) {
+      setImgSize({ w: imgRef.current.width, h: imgRef.current.height });
+    }
   };
 
-  // Recalculate on zoom change
   useEffect(() => {
-    if (imgRef.current) {
-      const img = imgRef.current;
-      setImgDimensions({
-        width: img.width,
-        height: img.height,
-        naturalWidth: img.naturalWidth,
-        naturalHeight: img.naturalHeight
-      });
-    }
+    updateImgSize();
   }, [zoom, imageData]);
 
   if (!selectedMicrograph) {
@@ -57,15 +64,18 @@ const MicrographViewer = ({ imageData, loading, selectedMicrograph, zoom = 1, ci
     );
   }
 
-  // Calculate scale factor for coordinates
-  const originalWidth = imageData.original_width || imgDimensions.naturalWidth || 1;
-  const originalHeight = imageData.original_height || imgDimensions.naturalHeight || 1;
+  // MRC dimensions (full-size micrograph that coordinates reference)
+  const mrcW = imageData.original_width || 1;
+  const mrcH = imageData.original_height || 1;
 
-  const scaleX = imgDimensions.width > 0 ? imgDimensions.width / originalWidth : 1;
-  const scaleY = imgDimensions.height > 0 ? imgDimensions.height / originalHeight : 1;
+  // Convert Å diameter → MRC-pixel radius
+  const effectivePixelSize = pixelSize || imageData.pixel_size || 1;
+  const radiusMrcPx = (circleDiameterA / 2) / effectivePixelSize;
+
+  // Stroke width: ~2 screen-px equivalent in MRC-pixel space
+  const strokeMrcPx = Math.max(1, mrcW / 400);
 
   const coordinates = imageData.coordinates || [];
-  const radius = imageData.radius || circleRadius;
 
   return (
     <div className="absolute inset-0 overflow-hidden" style={{ position: "absolute" }}>
@@ -88,45 +98,39 @@ const MicrographViewer = ({ imageData, loading, selectedMicrograph, zoom = 1, ci
             ref={imgRef}
             src={imageData.image}
             alt={`Micrograph ${selectedMicrograph}`}
-            onLoad={handleImageLoad}
+            onLoad={updateImgSize}
             style={{
               maxWidth: "100%",
               maxHeight: "100%",
-              objectFit: "cover",
-              display: "block"
+              display: "block",
             }}
           />
-          {/* SVG overlay for particle picks */}
-          {showPicks && coordinates.length > 0 && imgDimensions.width > 0 && (
+          {/* SVG overlay — viewBox in MRC-pixel space, auto-scales to match thumbnail */}
+          {showPicks && coordinates.length > 0 && imgSize.w > 0 && (
             <svg
               style={{
                 position: "absolute",
                 top: 0,
                 left: 0,
-                width: imgDimensions.width,
-                height: imgDimensions.height,
-                pointerEvents: "none"
+                width: imgSize.w,
+                height: imgSize.h,
+                pointerEvents: "none",
               }}
-              viewBox={`0 0 ${imgDimensions.width} ${imgDimensions.height}`}
+              viewBox={`0 0 ${mrcW} ${mrcH}`}
+              preserveAspectRatio="xMidYMid meet"
             >
-              {coordinates.map((coord, idx) => {
-                const x = coord.x * scaleX;
-                const y = coord.y * scaleY;
-                const scaledRadius = radius * scaleX;
-
-                return (
-                  <circle
-                    key={idx}
-                    cx={x}
-                    cy={y}
-                    r={scaledRadius}
-                    fill="none"
-                    stroke="#00FF00"
-                    strokeWidth={2}
-                    opacity={0.8}
-                  />
-                );
-              })}
+              {coordinates.map((coord, idx) => (
+                <circle
+                  key={idx}
+                  cx={coord.x}
+                  cy={coord.y}
+                  r={radiusMrcPx}
+                  fill="none"
+                  stroke="#00FF00"
+                  strokeWidth={strokeMrcPx}
+                  opacity={0.8}
+                />
+              ))}
             </svg>
           )}
         </div>

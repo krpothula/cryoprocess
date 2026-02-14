@@ -35,6 +35,17 @@ const FscChart = ({ data = [], goldStdRes, height = 300, title }) => {
       .sort((a, b) => a.inv_resolution - b.inv_resolution);
   }, [data]);
 
+  // Generate resolution-in-Å tick labels for X axis (must be before early return)
+  const xTicks = useMemo(() => {
+    if (!chartData.length) return [];
+    const maxInv = chartData[chartData.length - 1].inv_resolution;
+    // Show ticks at nice resolution values
+    const resValues = [50, 20, 10, 7, 5, 4, 3, 2.5, 2, 1.5];
+    return resValues
+      .map((r) => 1 / r)
+      .filter((v) => v <= maxInv * 1.05);
+  }, [chartData]);
+
   if (!chartData.length) {
     return (
       <div
@@ -64,17 +75,6 @@ const FscChart = ({ data = [], goldStdRes, height = 300, title }) => {
 
   // 1/Å value for the gold-standard resolution marker
   const goldStdInv = goldStdRes && goldStdRes > 0 ? 1 / goldStdRes : null;
-
-  // Generate resolution-in-Å tick labels for X axis
-  const xTicks = useMemo(() => {
-    if (!chartData.length) return [];
-    const maxInv = chartData[chartData.length - 1].inv_resolution;
-    // Show ticks at nice resolution values
-    const resValues = [50, 20, 10, 7, 5, 4, 3, 2.5, 2, 1.5];
-    return resValues
-      .map((r) => 1 / r)
-      .filter((v) => v <= maxInv * 1.05);
-  }, [chartData]);
 
   const CustomTooltip = ({ active, payload }) => {
     if (!active || !payload?.length) return null;

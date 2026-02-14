@@ -55,6 +55,16 @@ class ManualPickBuilder extends BaseJobBuilder {
       '--pipeline_control', relOutputDir + path.sep
     ];
 
+    // Lowpass/highpass filters
+    const lowpass = getFloatParam(data, ['lowpassFilter'], 20);
+    if (lowpass > 0) {
+      cmd.push('--lowpass', String(lowpass));
+    }
+    const highpass = getFloatParam(data, ['highpassFilter'], -1);
+    if (highpass > 0) {
+      cmd.push('--highpass', String(highpass));
+    }
+
     // I/O tab options
     if (getBoolParam(data, ['pickCoordinatesHelices'], false)) {
       cmd.push('--pick_start_end');

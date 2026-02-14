@@ -312,7 +312,7 @@ const MotionDashboard = () => {
             <FiFilm className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Movies:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.micrograph_count || liveStats?.processed || 0}/{stats.movie_count || liveStats?.total || results?.summary_stats?.total || 0}
+              {liveStats?.processed ?? stats.micrograph_count ?? results?.summary_stats?.processed ?? 0}/{liveStats?.total ?? stats.micrograph_count ?? results?.summary_stats?.total ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -324,9 +324,9 @@ const MotionDashboard = () => {
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Bin Factor:</span>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Dose Weight:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.bin_factor || 1}
+              {selectedJob?.parameters?.dosePerFrame && parseFloat(selectedJob.parameters.dosePerFrame) > 0 ? "Yes" : "No"}
             </span>
           </div>
           <div className="flex items-center gap-2">

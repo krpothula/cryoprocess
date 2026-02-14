@@ -18,6 +18,7 @@ const {
   getPooledParticles,
   getSymmetry,
   getReference,
+  getScratchDir,
   getIntParam,
   getFloatParam,
   getBoolParam,
@@ -264,6 +265,22 @@ class AutoRefineBuilder extends BaseJobBuilder {
           }
         }
       }
+    }
+
+    // Pre-read images into RAM
+    if (getBoolParam(data, ['preReadAllParticles'], false)) {
+      cmd.push('--preread_images');
+    }
+
+    // Scratch directory
+    const scratchDir = getScratchDir(data);
+    if (scratchDir) {
+      cmd.push('--scratch_dir', scratchDir);
+    }
+
+    // Skip padding
+    if (getBoolParam(data, ['skipPadding'], false)) {
+      cmd.push('--skip_padding');
     }
 
     // Additional arguments

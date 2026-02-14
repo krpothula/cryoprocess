@@ -9,6 +9,8 @@ const path = require('path');
 const logger = require('../utils/logger');
 const BaseJobBuilder = require('./baseBuilder');
 const { isPathSafe } = require('../utils/security');
+const { getMrcInfo } = require('../utils/mrcParser');
+const { getFirstMoviePathSync } = require('../utils/starParser');
 const {
   getMpiProcs,
   getThreads,
@@ -45,8 +47,60 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
       return result;
     }
 
+    // Validate bin_factor against movie dimensions
+    const binFactor = getIntParam(this.data, ['binningFactor'], 1);
+    if (binFactor > 1) {
+      const binResult = this.validateBinningDimensions(inputMovies, binFactor);
+      if (!binResult.valid) {
+        return binResult;
+      }
+    }
+
     logger.info(`[Motion] Validation: Passed | inputMovies: ${inputMovies}`);
     return { valid: true, error: null };
+  }
+
+  /**
+   * Validate that movie dimensions are compatible with the requested bin factor.
+   * RELION requires dimensions after binning to be even.
+   */
+  validateBinningDimensions(inputMovies, binFactor) {
+    try {
+      const starPath = this.resolveInputPath(inputMovies);
+      const movieRelPath = getFirstMoviePathSync(starPath);
+      if (!movieRelPath) {
+        logger.warn('[Motion] Could not read movie path from STAR file, skipping bin validation');
+        return { valid: true, error: null };
+      }
+
+      // Resolve movie path relative to project
+      const moviePath = path.isAbsolute(movieRelPath)
+        ? movieRelPath
+        : path.join(this.projectPath, movieRelPath);
+
+      const info = getMrcInfo(moviePath);
+      if (!info) {
+        logger.warn(`[Motion] Could not read MRC header for ${moviePath}, skipping bin validation`);
+        return { valid: true, error: null };
+      }
+
+      const binnedX = info.width / binFactor;
+      const binnedY = info.height / binFactor;
+
+      if (binnedX % 2 !== 0 || binnedY % 2 !== 0) {
+        const msg = `Movie dimensions ${info.width}×${info.height} with bin_factor ${binFactor} ` +
+          `produce ${binnedX}×${binnedY} — RELION requires even dimensions after binning. ` +
+          `Use bin_factor 1 instead.`;
+        logger.warn(`[Motion] Validation: Failed | ${msg}`);
+        return { valid: false, error: msg };
+      }
+
+      logger.info(`[Motion] Bin validation: OK | ${info.width}×${info.height} / ${binFactor} = ${binnedX}×${binnedY}`);
+      return { valid: true, error: null };
+    } catch (err) {
+      logger.warn(`[Motion] Bin validation skipped: ${err.message}`);
+      return { valid: true, error: null };
+    }
   }
 
   buildCommand(outputDir, jobName) {

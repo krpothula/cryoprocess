@@ -335,8 +335,6 @@ async function storeImportMetadata(job) {
   const updateData = buildStatsUpdate({
     pixel_size: originalPixelSize,
     micrograph_count: micrographCount,
-    voltage: params.kV ? parseFloat(params.kV) : null,
-    cs: params.Cs ? parseFloat(params.Cs) : null,
     import_type: importType
   });
 
@@ -519,6 +517,8 @@ async function findUpstreamJob(job, targetTypes) {
  * @param {Object} job - The job document
  */
 async function storeAutoPickMetadata(job) {
+  const params = job.parameters || {};
+
   // Get pixel size from upstream CTF job
   let pixelSize = null;
   const ctfJob = await findUpstreamJob(job, ['CtfFind', 'CTF', 'CtfEstimation']);

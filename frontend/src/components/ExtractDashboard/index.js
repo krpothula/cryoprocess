@@ -224,13 +224,6 @@ const ExtractDashboard = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiBox className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.box_size || 0} px
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
             <FiCircle className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Avg/Mic:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
@@ -241,7 +234,14 @@ const ExtractDashboard = () => {
             <FiMaximize2 className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Rescaled:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.rescaled_size ? `${stats.rescaled_size} px` : "No"}
+              {selectedJob?.parameters?.rescaleParticles === "Yes" ? "Yes" : "No"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiBox className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {stats.box_size || 0} px
             </span>
           </div>
           <div className="flex items-center gap-2">

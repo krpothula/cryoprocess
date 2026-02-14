@@ -78,8 +78,8 @@ class MultibodyBuilder extends BaseJobBuilder {
     }
 
     cmd.push('--healpix_order', String(getIntParam(data, ['healpixOrder'], 4)));
-    cmd.push('--offset_range', String(getFloatParam(data, ['offsetSearchRange'], 3)));
-    cmd.push('--offset_step', String(getFloatParam(data, ['offsetStep'], 1.5)));
+    cmd.push('--offset_range', String(getFloatParam(data, ['offsetSearchRange', 'initialOffsetRange'], 3)));
+    cmd.push('--offset_step', String(getFloatParam(data, ['offsetStep', 'initialOffsetStep'], 1.5)));
     cmd.push('--auto_local_healpix_order', '4');
     cmd.push('--oversampling', '1');
     cmd.push('--pool', String(pooled));

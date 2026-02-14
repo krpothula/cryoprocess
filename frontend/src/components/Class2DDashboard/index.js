@@ -165,8 +165,8 @@ const Class2DDashboard = () => {
   const numClasses = stats.class_count || 0;
   const boxSize = stats.box_size || 0;
   const maskDiameter = stats.mask_diameter || 0;
-  const totalIterations = stats.total_iterations || 0;
-  const currentIteration = stats.iteration_count || 0;
+  const totalIterations = liveStats?.total_iterations ?? stats.total_iterations ?? 0;
+  const currentIteration = liveStats?.current_iteration ?? stats.iteration_count ?? 0;
   const particleCount = stats.particle_count || 0;
 
   if (loading) {

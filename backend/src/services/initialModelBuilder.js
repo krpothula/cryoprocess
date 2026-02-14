@@ -103,7 +103,7 @@ class InitialModelBuilder extends BaseJobBuilder {
       cmd.push('--ctf');
     }
 
-    if (getBoolParam(data, ['ignoreCTFs'], false)) {
+    if (getBoolParam(data, ['ignoreCTFs', 'igonreCtf'], false)) {
       cmd.push('--ctf_intact_first_peak');
     }
 

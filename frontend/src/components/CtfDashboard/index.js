@@ -462,13 +462,13 @@ const CtfDashboard = () => {
             <FiImage className="text-gray-400 dark:text-slate-500" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {selectedJob?.pipeline_stats?.micrograph_count || liveStats?.processed || 0}/{liveStats?.total ?? results?.summary?.total ?? 0}
+              {liveStats?.processed ?? selectedJob?.pipeline_stats?.micrograph_count ?? results?.summary?.processed ?? 0}/{liveStats?.total ?? selectedJob?.pipeline_stats?.micrograph_count ?? results?.summary?.total ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Dose-Weight:</span>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Power Spectra:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {selectedJob?.parameters?.useMicrographWithoutDoseWeighting === "Yes" ? "No" : "Yes"}
+              {selectedJob?.parameters?.usePowerSpectraFromMotionCorr === "No" ? "No" : "Yes"}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -571,8 +571,8 @@ const CtfDashboard = () => {
             Reset Filters
           </button>
         </div>
-        <div className="flex items-center justify-between">
-          {/* Defocus Range Inputs */}
+        <div className="flex items-center gap-4">
+          {/* 1. Defocus Range Inputs */}
           <div className="flex items-center gap-2">
             <span style={{ fontSize: "11px", color: "var(--color-text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>Defocus (Å)</span>
             <input
@@ -594,52 +594,54 @@ const CtfDashboard = () => {
             />
           </div>
 
-          {/* Micrograph Count */}
-          <div className="flex items-center gap-1.5">
-            <span style={{ fontSize: "20px", fontWeight: 700, color: "var(--color-primary)", lineHeight: 1 }}>{filteredMicrographs.length}</span>
-            <span style={{ fontSize: "13px", color: "var(--color-text-muted)", fontWeight: 500 }}>/</span>
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--color-text-secondary)", lineHeight: 1 }}>{totalMicrographs}</span>
+          {/* 2. Micrograph Count */}
+          <div className="flex items-center gap-1">
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--color-primary)", fontFamily: "monospace" }}>{filteredMicrographs.length.toLocaleString()}</span>
+            <span style={{ fontSize: "12px", color: "var(--color-text-muted)", fontWeight: 500 }}>/</span>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text-secondary)", fontFamily: "monospace" }}>{totalMicrographs.toLocaleString()}</span>
             <span style={{ fontSize: "11px", color: "var(--color-text-muted)", marginLeft: "2px" }}>micrographs</span>
           </div>
 
-          {/* Save Button + Message */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleSaveFiltered}
-              disabled={filteredMicrographs.length === 0 || isSaving}
-              className={`flex items-center gap-2 px-5 py-1.5 font-semibold rounded-lg transition-all ${
-                filteredMicrographs.length > 0 && !isSaving
-                  ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm"
-                  : "bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed"
-              }`}
-              style={{ fontSize: "12px" }}
-              title="Save filtered micrographs to STAR file"
-            >
-              {isSaving ? (
-                <>
-                  <BiLoader className="animate-spin" size={13} />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <FiSave size={13} />
-                  <span>Save Selection</span>
-                </>
-              )}
-            </button>
-            {saveSuccess && (
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
-                saveSuccess.status === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-              }`}>
-                {saveSuccess.status === "success" ? (
-                  <FiCheckCircle size={13} />
-                ) : (
-                  <FiAlertCircle size={13} />
-                )}
-                <span style={{ fontSize: "12px" }}>{saveSuccess.message}</span>
-              </div>
+          {/* 3. Save Button */}
+          <button
+            onClick={handleSaveFiltered}
+            disabled={filteredMicrographs.length === 0 || isSaving}
+            className={`flex items-center gap-2 px-5 py-1.5 font-semibold rounded-lg transition-all flex-shrink-0 ${
+              filteredMicrographs.length > 0 && !isSaving
+                ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm"
+                : "bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed"
+            }`}
+            style={{ fontSize: "12px" }}
+            title="Save filtered micrographs to STAR file"
+          >
+            {isSaving ? (
+              <>
+                <BiLoader className="animate-spin" size={13} />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <FiSave size={13} />
+                <span>Save Selection</span>
+              </>
             )}
-          </div>
+          </button>
+
+          {/* 4. Saved Filename */}
+          {saveSuccess && (
+            <div className={`flex items-center gap-1.5 ${
+              saveSuccess.status === "success" ? "text-green-600 dark:text-green-400" : "text-red-500"
+            }`}>
+              {saveSuccess.status === "success" ? (
+                <FiCheckCircle size={12} />
+              ) : (
+                <FiAlertCircle size={12} />
+              )}
+              <span style={{ fontSize: "11px", fontFamily: "monospace" }}>
+                {saveSuccess.data?.filename || saveSuccess.message}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

@@ -123,7 +123,8 @@ const UserProfile = () => {
       setChangingPassword(true);
       await changePasswordApi({
         current_password: passwordData.current_password,
-        new_password: passwordData.new_password
+        new_password: passwordData.new_password,
+        confirm_password: passwordData.confirm_password
       });
       showToast("Password changed successfully", { type: "success" });
       setPasswordData({ current_password: "", new_password: "", confirm_password: "" });

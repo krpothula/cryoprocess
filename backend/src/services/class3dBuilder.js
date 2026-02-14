@@ -20,6 +20,7 @@ const {
   getPooledParticles,
   getSymmetry,
   getReference,
+  getScratchDir,
   getIntParam,
   getFloatParam,
   getBoolParam,
@@ -246,6 +247,28 @@ class Class3DBuilder extends BaseJobBuilder {
     // Allow coarser sampling
     if (getBoolParam(data, ['coarserSampling'], false)) {
       cmd.push('--allow_coarser_sampling');
+    }
+
+    // Limit resolution E-step
+    const limitRes = getFloatParam(data, ['limitResolution', 'limitResolutionEStep'], -1);
+    if (limitRes > 0) {
+      cmd.push('--strict_highres_exp', String(limitRes));
+    }
+
+    // Pre-read images into RAM
+    if (getBoolParam(data, ['preReadAllParticles'], false)) {
+      cmd.push('--preread_images');
+    }
+
+    // Scratch directory
+    const scratchDir = getScratchDir(data);
+    if (scratchDir) {
+      cmd.push('--scratch_dir', scratchDir);
+    }
+
+    // Skip gridding (padding)
+    if (getBoolParam(data, ['skipPadding'], false)) {
+      cmd.push('--skip_gridding');
     }
 
     // Additional arguments

@@ -4,7 +4,7 @@ import InputGroup from '../../common/InputGroup'
 import CustomDropdown from '../../common/Dropdown'
 
 const Centering = ({handleInputChange,formData,handleRangeChange,dropdownOptions}) => {
-    const isEnable2 = formData.imagesOnMask === "Yes";
+    const isEnable2 = formData.subtracted_images === "Yes";
   return (
     <div className="grid py-5 tab-content">
     <CustomDropdown

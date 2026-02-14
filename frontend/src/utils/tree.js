@@ -1,3 +1,5 @@
+import { getStatusColor as getSharedStatusColor } from './jobStatus';
+
 // Color palette grouped by processing stage (no green/orange/red — reserved for status)
 const jobTypeColors = {
   // Micrograph Processing — Blue family (wide spread)
@@ -57,8 +59,6 @@ const getJobColor = (jobType) => {
 };
 
 // Status colors — uses shared utility for canonical status values
-import { getStatusColor as getSharedStatusColor } from './jobStatus';
-
 const getStatusColor = (status) => {
   if (!status) return '#94a3b8';
   return getSharedStatusColor(status);

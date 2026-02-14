@@ -472,9 +472,9 @@ const S = {
     background: "var(--color-bg-hover)", padding: "3px 8px", borderRadius: 6,
   },
   filterBar: {
-    display: "flex", alignItems: "center", gap: 8, margin: "0 20px",
-    padding: "0 12px", height: 38, border: "1px solid var(--color-border)", borderRadius: 8,
-    background: "var(--color-bg-card)", marginTop: 12,
+    display: "flex", alignItems: "center", gap: 8, padding: "0 20px",
+    height: 38, borderBottom: "1px solid var(--color-border-light)",
+    background: "var(--color-bg-card)",
   },
   filterInput: {
     flex: 1, border: "none", outline: "none", boxShadow: "none", fontSize: 13,

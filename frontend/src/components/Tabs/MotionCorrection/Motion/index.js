@@ -51,29 +51,6 @@ const Motion = ({
         handleInputChange={handleInputChange}
         tooltipText="Group this many frames together for motion estimation. Higher values improve signal but reduce temporal resolution. Default 1 processes each frame individually."
       />
-      <PixelSizeInput
-        label="Binning factor:"
-        placeholder=""
-        min={0}
-        max={50}
-        value={formData.binningFactor}
-        name="binningFactor"
-        onChange={handleRangeChange}
-        handleInputChange={handleInputChange}
-        tooltipText="Bin (downsample) output micrographs by this factor. Use 1 for no binning. Higher values reduce file size but lose resolution. Common for initial screening."
-      />
-      <PixelSizeInput
-        label="Binning frames:"
-        placeholder=""
-        min={0}
-        max={50}
-        value={formData.binningFrame}
-        name="binningFrame"
-        onChange={handleRangeChange}
-        handleInputChange={handleInputChange}
-        tooltipText="Bin frames during motion estimation (not output). Speeds up processing for movies with many frames. Default 1 uses full resolution for motion estimation."
-      />
-
       <CustomInput
         isCustomUpload={true}
         onChange={() => {

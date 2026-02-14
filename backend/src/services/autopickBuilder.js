@@ -75,7 +75,6 @@ class AutoPickBuilder extends BaseJobBuilder {
       '--odir', relOutputDir + path.sep,
       '--pickname', 'autopick',
       '--shrink', String(getIntParam(data, ['shrinkFactor'], 0)),
-      '--lowpass', String(getFloatParam(data, ['lowpassFilterReference'], 20)),
       '--pipeline_control', relOutputDir + path.sep,
     ];
 
@@ -171,11 +170,24 @@ class AutoPickBuilder extends BaseJobBuilder {
       } else if (threeDRef) {
         const relRef3d = this.makeRelative(this.resolveInputPath(threeDRef));
         cmd.push('--ref', relRef3d);
+
+        // Symmetry for 3D reference
+        const sym = getParam(data, ['Symmetry', 'symmetry'], null);
+        if (sym && sym.trim()) {
+          cmd.push('--sym', sym.trim());
+        }
       }
 
       // Reference pixel size and angular sampling
       cmd.push('--angpix_ref', String(getFloatParam(data, ['pixelRefe'], -1)));
       cmd.push('--ang', String(getFloatParam(data, ['angular'], 5)));
+
+      // Lowpass and highpass filters for references
+      cmd.push('--lowpass', String(getFloatParam(data, ['lowpassFilterReference'], 20)));
+      const highpass = getFloatParam(data, ['HighpassFilterReference', 'highpassFilterReference'], -1);
+      if (highpass > 0) {
+        cmd.push('--highpass', String(highpass));
+      }
 
       // Invert contrast for template matching
       if (getBoolParam(data, ['contrast'], false)) {
@@ -185,6 +197,11 @@ class AutoPickBuilder extends BaseJobBuilder {
       // CTF correction
       if (getBoolParam(data, ['corrected'], false)) {
         cmd.push('--ctf');
+
+        // Ignore CTF until first peak
+        if (getBoolParam(data, ['peak'], false)) {
+          cmd.push('--ctf_intact_first_peak');
+        }
       }
     }
 

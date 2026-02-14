@@ -182,9 +182,9 @@ class ExtractBuilder extends BaseJobBuilder {
 
     if (getBoolParam(data, ['reCenterRefinedCoordinates'], false)) {
       cmd.push('--recenter');
-      cmd.push('--recenter_x', String(getFloatParam(data, ['reCenterCoordsX'], 0)));
-      cmd.push('--recenter_y', String(getFloatParam(data, ['reCenterCoordsY'], 0)));
-      cmd.push('--recenter_z', String(getFloatParam(data, ['reCenterCoordsZ'], 0)));
+      cmd.push('--recenter_x', String(getFloatParam(data, ['xRec', 'reCenterCoordsX'], 0)));
+      cmd.push('--recenter_y', String(getFloatParam(data, ['yRec', 'reCenterCoordsY'], 0)));
+      cmd.push('--recenter_z', String(getFloatParam(data, ['zRec', 'reCenterCoordsZ'], 0)));
     }
 
     // Image format
@@ -204,8 +204,12 @@ class ExtractBuilder extends BaseJobBuilder {
 
       const whiteDust = getFloatParam(data, ['stddevWhiteDust'], -1);
       const blackDust = getFloatParam(data, ['stddevBlackDust'], -1);
-      cmd.push('--white_dust', String(whiteDust));
-      cmd.push('--black_dust', String(blackDust));
+      if (whiteDust > 0) {
+        cmd.push('--white_dust', String(whiteDust));
+      }
+      if (blackDust > 0) {
+        cmd.push('--black_dust', String(blackDust));
+      }
     }
 
     // Rescale

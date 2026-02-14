@@ -417,8 +417,8 @@ export default function PipelineTree({ projectId, expanded, setSelectedTreeJob, 
           padding: 8px 12px;
           background: var(--color-bg-card);
           border-radius: 8px;
-          border: 1px solid var(--color-border);
-          border-left: 4px solid var(--node-color);
+          border: 2px solid var(--color-border);
+          border-left: 5px solid var(--node-color);
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
           cursor: pointer;
           transition: all 0.15s ease;

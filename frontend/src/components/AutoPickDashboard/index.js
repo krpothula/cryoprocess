@@ -41,7 +41,7 @@ const AutoPickDashboard = () => {
   const [showCommand, setShowCommand] = useState(false);
   const [commandCopied, setCommandCopied] = useState(false);
   const [showPicks, setShowPicks] = useState(true);
-  const [circleRadius, setCircleRadius] = useState(50);
+  const [circleDiameterA, setCircleDiameterA] = useState(null); // Å — null = auto from params
   const [autoSelectDone, setAutoSelectDone] = useState(false);
   const [viewerZoom, setViewerZoom] = useState(1);
 
@@ -114,8 +114,7 @@ const AutoPickDashboard = () => {
       const response = await getAutoPickImageApi(
         selectedJob.id,
         micrographName,
-        true,
-        50
+        true
       );
       if (response?.data?.status === "success") {
         setMicrographImage(response.data.data);
@@ -295,7 +294,7 @@ const AutoPickDashboard = () => {
             <FiImage className="text-gray-400 dark:text-slate-500" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {pStats.micrograph_count || liveStats?.processed || 0}/{liveStats?.total ?? pStats.micrograph_count ?? 0}
+              {liveStats?.processed ?? pStats.micrograph_count ?? 0}/{liveStats?.total ?? pStats.micrograph_count ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -364,8 +363,8 @@ const AutoPickDashboard = () => {
             <button onClick={handleZoomIn} className="p-0.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded" title="Zoom In">
               <FiZoomIn className="text-gray-600 dark:text-slate-300" size={12} />
             </button>
-            {/* Marker toggle and circle size slider */}
-            <div className="flex items-center gap-2 ml-auto">
+            {/* Marker toggle and circle size slider (Å diameter) */}
+            <div className="flex items-center gap-1 ml-auto">
               <button
                 onClick={() => setShowPicks(!showPicks)}
                 className={`p-0.5 rounded transition-colors ${showPicks ? "hover:bg-gray-100 dark:hover:bg-slate-700" : "hover:bg-gray-100 dark:hover:bg-slate-700 opacity-50"}`}
@@ -377,16 +376,19 @@ const AutoPickDashboard = () => {
                   <FiEyeOff className="text-gray-400 dark:text-slate-500" size={12} />
                 )}
               </button>
-              <span className={`text-xs ml-2 ${showPicks ? "text-gray-500 dark:text-slate-400" : "text-gray-300 dark:text-slate-600"}`}>Size:</span>
               <input
                 type="range"
-                min="20"
-                max="100"
-                value={circleRadius}
-                onChange={(e) => setCircleRadius(parseInt(e.target.value))}
+                min="30"
+                max="500"
+                step="10"
+                value={circleDiameterA ?? (parseInt(selectedJob?.parameters?.minDiameter) || 200)}
+                onChange={(e) => setCircleDiameterA(parseInt(e.target.value))}
                 disabled={!showPicks}
                 className={`w-16 h-1.5 rounded-lg ${showPicks ? "bg-gray-200 dark:bg-slate-700 cursor-pointer" : "bg-gray-100 dark:bg-slate-800 cursor-not-allowed opacity-40"}`}
               />
+              <span className={`text-[9px] whitespace-nowrap ${showPicks ? "text-gray-500 dark:text-slate-400" : "text-gray-300 dark:text-slate-600"}`}>
+                {circleDiameterA ?? (parseInt(selectedJob?.parameters?.minDiameter) || 200)}Å
+              </span>
             </div>
           </div>
           <div className="flex-1 min-h-0 relative">
@@ -396,7 +398,8 @@ const AutoPickDashboard = () => {
               selectedMicrograph={selectedMicrograph}
               zoom={viewerZoom}
               showPicks={showPicks}
-              circleRadius={circleRadius}
+              circleDiameterA={circleDiameterA ?? (parseInt(selectedJob?.parameters?.minDiameter) || 200)}
+              pixelSize={micrographImage?.pixel_size || selectedJob?.pipeline_stats?.pixel_size || null}
             />
           </div>
         </div>

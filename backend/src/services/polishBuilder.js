@@ -95,7 +95,7 @@ class PolishBuilder extends BaseJobBuilder {
     }
 
     // Motion sigma parameters
-    if (getBoolParam(data, ['trainOptimalBfactors'], false)) {
+    if (getBoolParam(data, ['trainOptimalBfactors', 'optimalParameters'], false)) {
       cmd.push('--params3');
       const fractionFourier = getFloatParam(data, ['fractionFourierPixels'], 0.5);
       cmd.push('--align_frac', String(fractionFourier));

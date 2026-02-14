@@ -210,14 +210,14 @@ const MotionCorrection = () => {
 
   const gainRotationOptions = [
     { label: "No rotation (0)", value: "No rotation (0)" },
-    { label: "Rotate 90°", value: "Rotate 90°" },
-    { label: "Rotate 180°", value: "Rotate 180°" },
-    { label: "Rotate 270°", value: "Rotate 270°" },
+    { label: "90 degrees (1)", value: "90 degrees (1)" },
+    { label: "180 degrees (2)", value: "180 degrees (2)" },
+    { label: "270 degrees (3)", value: "270 degrees (3)" },
   ];
   const gainFlipOptions = [
     { label: "No flipping (0)", value: "No flipping (0)" },
-    { label: "Flip horizontally", value: "Flip horizontally" },
-    { label: "Flip vertically", value: "Flip vertically" },
+    { label: "Flip upside down (1)", value: "Flip upside down (1)" },
+    { label: "Flip left to right (2)", value: "Flip left to right (2)" },
   ];
 
   return (

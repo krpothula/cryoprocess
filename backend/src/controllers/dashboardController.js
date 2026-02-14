@@ -2353,6 +2353,9 @@ exports.getAutopickImage = async (req, res) => {
       }
     }
 
+    // Get pixel size for Å→pixel conversion (micrograph pixel size used for picking)
+    const pixelSize = job.pipeline_stats?.pixel_size || null;
+
     res.json({
       success: true,
       status: 'success',
@@ -2360,10 +2363,10 @@ exports.getAutopickImage = async (req, res) => {
         micrograph: baseName,
         image: `data:image/png;base64,${base64}`,
         coordinates: coordinates,
-        radius: radius,
         particle_count: coordinates.length,
         original_width: originalWidth,
-        original_height: originalHeight
+        original_height: originalHeight,
+        pixel_size: pixelSize
       }
     });
   } catch (error) {
@@ -2811,7 +2814,9 @@ exports.getClass2dResults = async (req, res) => {
       num_particles: numParticles,
       mask_diameter: job.parameters?.maskDiameter,
       num_classes_param: job.parameters?.numberOfClasses,
-      num_iterations_param: job.parameters?.numberOfIterations || job.parameters?.numberEMIterations,
+      num_iterations_param: job.parameters?.useVDAM === 'Yes'
+        ? (parseInt(job.parameters?.vdamMiniBatches) || 200)
+        : (parseInt(job.parameters?.numberOfIterations) || parseInt(job.parameters?.numberEMIterations) || 25),
       classes: []
     };
 
@@ -2970,7 +2975,9 @@ exports.getClass2dLiveStats = async (req, res) => {
         currentIteration = parseInt(match[1]);
       }
     }
-    const totalIterations = job.parameters?.numberOfIterations || job.parameters?.numberEMIterations || 25;
+    const totalIterations = job.parameters?.useVDAM === 'Yes'
+      ? (parseInt(job.parameters?.vdamMiniBatches) || 200)
+      : (parseInt(job.parameters?.numberOfIterations) || parseInt(job.parameters?.numberEMIterations) || 25);
 
     // Update pipeline_stats.iteration_count in DB so stats cards stay current
     if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {
@@ -3453,7 +3460,9 @@ exports.getClass3dResults = async (req, res) => {
       command: job.command,
       output_dir: outputDir,
       latest_iteration: latestIteration,
-      total_iterations: job.parameters?.numberOfIterations || job.parameters?.numberIterations || 25,
+      total_iterations: job.parameters?.useVDAM === 'Yes'
+        ? (parseInt(job.parameters?.vdamMiniBatches) || 200)
+        : (parseInt(job.parameters?.numberOfIterations) || parseInt(job.parameters?.numberIterations) || 25),
       num_classes: numClassesInLatest || job.parameters?.numberOfClasses || job.parameters?.numberClasses || 1,
       symmetry: job.parameters?.symmetry || job.parameters?.Symmetry || 'C1',
       mask_diameter: job.parameters?.maskDiameter || job.parameters?.particleDiameter || 200,
@@ -3592,7 +3601,9 @@ exports.getClass3dLiveStats = async (req, res) => {
         currentIteration = parseInt(match[1]);
       }
     }
-    const totalIterations = job.parameters?.numberOfIterations || job.parameters?.numberEMIterations || 25;
+    const totalIterations = job.parameters?.useVDAM === 'Yes'
+      ? (parseInt(job.parameters?.vdamMiniBatches) || 200)
+      : (parseInt(job.parameters?.numberOfIterations) || parseInt(job.parameters?.numberEMIterations) || 25);
 
     // Update pipeline_stats.iteration_count in DB so stats cards stay current
     if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {

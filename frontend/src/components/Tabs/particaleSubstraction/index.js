@@ -209,8 +209,8 @@ const ParticleSubstraction = () => {
     outputInFloat16: "Yes",
     revertToOriginal: "No",
     //  revertThsPArticles: "",
-    imagesOnMask: "No",
-    myCoordinates: "No",
+    subtracted_images: "No",
+    centerCoordinates: "No",
 
     coordinateX: 0,
     coordinateY: 0,
@@ -315,7 +315,7 @@ const ParticleSubstraction = () => {
   ];
   const isEnable = formData.differentParticles === "Yes";
   const isEnable1 = formData.revertToOriginal === "Yes";
-  const isEnable2 = formData.imagesOnMask === "Yes";
+  const isEnable2 = formData.subtracted_images === "Yes";
   const isEnable3 = formData.submitToQueue === "Yes";
   return (
     <div className="">
