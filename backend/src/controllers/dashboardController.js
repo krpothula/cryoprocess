@@ -6183,7 +6183,7 @@ exports.getImportMrc = async (req, res) => {
 /**
  * Get particle metadata for smart defaults.
  * Looks up the job that produced the given star file and returns
- * particle count, pixel size, box size, and suggested mask diameter.
+ * particle count, pixel size, and box size.
  *
  * GET /api/particle-metadata/?project_id=...&star_file=...
  */
@@ -6224,16 +6224,6 @@ exports.getParticleMetadata = async (req, res) => {
     const pixelSize = ps.pixel_size || null;
     const boxSize = ps.box_size || null;
 
-    // Compute suggested mask diameter: 75% of box extent in Angstroms
-    // Max safe mask = full box extent (box_size * pixel_size)
-    let suggestedMaskDiameter = 0;
-    let maxSafeMaskDiameter = 0;
-    if (boxSize && pixelSize) {
-      const boxExtentA = boxSize * pixelSize;
-      suggestedMaskDiameter = Math.round(boxExtentA * 0.75);
-      maxSafeMaskDiameter = Math.round(boxExtentA);
-    }
-
     res.json({
       success: true,
       status: 'success',
@@ -6242,12 +6232,8 @@ exports.getParticleMetadata = async (req, res) => {
           particle_count: particleCount,
           pixel_size: pixelSize,
           box_size: boxSize,
-          suggested_mask_diameter: suggestedMaskDiameter,
-          max_safe_mask_diameter: maxSafeMaskDiameter,
         },
-        hint: suggestedMaskDiameter > 0
-          ? `Based on box size ${boxSize}px at ${pixelSize} A/px`
-          : ''
+        hint: ''
       }
     });
   } catch (error) {

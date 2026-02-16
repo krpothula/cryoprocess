@@ -2,7 +2,7 @@ import React from "react";
 import CustomDropdown from "../../common/Dropdown";
 import PixelSizeInput from "../../common/PixelSixeInput";
 
-const Optimization = ({ formData, handleInputChange, handleRangeChange, dropdownOptions, particleMetadata }) => {
+const Optimization = ({ formData, handleInputChange, handleRangeChange, dropdownOptions }) => {
   return (
     <div className="tab-content">
       <PixelSizeInput
@@ -59,30 +59,6 @@ const Optimization = ({ formData, handleInputChange, handleRangeChange, dropdown
         handleInputChange={handleInputChange}
         tooltipText="Circular mask diameter in Angstroms. WARNING: If the mask is too large relative to the box size, RELION will report 'No pixels in background are found. Radius of circular mask is too large.' Ensure the mask diameter is smaller than the box size to leave background pixels for normalization."
       />
-      {particleMetadata && particleMetadata.box_size && particleMetadata.pixel_size && (
-        <div style={{
-          fontSize: '10px',
-          color: '#065f46',
-          padding: '3px 8px',
-          backgroundColor: '#d1fae5',
-          border: '1px solid #059669',
-          borderRadius: '4px',
-          lineHeight: '1.4',
-          whiteSpace: 'nowrap',
-          display: 'inline-flex',
-          gap: '8px',
-          marginLeft: '30%',
-          marginTop: '-4px',
-          marginBottom: '4px',
-        }}>
-          <span><span style={{ color: 'var(--color-text-secondary)' }}>Box:</span> {particleMetadata.box_size}px</span>
-          <span><span style={{ color: 'var(--color-text-secondary)' }}>Pixel:</span> {particleMetadata.pixel_size}Å</span>
-          <span><span style={{ color: 'var(--color-text-secondary)' }}>Recommended:</span> <strong>{particleMetadata.suggested_mask_diameter}Å</strong></span>
-          {particleMetadata.max_safe_mask_diameter > 0 && (
-            <span><span style={{ color: 'var(--color-text-secondary)' }}>Max:</span> {particleMetadata.max_safe_mask_diameter}Å</span>
-          )}
-        </div>
-      )}
       <CustomDropdown
         label="Mask individual particles with zeros:"
         options={dropdownOptions}

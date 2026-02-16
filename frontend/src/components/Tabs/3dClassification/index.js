@@ -11,7 +11,6 @@ import "../../form.css";
 import SubmitButton from "../common/SubmitButton";
 import { JobTypes } from "../common/Data/jobs";
 import { threeDClassificationAPI } from "../../../services/builders/3d-classification/3d-classification";
-import { getParticleMetadataApi } from "../../../services/builders/jobs";
 import { useBuilder } from "../../../context/BuilderContext";
 import { DefaultMessages } from "../common/Data";
 import { FolderBrowserPopup } from "../common/FolderBrowser";
@@ -90,7 +89,6 @@ const Classification = () => {
   const [isLoading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [filePopupField, setFilePopup] = useState(""); // Field name for file browser popup
-  const [particleMetadata, setParticleMetadata] = useState(null);
 
   const { projectId, onJobSuccess, copiedJobParams, clearCopiedJobParams, autoPopulateInputs, clearAutoPopulate } = useBuilder();
 
@@ -124,33 +122,6 @@ const Classification = () => {
     }
   }, [autoPopulateInputs, clearAutoPopulate]);
 
-  // Auto-fetch particle metadata when input file is selected
-  useEffect(() => {
-    if (!formData.inputStarFile || !projectId) {
-      setParticleMetadata(null);
-      return;
-    }
-
-    getParticleMetadataApi(projectId, formData.inputStarFile)
-      .then((response) => {
-        const data = response?.data?.data;
-        if (data?.metadata) {
-          setParticleMetadata(data.metadata);
-
-          // Auto-fill mask diameter if it's still at default and we have a suggestion
-          if (data.metadata.suggested_mask_diameter > 0 && formData.maskDiameter === 200) {
-            setFormData(prev => ({
-              ...prev,
-              maskDiameter: data.metadata.suggested_mask_diameter
-            }));
-          }
-        }
-      })
-      .catch(() => {
-        // Silently fail - metadata is optional
-        setParticleMetadata(null);
-      });
-  }, [formData.inputStarFile, projectId]);
 
   const handleInputChange = (e) => {
     if (e.target.files) {
@@ -319,7 +290,6 @@ const Classification = () => {
             handleInputChange={handleInputChange}
             handleRangeChange={handleRangeChange}
             dropdownOptions={dropdownOptions}
-            particleMetadata={particleMetadata}
           />
         )}
 

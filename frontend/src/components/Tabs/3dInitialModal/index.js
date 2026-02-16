@@ -12,7 +12,6 @@ import SubmitButton from "../common/SubmitButton";
 import { FolderBrowserPopup } from "../common/FolderBrowser";
 import { JobTypes } from "../common/Data/jobs";
 import { threeDIntialModelAPI } from "../../../services/builders/3d-initialmodel/3d-initialmodel";
-import { getParticleMetadataApi } from "../../../services/builders/jobs";
 import { useBuilder } from "../../../context/BuilderContext";
 import { DefaultMessages } from "../common/Data";
 
@@ -53,7 +52,6 @@ const InitialModal = () => {
   const [formData, setFormData] = useState(initialState);
   const [filePopupField, setFilePopup] = useState(""); // set field name for which file browser is open
   const [message, setMessage] = useState("");
-  const [particleMetadata, setParticleMetadata] = useState(null);
 
   const { projectId, onJobSuccess, copiedJobParams, clearCopiedJobParams, autoPopulateInputs, clearAutoPopulate } = useBuilder();
 
@@ -76,33 +74,6 @@ const InitialModal = () => {
     }
   }, [autoPopulateInputs, clearAutoPopulate]);
 
-  // Auto-fetch particle metadata when input file is selected
-  useEffect(() => {
-    if (!formData.inputStarFile || !projectId) {
-      setParticleMetadata(null);
-      return;
-    }
-
-    getParticleMetadataApi(projectId, formData.inputStarFile)
-      .then((response) => {
-        const data = response?.data?.data;
-        if (data?.metadata) {
-          setParticleMetadata(data.metadata);
-
-          // Auto-fill mask diameter if it's still at default and we have a suggestion
-          if (data.metadata.suggested_mask_diameter > 0 && formData.maskDiameter === 200) {
-            setFormData(prev => ({
-              ...prev,
-              maskDiameter: data.metadata.suggested_mask_diameter
-            }));
-          }
-        }
-      })
-      .catch(() => {
-        // Silently fail - metadata is optional
-        setParticleMetadata(null);
-      });
-  }, [formData.inputStarFile, projectId]);
 
   const handleInputChange = (e) => {
     if (e.target.files) {
@@ -241,7 +212,6 @@ const InitialModal = () => {
             handleInputChange={handleInputChange}
             handleRangeChange={handleRangeChange}
             dropdownOptions={dropdownOptions}
-            particleMetadata={particleMetadata}
           />
         )}
 

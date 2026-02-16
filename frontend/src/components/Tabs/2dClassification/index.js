@@ -9,7 +9,6 @@ import "../../form.css";
 import SubmitButton from "../common/SubmitButton";
 import { useBuilder } from "../../../context/BuilderContext";
 import { twoDClassificationAPI } from "../../../services/builders/2d-classification/2d-classification";
-import { getParticleMetadataApi } from "../../../services/builders/jobs";
 import { DefaultMessages } from "../common/Data";
 import { useFormValidation } from "../../../hooks/useFormValidation";
 import { mustBePositive, mustBeAtLeast, vdamMiniBatchesRule, gpuIdsFormat } from "../../../utils/validationRules";
@@ -58,8 +57,6 @@ const DClassification = () => {
   const [isLoading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("I/O");
   const [message, setMessage] = useState("");
-  const [particleMetadata, setParticleMetadata] = useState(null);
-  const [maskHint, setMaskHint] = useState("");
 
   const { projectId, onJobSuccess, copiedJobParams, clearCopiedJobParams, autoPopulateInputs, clearAutoPopulate } = useBuilder();
 
@@ -94,36 +91,6 @@ const DClassification = () => {
     }
   }, [autoPopulateInputs, clearAutoPopulate]);
 
-  // Auto-fetch particle metadata when input file is selected
-  useEffect(() => {
-    if (!formData.inputStarFile || !projectId) {
-      setParticleMetadata(null);
-      setMaskHint("");
-      return;
-    }
-
-    getParticleMetadataApi(projectId, formData.inputStarFile)
-      .then((response) => {
-        const data = response?.data?.data;
-        if (data?.metadata) {
-          setParticleMetadata(data.metadata);
-          setMaskHint(data.hint || "");
-
-          // Auto-fill mask diameter if it's still at default and we have a suggestion
-          if (data.metadata.suggested_mask_diameter > 0 && formData.maskDiameter === 200) {
-            setFormData(prev => ({
-              ...prev,
-              maskDiameter: data.metadata.suggested_mask_diameter
-            }));
-          }
-        }
-      })
-      .catch(() => {
-        // Silently fail - metadata is optional
-        setParticleMetadata(null);
-        setMaskHint("");
-      });
-  }, [formData.inputStarFile, projectId]);
 
   const handleInputChange = (e) => {
     if (e.target.files) {
@@ -268,8 +235,6 @@ const DClassification = () => {
             handleInputChange={handleInputChange}
             handleRangeChange={handleRangeChange}
             dropdownOptions={dropdownOptions}
-            particleMetadata={particleMetadata}
-            maskHint={maskHint}
             getFieldStatus={getFieldStatus}
           />
         )}

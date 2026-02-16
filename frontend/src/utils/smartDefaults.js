@@ -18,14 +18,4 @@ export function suggestBoxSize(particleDiameterA, pixelSizeA) {
   return raw % 2 === 0 ? raw : raw + 1;
 }
 
-/**
- * Suggest mask diameter from particle diameter.
- * Rule: mask = round(diameter * 1.1), ensures some padding.
- * @param {number} particleDiameterA - Particle diameter in Angstroms
- * @returns {number|null} Suggested mask diameter in Angstroms, or null
- */
-export function suggestMaskDiameter(particleDiameterA) {
-  if (!particleDiameterA || particleDiameterA <= 0) return null;
-  return Math.round(particleDiameterA * 1.1);
-}
 

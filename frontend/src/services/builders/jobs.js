@@ -71,7 +71,7 @@ const getStageOptimiserFilesApi = (projectId = "", stage = "") => {
 
 /**
  * Get particle metadata from a STAR file.
- * Returns box size, pixel size, and suggested mask diameter.
+ * Returns box size, pixel size, and particle count.
  * @param {string} projectId - Project ID
  * @param {string} starFile - Path to particles.star file
  */

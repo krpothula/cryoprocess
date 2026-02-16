@@ -8,8 +8,6 @@ const Optimization = ({
   handleInputChange,
   handleRangeChange,
   dropdownOptions,
-  particleMetadata,
-  maskHint,
   getFieldStatus,
 }) => {
   const isEMEnabled = formData.useEM === "Yes";
@@ -126,30 +124,6 @@ const Optimization = ({
         error={getFieldStatus?.('maskDiameter')?.level === 'error'}
       />
       {getFieldStatus && <FieldWarning status={getFieldStatus('maskDiameter')} />}
-      {particleMetadata && particleMetadata.box_size && particleMetadata.pixel_size && (
-        <div style={{
-          fontSize: '10px',
-          color: '#065f46',
-          padding: '3px 8px',
-          backgroundColor: '#d1fae5',
-          border: '1px solid #059669',
-          borderRadius: '4px',
-          lineHeight: '1.4',
-          whiteSpace: 'nowrap',
-          display: 'inline-flex',
-          gap: '8px',
-          marginLeft: '30%',
-          marginTop: '-4px',
-          marginBottom: '4px',
-        }}>
-          <span><span style={{ color: 'var(--color-text-secondary)' }}>Box:</span> {particleMetadata.box_size}px</span>
-          <span><span style={{ color: 'var(--color-text-secondary)' }}>Pixel:</span> {particleMetadata.pixel_size}Å</span>
-          <span><span style={{ color: 'var(--color-text-secondary)' }}>Recommended:</span> <strong>{particleMetadata.suggested_mask_diameter}Å</strong></span>
-          {particleMetadata.max_safe_mask_diameter > 0 && (
-            <span><span style={{ color: 'var(--color-text-secondary)' }}>Max:</span> {particleMetadata.max_safe_mask_diameter}Å</span>
-          )}
-        </div>
-      )}
       <CustomDropdown
         label="Mask individual particles with Zeros?"
         options={dropdownOptions}
