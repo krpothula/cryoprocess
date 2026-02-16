@@ -301,7 +301,7 @@ const AutoPickDashboard = () => {
             <FiTarget className="text-gray-400 dark:text-slate-500" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Method:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {pStats.pick_method || "Unknown"}
+              {selectedJob?.parameters?.useTopaz === "Yes" ? "Topaz" : selectedJob?.parameters?.templateMatching === "Yes" ? "Template" : "LoG"}
             </span>
           </div>
           <div className="flex items-center gap-2">

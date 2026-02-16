@@ -268,7 +268,7 @@ exports.submitJob = async (req, res) => {
         break;
       case 'AutoPick':
         inheritedStats.pick_method = data.useTopaz === 'Yes' ? 'Topaz'
-          : data.useTemplateMatching === 'Yes' ? 'Template' : 'LoG';
+          : data.templateMatching === 'Yes' ? 'Template' : 'LoG';
         break;
       case 'Extract':
         inheritedStats.rescaled_size = (data.rescaleParticles === 'Yes' && data.rescaledSize)
