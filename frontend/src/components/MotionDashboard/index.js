@@ -326,7 +326,7 @@ const MotionDashboard = () => {
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Dose Weight:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {selectedJob?.parameters?.dosePerFrame && parseFloat(selectedJob.parameters.dosePerFrame) > 0 ? "Yes" : "No"}
+              {selectedJob?.parameters?.doseWeighting === "Yes" || selectedJob?.parameters?.doseWeighting === true ? "Yes" : "No"}
             </span>
           </div>
           <div className="flex items-center gap-2">
