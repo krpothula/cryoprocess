@@ -1,6 +1,6 @@
 import React from "react";
 import CustomDropdown from "../../common/Dropdown";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import CustomInput from "../../common/Input";
 
 const Sharpen = ({
@@ -9,8 +9,9 @@ const Sharpen = ({
   handleRangeChange,
   dropdownOptions,
 }) => {
-  const isQueueEnabled = formData.ownBfactor === "Yes"; 
-  const isEnabled = formData.skipFSC === "Yes"; 
+  const isAutoBfactor = formData.bFactor === "Yes";
+  const isOwnBfactor = formData.ownBfactor === "Yes";
+  const isEnabled = formData.skipFSC === "Yes";
   return (
     <div className="tab-content">
       <CustomDropdown
@@ -30,6 +31,7 @@ const Sharpen = ({
         name="lowestResolution"
         onChange={handleRangeChange}
               handleInputChange={handleInputChange}
+        disabled={!isAutoBfactor}
         tooltipText="Low-resolution limit for B-factor fitting (Å). Default 10Å works well. Use higher values if Guinier plot looks noisy at lower resolutions."
       />
       <CustomDropdown
@@ -49,7 +51,7 @@ const Sharpen = ({
         name="providedBFactor"
         onChange={handleRangeChange}
               handleInputChange={handleInputChange}
-        disabled={!isQueueEnabled}
+        disabled={!isOwnBfactor}
         tooltipText="B-factor value (negative number, typically -50 to -150). More negative values = more sharpening. Too much sharpening amplifies noise."
       />
       <CustomDropdown

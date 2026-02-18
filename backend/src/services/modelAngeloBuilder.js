@@ -26,6 +26,11 @@ class ModelAngeloBuilder extends BaseJobBuilder {
     return true;
   }
 
+  // ModelAngelo is NOT an MPI command
+  get supportsMpi() {
+    return false;
+  }
+
   validate() {
     const inputMap = getParam(this.data, ['bFactorSharpenedMap'], null);
     if (!inputMap) {

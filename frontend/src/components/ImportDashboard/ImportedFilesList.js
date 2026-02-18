@@ -11,9 +11,9 @@ const Row = ({ index, style, items, onSelect, getName, isSelectedFn }) => {
   return (
     <div
       style={style}
-      onClick={() => onSelect({ name: fileName, path: file.movie_name || file.micrograph_name || "", ...file })}
+      onClick={() => onSelect({ name: fileName, path: file.movieName || file.micrographName || "", ...file })}
       className={`px-3 cursor-pointer flex items-center ${
-        selected ? "bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-slate-700"
+        selected ? "bg-[var(--color-info-bg)]" : "hover:bg-[var(--color-bg-hover)]"
       }`}
     >
       <p
@@ -21,7 +21,7 @@ const Row = ({ index, style, items, onSelect, getName, isSelectedFn }) => {
         style={{
           fontSize: "12px",
           fontWeight: selected ? 500 : 400,
-          color: selected ? "#1d4ed8" : "var(--color-text-label)",
+          color: selected ? "var(--color-info-strong)" : "var(--color-text-label)",
         }}
         title={fileName}
       >
@@ -33,7 +33,7 @@ const Row = ({ index, style, items, onSelect, getName, isSelectedFn }) => {
 
 const ImportedFilesList = ({ files, type, selectedFile, onSelect, totalImported }) => {
   const getName = (file) => {
-    return file.movie_name || file.micrograph_name || file.name || "Unknown";
+    return file.movieName || file.micrographName || file.name || "Unknown";
   };
 
   const isSelectedFn = (file) => {
@@ -43,7 +43,7 @@ const ImportedFilesList = ({ files, type, selectedFile, onSelect, totalImported 
 
   if (!files || files.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+      <div className="h-full flex flex-col items-center justify-center text-[var(--color-text-muted)]">
         <p className="text-center text-sm">
           No {type} imported yet
           <br />
@@ -67,7 +67,7 @@ const ImportedFilesList = ({ files, type, selectedFile, onSelect, totalImported 
           style={{ height: "100%" }}
         />
       </div>
-      <div className="text-xs text-gray-500 text-center py-2 border-t flex-shrink-0">
+      <div className="text-xs text-[var(--color-text-secondary)] text-center py-2 border-t flex-shrink-0">
         {files.length} of {totalImported || files.length} {displayType}
       </div>
     </div>

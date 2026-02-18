@@ -3,10 +3,10 @@ import { FiTarget, FiZap, FiCircle, FiAward, FiChevronDown } from "react-icons/f
 import ProgressRing from "./ProgressRing";
 
 const PARAMETERS = [
-  { id: "defocus", label: "Defocus", unit: "Å", icon: FiTarget, color: "blue", key: "defocus_avg" },
-  { id: "resolution", label: "CTF Resolution", unit: "Å", icon: FiZap, color: "green", key: "ctf_max_resolution" },
+  { id: "defocus", label: "Defocus", unit: "Å", icon: FiTarget, color: "blue", key: "defocusAvg" },
+  { id: "resolution", label: "CTF Resolution", unit: "Å", icon: FiZap, color: "green", key: "ctfMaxResolution" },
   { id: "astigmatism", label: "Astigmatism", unit: "Å", icon: FiCircle, color: "orange", key: "astigmatism" },
-  { id: "fom", label: "Figure of Merit", unit: "", icon: FiAward, color: "purple", key: "ctf_figure_of_merit" },
+  { id: "fom", label: "Figure of Merit", unit: "", icon: FiAward, color: "purple", key: "ctfFigureOfMerit" },
 ];
 
 const CTFParameterPlot = ({
@@ -42,7 +42,7 @@ const CTFParameterPlot = ({
     // Extract values for selected parameter
     const values = micrographs.map((m) => {
       if (selectedParam.id === "astigmatism") {
-        return Math.abs((m.defocus_u || 0) - (m.defocus_v || 0));
+        return Math.abs((m.defocusU || 0) - (m.defocusV || 0));
       }
       return m[selectedParam.key] || 0;
     }).filter(v => v !== null && v !== undefined && !isNaN(v));
@@ -86,7 +86,7 @@ const CTFParameterPlot = ({
 
     const values = micrographs.map((m) => {
       if (selectedParam.id === "astigmatism") {
-        return Math.abs((m.defocus_u || 0) - (m.defocus_v || 0));
+        return Math.abs((m.defocusU || 0) - (m.defocusV || 0));
       }
       return m[selectedParam.key] || 0;
     }).filter(v => v !== null && v !== undefined && !isNaN(v));
@@ -170,15 +170,15 @@ const CTFParameterPlot = ({
   const Icon = selectedParam.icon;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-slate-700">
+    <div className="bg-[var(--color-bg-card)] rounded-lg p-4 border border-[var(--color-border)]">
       {/* Header with Progress and Parameter Selector */}
       <div className="flex items-center justify-between mb-4">
         {/* Progress Ring */}
         <div className="flex items-center gap-3">
           <ProgressRing progress={progress} size={50} />
           <div>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Micrographs</p>
-            <p className="text-xl font-bold text-gray-800 dark:text-slate-200">
+            <p className="text-sm text-[var(--color-text-secondary)]">Micrographs</p>
+            <p className="text-xl font-bold text-[var(--color-text-heading)]">
               {processed}/{total}
             </p>
           </div>
@@ -188,15 +188,15 @@ const CTFParameterPlot = ({
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--color-bg-hover)] hover:bg-[var(--color-bg-active)] rounded-lg transition-colors"
           >
             <Icon className={colorClasses.text} size={18} />
-            <span className="font-medium text-gray-700 dark:text-slate-200">{selectedParam.label}</span>
-            <FiChevronDown className={`text-gray-500 dark:text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+            <span className="font-medium text-[var(--color-text)]">{selectedParam.label}</span>
+            <FiChevronDown className={`text-[var(--color-text-secondary)] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg dark:shadow-2xl border border-gray-200 dark:border-slate-700 z-10">
+            <div className="absolute right-0 mt-2 w-48 bg-[var(--color-bg-card)] rounded-lg shadow-lg border border-[var(--color-border)] z-10">
               {PARAMETERS.map((param) => {
                 const ParamIcon = param.icon;
                 const paramColors = getColorClasses(param.color);
@@ -208,12 +208,12 @@ const CTFParameterPlot = ({
                       setDropdownOpen(false);
                       setRangeSelection(null);
                     }}
-                    className={`w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors ${
-                      selectedParam.id === param.id ? 'bg-gray-50 dark:bg-slate-700' : ''
+                    className={`w-full flex items-center gap-2 px-4 py-2 hover:bg-[var(--color-bg-hover)] transition-colors ${
+                      selectedParam.id === param.id ? 'bg-[var(--color-bg-hover)]' : ''
                     } first:rounded-t-lg last:rounded-b-lg`}
                   >
                     <ParamIcon className={paramColors.text} size={16} />
-                    <span className="text-gray-700 dark:text-slate-200">{param.label}</span>
+                    <span className="text-[var(--color-text)]">{param.label}</span>
                   </button>
                 );
               })}
@@ -224,19 +224,19 @@ const CTFParameterPlot = ({
         {/* Stats Summary */}
         <div className="flex items-center gap-6 text-sm">
           <div>
-            <span className="text-gray-500 dark:text-slate-400">Min: </span>
+            <span className="text-[var(--color-text-secondary)]">Min: </span>
             <span className={`font-medium ${colorClasses.text}`}>
               {stats.min.toFixed(selectedParam.id === 'fom' ? 3 : 1)} {selectedParam.unit}
             </span>
           </div>
           <div>
-            <span className="text-gray-500 dark:text-slate-400">Avg: </span>
+            <span className="text-[var(--color-text-secondary)]">Avg: </span>
             <span className={`font-medium ${colorClasses.text}`}>
               {stats.avg.toFixed(selectedParam.id === 'fom' ? 3 : 1)} {selectedParam.unit}
             </span>
           </div>
           <div>
-            <span className="text-gray-500 dark:text-slate-400">Max: </span>
+            <span className="text-[var(--color-text-secondary)]">Max: </span>
             <span className={`font-medium ${colorClasses.text}`}>
               {stats.max.toFixed(selectedParam.id === 'fom' ? 3 : 1)} {selectedParam.unit}
             </span>
@@ -332,7 +332,7 @@ const CTFParameterPlot = ({
                     x={ratio * plotWidth}
                     y={plotHeight + 20}
                     textAnchor={anchor}
-                    className="text-xs fill-gray-500"
+                    className="text-xs fill-[var(--color-text-secondary)]"
                   >
                     {value.toFixed(selectedParam.id === 'fom' ? 2 : 0)}
                   </text>
@@ -348,7 +348,7 @@ const CTFParameterPlot = ({
                 y={-35}
                 transform="rotate(-90)"
                 textAnchor="middle"
-                className="text-xs fill-gray-500"
+                className="text-xs fill-[var(--color-text-secondary)]"
               >
                 Count
               </text>
@@ -358,7 +358,7 @@ const CTFParameterPlot = ({
                 x={plotWidth / 2}
                 y={plotHeight + 32}
                 textAnchor="middle"
-                className="text-xs fill-gray-600 font-medium"
+                className="text-xs fill-[var(--color-text-secondary)] font-medium"
               >
                 {selectedParam.label} {selectedParam.unit && `(${selectedParam.unit})`}
               </text>
@@ -367,13 +367,13 @@ const CTFParameterPlot = ({
 
           {/* Selection info */}
           {rangeSelection && (
-            <div className="absolute top-2 right-2 flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg shadow border border-gray-200 dark:border-slate-700">
-              <span className="text-sm text-gray-600 dark:text-slate-300">
+            <div className="absolute top-2 right-2 flex items-center gap-2 bg-[var(--color-bg-card)] px-3 py-1.5 rounded-lg shadow border border-[var(--color-border)]">
+              <span className="text-sm text-[var(--color-text-secondary)]">
                 Selected: {rangeSelection.start.toFixed(1)} - {rangeSelection.end.toFixed(1)} {selectedParam.unit}
               </span>
               <button
                 onClick={clearSelection}
-                className="text-xs text-red-500 hover:text-red-700 font-medium"
+                className="text-xs text-[var(--color-danger)] hover:text-[var(--color-danger-text)] font-medium"
               >
                 Clear
               </button>
@@ -382,13 +382,13 @@ const CTFParameterPlot = ({
 
           {/* Drag instruction */}
           {!rangeSelection && (
-            <div className="absolute bottom-0 right-2 text-xs text-gray-400 dark:text-slate-500">
+            <div className="absolute bottom-0 right-2 text-xs text-[var(--color-text-muted)]">
               Drag to select range
             </div>
           )}
         </div>
       ) : (
-        <div className="h-40 flex items-center justify-center text-gray-400 dark:text-slate-500">
+        <div className="h-40 flex items-center justify-center text-[var(--color-text-muted)]">
           No data available
         </div>
       )}

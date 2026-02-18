@@ -25,12 +25,10 @@ const initialFormData = {
   hmmerF3: 0.00001,
   hmmerE: 10,
   // Running parameters
-  coresPerNode: 0,
   threads: 1,
   submitToQueue: "Yes",
   queueName: "",
-  queueSubmitCommand: "",
-  arguments: "",
+  additionalArguments: "",
 };
 
 const ModelAngelo = () => {
@@ -61,7 +59,7 @@ const ModelAngelo = () => {
   useEffect(() => {
     getSoftwareConfig()
       .then((response) => {
-        const modelAngeloPath = response?.data?.data?.modelangelo_exe || "relion_python_modelangelo";
+        const modelAngeloPath = response?.data?.modelangeloExe || "relion_python_modelangelo";
         if (modelAngeloPath) {
           setFormData((prev) => ({
             ...prev,
@@ -230,10 +228,10 @@ const ModelAngelo = () => {
     corespernode: 0,
     threads: 1,
     submitToQueue: "Yes",
-    queuename: "",
+    queueName: "",
     queueSubmitCommand: "",
     //StandardSubmissionScript: "",
-    arguments: "",
+    additionalArguments: "",
     gpuToUse: 0,
     peformHmmerSearch: "No",
   };

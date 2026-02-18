@@ -182,7 +182,7 @@ exports.browseFiles = async (req, res) => {
                 name: path.basename(match),
                 path: relPath,
                 type: 'file',
-                job_folder: jobFolder,
+                jobFolder: jobFolder,
                 stage
               });
             }
@@ -198,21 +198,17 @@ exports.browseFiles = async (req, res) => {
     const endIdx = startIdx + parsedPageSize;
     const paginatedFiles = files.slice(startIdx, endIdx);
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        project_id: projectId,
-        job_type: jobType,
-        total_files: totalFiles,
-        pagination: {
-          page: parsedPage,
-          page_size: parsedPageSize,
-          total_pages: totalPages,
-          total_items: totalFiles
-        },
-        files: paginatedFiles
-      }
+    return response.successData(res, {
+      projectId: projectId,
+      jobType: jobType,
+      totalFiles: totalFiles,
+      pagination: {
+        page: parsedPage,
+        pageSize: parsedPageSize,
+        totalPages: totalPages,
+        totalItems: totalFiles
+      },
+      files: paginatedFiles
     });
   } catch (error) {
     logger.error('[Files] browseFiles error:', error);
@@ -259,17 +255,13 @@ exports.getFileInfo = async (req, res) => {
 
     const stats = fs.statSync(fullPath);
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        name: path.basename(fullPath),
-        path: filePath,
-        size: stats.size,
-        is_directory: stats.isDirectory(),
-        modified_at: stats.mtime,
-        created_at: stats.birthtime
-      }
+    return response.successData(res, {
+      name: path.basename(fullPath),
+      path: filePath,
+      size: stats.size,
+      isDirectory: stats.isDirectory(),
+      modifiedAt: stats.mtime,
+      createdAt: stats.birthtime
     });
   } catch (error) {
     logger.error('[Files] getFileInfo error:', error);
@@ -397,7 +389,7 @@ exports.browseFolder = async (req, res) => {
         pageItems.push({
           name,
           path: browsePath ? path.join(browsePath, name) : name,
-          is_dir: true,
+          isDir: true,
           size: null,
           extension: null
         });
@@ -412,7 +404,7 @@ exports.browseFolder = async (req, res) => {
         pageItems.push({
           name,
           path: browsePath ? path.join(browsePath, name) : name,
-          is_dir: false,
+          isDir: false,
           size,
           extension: path.extname(name).toLowerCase()
         });
@@ -422,19 +414,16 @@ exports.browseFolder = async (req, res) => {
     // Get project folder name from path
     const projectFolderName = path.basename(projectPath);
 
-    res.json({
-      success: true,
-      data: {
-        current_path: browsePath || '',
-        project_root: projectFolderName,
-        items: pageItems,
-        total_folders: totalFolders,
-        total_files: totalFiles,
-        total_items: totalItems,
-        offset,
-        limit,
-        has_more: (offset + limit) < totalItems
-      }
+    return response.successData(res, {
+      currentPath: browsePath || '',
+      projectRoot: projectFolderName,
+      items: pageItems,
+      totalFolders: totalFolders,
+      totalFiles: totalFiles,
+      totalItems: totalItems,
+      offset,
+      limit,
+      hasMore: (offset + limit) < totalItems
     });
   } catch (error) {
     logger.error('[Files] browseFolder error:', error);
@@ -510,7 +499,7 @@ exports.getStageStarFiles = async (req, res) => {
     }).sort({ created_at: -1 }).lean();
 
     const files = [];
-    let jobSummary = { total_jobs: jobs.length, message: null };
+    let jobSummary = { totalJobs: jobs.length, message: null };
 
     if (jobs.length === 0) {
       jobSummary.message = `No ${stage} jobs found. Run a ${stage} job first.`;
@@ -576,26 +565,22 @@ exports.getStageStarFiles = async (req, res) => {
         }
 
         files.push({
-          file_name: fileName,
-          file_path: filePath,
+          fileName: fileName,
+          filePath: filePath,
           id: job.id,
-          job_name: job.job_name,
-          job_status: job.status,
-          entry_count: entryCount,
-          created_at: job.created_at
+          jobName: job.job_name,
+          jobStatus: job.status,
+          entryCount: entryCount,
+          createdAt: job.created_at
         });
       }
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        project_id: projectId,
-        stage,
-        files,
-        job_summary: jobSummary
-      }
+    return response.successData(res, {
+      projectId: projectId,
+      stage,
+      files,
+      jobSummary: jobSummary
     });
   } catch (error) {
     logger.error('[Files] getStageStarFiles error:', error);
@@ -657,7 +642,7 @@ exports.getStageMrcFiles = async (req, res) => {
     }).sort({ created_at: -1 }).lean();
 
     const files = [];
-    let jobSummary = { total_jobs: jobs.length, message: null };
+    let jobSummary = { totalJobs: jobs.length, message: null };
 
     if (jobs.length === 0) {
       jobSummary.message = `No ${stage} jobs found. Run a ${stage} job first.`;
@@ -686,14 +671,14 @@ exports.getStageMrcFiles = async (req, res) => {
           if (classMatch) classNum = parseInt(classMatch[1]);
 
           jobFiles.push({
-            file_name: fileName,
-            file_path: filePath,
+            fileName: fileName,
+            filePath: filePath,
             id: job.id,
-            job_name: job.job_name,
-            job_status: job.status,
+            jobName: job.job_name,
+            jobStatus: job.status,
             iteration,
-            class_num: classNum,
-            created_at: job.created_at
+            classNum: classNum,
+            createdAt: job.created_at
           });
         }
       }
@@ -708,15 +693,11 @@ exports.getStageMrcFiles = async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        project_id: projectId,
-        stage,
-        files,
-        job_summary: jobSummary
-      }
+    return response.successData(res, {
+      projectId: projectId,
+      stage,
+      files,
+      jobSummary: jobSummary
     });
   } catch (error) {
     logger.error('[Files] getStageMrcFiles error:', error);
@@ -794,26 +775,22 @@ exports.getStageOptimiserFiles = async (req, res) => {
         const iteration = iterMatch ? parseInt(iterMatch[1]) : null;
 
         files.push({
-          file_name: fileName,
-          file_path: filePath,
+          fileName,
+          filePath,
           id: job.id,
-          job_name: job.job_name,
-          job_status: job.status,
+          jobName: job.job_name,
+          jobStatus: job.status,
           iteration,
-          created_at: job.created_at
+          createdAt: job.created_at
         });
       }
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        project_id: projectId,
-        stage,
-        files,
-        message: files.length === 0 ? `No optimiser files found for ${stage} jobs.` : message
-      }
+    return response.successData(res, {
+      projectId: projectId,
+      stage,
+      files,
+      message: files.length === 0 ? `No optimiser files found for ${stage} jobs.` : message
     });
   } catch (error) {
     logger.error('[Files] getStageOptimiserFiles error:', error);

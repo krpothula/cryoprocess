@@ -8,7 +8,7 @@ import SubmitButton from "../common/SubmitButton";
 
 const LinkMovies = () => {
   const initialFormData = {
-    source_path: "",
+    sourcePath: "",
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -85,9 +85,9 @@ const LinkMovies = () => {
         {activeTab === "Running" && (
           <div className="space-y-4">
             <SimpleInput
-              name="source_path"
+              name="sourcePath"
               label="Movies Folder:"
-              value={formData.source_path}
+              value={formData.sourcePath}
               onChange={handleInputChange}
               placeholder="/path/to/movies/folder"
               tooltipText="Full path to the folder containing your movies"

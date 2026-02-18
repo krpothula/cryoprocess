@@ -1,6 +1,6 @@
 import React from "react";
 import CustomDropdown from "../../common/Dropdown";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 
 const Optimization = ({ formData, handleInputChange, handleRangeChange ,dropdownOptions}) => {
   
@@ -21,8 +21,8 @@ const Optimization = ({ formData, handleInputChange, handleRangeChange ,dropdown
       <CustomDropdown
         label="Mask individual particles with zeros:"
         options={dropdownOptions}
-        value={formData.maskIndividualparticles}
-        name="maskIndividualparticles"
+        value={formData.maskIndividualParticles}
+        name="maskIndividualParticles"
         onChange={handleInputChange}
         tooltipText="Mask particles with zeros instead of noise. Recommended 'Yes' for most cases. Use 'No' only if particles extend to box edge."
       />

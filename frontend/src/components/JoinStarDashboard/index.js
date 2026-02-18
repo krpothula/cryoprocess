@@ -56,9 +56,8 @@ const JoinStarDashboard = () => {
   }, [selectedJob?.id, fetchResults]);
 
   const copyCommand = () => {
-    const cmd = results?.command || selectedJob?.command;
-    if (cmd) {
-      navigator.clipboard.writeText(cmd);
+    if (command) {
+      navigator.clipboard.writeText(command);
       setCommandCopied(true);
       setTimeout(() => setCommandCopied(false), 2000);
     }
@@ -78,13 +77,24 @@ const JoinStarDashboard = () => {
     }
   };
 
-  const command = results?.command || selectedJob?.command;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh]">
+        <BiLoader className="animate-spin text-primary text-4xl" />
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">Loading join results...</p>
+      </div>
+    );
+  }
+
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
 
   // Derive combining flags from parameters (DB Direct)
-  const params = selectedJob?.parameters || {};
-  const combineParticles = params.combineParticles === 'Yes' || params.combineParticles === true;
-  const combineMicrographs = params.combineMicrographs === 'Yes' || params.combineMicrographs === true;
-  const combineMovies = params.combineMovies === 'Yes' || params.combineMovies === true;
+  const combineParticles = ["Yes", "yes", "true", true].includes(params.combineParticles);
+  const combineMicrographs = ["Yes", "yes", "true", true].includes(params.combineMicrographs);
+  const combineMovies = ["Yes", "yes", "true", true].includes(params.combineMovies);
 
   // Build combined types label
   const types = [];
@@ -93,25 +103,15 @@ const JoinStarDashboard = () => {
   if (combineMovies) types.push("Movies");
 
   // Counts from pipeline_stats
-  const stats = selectedJob?.pipeline_stats || {};
-  const particleCount = stats.particle_count || 0;
-  const micrographCount = stats.micrograph_count || 0;
-  const movieCount = stats.movie_count || 0;
+  const particleCount = pStats.particleCount ?? 0;
+  const micrographCount = pStats.micrographCount ?? 0;
+  const movieCount = pStats.movieCount ?? 0;
 
-  if (loading) {
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh]">
-        <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">Loading join results...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -119,35 +119,35 @@ const JoinStarDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                JoinStar/{selectedJob?.job_name || "Job"}
+                JoinStar/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success" ? "Success"
-                  : selectedJob?.status === "running" ? "Running..."
-                  : selectedJob?.status === "pending" ? "Pending"
-                  : selectedJob?.status === "failed" ? "Error"
-                  : selectedJob?.status}
+                {status === "success" ? "Success"
+                  : status === "running" ? "Running..."
+                  : status === "pending" ? "Pending"
+                  : status === "failed" ? "Error"
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -175,7 +175,7 @@ const JoinStarDashboard = () => {
       </div>
 
       {/* Stats Card */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <FiGitMerge className="text-[var(--color-text-muted)]" size={14} />

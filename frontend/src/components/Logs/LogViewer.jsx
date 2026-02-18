@@ -9,15 +9,15 @@ const LogViewer = ({ logs }) => {
   };
 
   return (
-    <div className="bg-gray-100 dark:bg-slate-800 p-4">
+    <div className="bg-[var(--color-bg-hover)] p-4">
       {logs.map((log, index) => (
         <div key={index}>
           {/* Log Row */}
           <div
-            className="flex items-center p-3 py-2 bg-white dark:bg-slate-800 rounded border-gray-200 dark:border-slate-700 cursor-pointer"
+            className="flex items-center p-3 py-2 bg-[var(--color-bg-card)] rounded border-[var(--color-border)] cursor-pointer"
             onClick={() => toggleRow(index)}
           >
-            <span className="text-gray-500 dark:text-slate-400">
+            <span className="text-[var(--color-text-secondary)]">
               {expandedRow === index ? (
                 <FaChevronDown className="text-sm" />
               ) : (
@@ -34,9 +34,9 @@ const LogViewer = ({ logs }) => {
           {/* Details View */}
           {expandedRow === index ? (
             Array.isArray(log.details) ? (
-              <div className="p-4 bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-b-md shadow-inner">
+              <div className="p-4 bg-[var(--color-bg)] border-[var(--color-border)] rounded-b-md shadow-inner">
                 <div className="grid grid-cols-2 gap-4 font-mono text-sm max-w-[70%]">
-                  <div className="space-y-1 text-gray-700 dark:text-slate-200 text-right">
+                  <div className="space-y-1 text-[var(--color-text)] text-right">
                     {log.details.map((detail, i) => (
                       <div key={i}>{detail.label} &nbsp;&nbsp;&nbsp; : </div>
                     ))}
@@ -49,9 +49,9 @@ const LogViewer = ({ logs }) => {
                 </div>
               </div>
             ) : (
-              <div className="p-4 px-14 bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-b-md shadow-inner">
+              <div className="p-4 px-14 bg-[var(--color-bg)] border-[var(--color-border)] rounded-b-md shadow-inner">
                 <pre
-                  className="text-sm font-mono text-gray-700 dark:text-slate-200"
+                  className="text-sm font-mono text-[var(--color-text)]"
                   style={{ whiteSpace: "pre-wrap" }}
                 >
                   {log.details}

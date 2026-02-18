@@ -21,10 +21,10 @@ const AdminUsers = () => {
   const [newUser, setNewUser] = useState({
     email: "",
     username: "",
-    first_name: "",
-    last_name: "",
-    is_staff: false,
-    is_superuser: false
+    firstName: "",
+    lastName: "",
+    isStaff: false,
+    isSuperuser: false
   });
 
   useEffect(() => {
@@ -47,9 +47,9 @@ const AdminUsers = () => {
     e.preventDefault();
     try {
       const resp = await adminApi.createUser(newUser);
-      setTempPassword(resp.data.data?.temporary_password);
+      setTempPassword(resp.data.data?.temporaryPassword);
       setShowCreateModal(false);
-      setNewUser({ email: "", username: "", first_name: "", last_name: "", is_staff: false, is_superuser: false });
+      setNewUser({ email: "", username: "", firstName: "", lastName: "", isStaff: false, isSuperuser: false });
       loadUsers();
       showToast("User created successfully", { type: "success" });
     } catch (error) {
@@ -61,7 +61,7 @@ const AdminUsers = () => {
     try {
       const resp = await adminApi.resetUserPassword(userId);
       setShowPasswordModal(userId);
-      setTempPassword(resp.data.data?.temporary_password);
+      setTempPassword(resp.data.data?.temporaryPassword);
       showToast("Password reset successfully", { type: "success" });
     } catch (error) {
       showToast(error.response?.data?.message || "Failed to reset password", { type: "error" });
@@ -81,9 +81,9 @@ const AdminUsers = () => {
 
   const handleToggleAdmin = async (user) => {
     try {
-      await adminApi.updateUser(user.id, { is_superuser: !user.is_superuser });
+      await adminApi.updateUser(user.id, { isSuperuser: !user.isSuperuser });
       loadUsers();
-      showToast(`Admin rights ${user.is_superuser ? 'removed' : 'granted'}`, { type: "success" });
+      showToast(`Admin rights ${user.isSuperuser ? 'removed' : 'granted'}`, { type: "success" });
     } catch (error) {
       showToast(error.response?.data?.message || "Failed to update user", { type: "error" });
     }
@@ -92,7 +92,7 @@ const AdminUsers = () => {
   const handleGenerateApiKey = async (userId) => {
     try {
       const resp = await adminApi.generateApiKey(userId);
-      setTempApiKey(resp.data.data?.api_key);
+      setTempApiKey(resp.data.data?.apiKey);
       loadUsers();
       showToast("API key generated successfully", { type: "success" });
     } catch (error) {
@@ -158,12 +158,12 @@ const AdminUsers = () => {
                   <td>
                     <div className="user-info">
                       <div className="user-avatar">
-                        {user.is_superuser ? <FiShield /> : <FiUser />}
+                        {user.isSuperuser ? <FiShield /> : <FiUser />}
                       </div>
                       <div>
                         <span className="user-name">
-                          {user.first_name || user.last_name
-                            ? `${user.first_name} ${user.last_name}`.trim()
+                          {user.firstName || user.lastName
+                            ? `${user.firstName} ${user.lastName}`.trim()
                             : user.username}
                         </span>
                         <span className="user-username">@{user.username}</span>
@@ -172,26 +172,26 @@ const AdminUsers = () => {
                   </td>
                   <td>{user.email}</td>
                   <td>
-                    <span className={`role-badge ${user.is_superuser ? 'admin' : user.is_staff ? 'staff' : 'user'}`}>
-                      {user.is_superuser ? 'Admin' : user.is_staff ? 'Staff' : 'User'}
+                    <span className={`role-badge ${user.isSuperuser ? 'admin' : user.isStaff ? 'staff' : 'user'}`}>
+                      {user.isSuperuser ? 'Admin' : user.isStaff ? 'Staff' : 'User'}
                     </span>
                   </td>
                   <td>
                     <div className="status-cell">
-                      <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                        {user.is_active ? 'Active' : 'Inactive'}
+                      <span className={`status-badge ${user.isActive ? 'active' : 'inactive'}`}>
+                        {user.isActive ? 'Active' : 'Inactive'}
                       </span>
-                      {user.must_change_password && (
+                      {user.mustChangePassword && (
                         <span className="password-badge">Must change password</span>
                       )}
-                      {user.has_api_key && (
+                      {user.hasApiKey && (
                         <span className="api-key-badge">API Key</span>
                       )}
                     </div>
                   </td>
                   <td className="last-login">
-                    {user.last_login
-                      ? new Date(user.last_login).toLocaleDateString()
+                    {user.lastLogin
+                      ? new Date(user.lastLogin).toLocaleDateString()
                       : 'Never'}
                   </td>
                   <td>
@@ -207,12 +207,12 @@ const AdminUsers = () => {
                       <button
                         className="action-btn api-key"
                         onClick={() => setApiKeyConfirm(user)}
-                        title={user.has_api_key ? "Regenerate API Key" : "Generate API Key"}
+                        title={user.hasApiKey ? "Regenerate API Key" : "Generate API Key"}
                       >
                         <FiLink size={14} />
-                        <span>{user.has_api_key ? 'Regen Key' : 'API Key'}</span>
+                        <span>{user.hasApiKey ? 'Regen Key' : 'API Key'}</span>
                       </button>
-                      {user.has_api_key && (
+                      {user.hasApiKey && (
                         <button
                           className="action-btn revoke"
                           onClick={() => setRevokeConfirm(user)}
@@ -223,12 +223,12 @@ const AdminUsers = () => {
                         </button>
                       )}
                       <button
-                        className={`action-btn role ${user.is_superuser ? 'is-admin' : ''}`}
+                        className={`action-btn role ${user.isSuperuser ? 'is-admin' : ''}`}
                         onClick={() => setRoleConfirm(user)}
-                        title={user.is_superuser ? 'Remove Admin' : 'Make Admin'}
+                        title={user.isSuperuser ? 'Remove Admin' : 'Make Admin'}
                       >
                         <FiShield size={14} />
-                        <span>{user.is_superuser ? 'Demote' : 'Promote'}</span>
+                        <span>{user.isSuperuser ? 'Demote' : 'Promote'}</span>
                       </button>
                       <button
                         className="action-btn delete"
@@ -284,46 +284,46 @@ const AdminUsers = () => {
                   <label>First Name</label>
                   <input
                     type="text"
-                    value={newUser.first_name}
-                    onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
+                    value={newUser.firstName}
+                    onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
                   />
                 </div>
                 <div className="form-group">
                   <label>Last Name</label>
                   <input
                     type="text"
-                    value={newUser.last_name}
-                    onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
+                    value={newUser.lastName}
+                    onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
                   />
                 </div>
               </div>
               <div className="form-group role-group">
                 <label>Role</label>
                 <div className="role-options-horizontal">
-                  <label className={`role-chip ${!newUser.is_staff && !newUser.is_superuser ? 'selected' : ''}`}>
+                  <label className={`role-chip ${!newUser.isStaff && !newUser.isSuperuser ? 'selected' : ''}`}>
                     <input
                       type="radio"
                       name="role"
-                      checked={!newUser.is_staff && !newUser.is_superuser}
-                      onChange={() => setNewUser({ ...newUser, is_staff: false, is_superuser: false })}
+                      checked={!newUser.isStaff && !newUser.isSuperuser}
+                      onChange={() => setNewUser({ ...newUser, isStaff: false, isSuperuser: false })}
                     />
                     <span>User</span>
                   </label>
-                  <label className={`role-chip ${newUser.is_staff && !newUser.is_superuser ? 'selected' : ''}`}>
+                  <label className={`role-chip ${newUser.isStaff && !newUser.isSuperuser ? 'selected' : ''}`}>
                     <input
                       type="radio"
                       name="role"
-                      checked={newUser.is_staff && !newUser.is_superuser}
-                      onChange={() => setNewUser({ ...newUser, is_staff: true, is_superuser: false })}
+                      checked={newUser.isStaff && !newUser.isSuperuser}
+                      onChange={() => setNewUser({ ...newUser, isStaff: true, isSuperuser: false })}
                     />
                     <span>Staff</span>
                   </label>
-                  <label className={`role-chip ${newUser.is_superuser ? 'selected' : ''}`}>
+                  <label className={`role-chip ${newUser.isSuperuser ? 'selected' : ''}`}>
                     <input
                       type="radio"
                       name="role"
-                      checked={newUser.is_superuser}
-                      onChange={() => setNewUser({ ...newUser, is_staff: true, is_superuser: true })}
+                      checked={newUser.isSuperuser}
+                      onChange={() => setNewUser({ ...newUser, isStaff: true, isSuperuser: true })}
                     />
                     <span>Admin</span>
                   </label>
@@ -394,29 +394,29 @@ const AdminUsers = () => {
       {/* Role Change Confirm Modal */}
       {roleConfirm && (
         <div className="modal-overlay" role="presentation">
-          <div className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-label={roleConfirm.is_superuser ? 'Remove admin rights confirmation' : 'Grant admin rights confirmation'}>
-            <div className={`confirm-icon ${roleConfirm.is_superuser ? 'demote-icon' : 'promote-icon'}`} aria-hidden="true">
+          <div className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-label={roleConfirm.isSuperuser ? 'Remove admin rights confirmation' : 'Grant admin rights confirmation'}>
+            <div className={`confirm-icon ${roleConfirm.isSuperuser ? 'demote-icon' : 'promote-icon'}`} aria-hidden="true">
               <FiShield size={24} />
             </div>
-            <h3>{roleConfirm.is_superuser ? 'Remove Admin Rights?' : 'Grant Admin Rights?'}</h3>
+            <h3>{roleConfirm.isSuperuser ? 'Remove Admin Rights?' : 'Grant Admin Rights?'}</h3>
             <p>
-              {roleConfirm.is_superuser
+              {roleConfirm.isSuperuser
                 ? <>Remove admin privileges from <strong>{roleConfirm.email}</strong>?</>
                 : <>Grant admin privileges to <strong>{roleConfirm.email}</strong>?</>
               }
             </p>
             <p className="confirm-note">
-              {roleConfirm.is_superuser
+              {roleConfirm.isSuperuser
                 ? 'They will no longer be able to manage users.'
                 : 'They will be able to create, edit, and delete users.'
               }
             </p>
             <div className="modal-actions">
               <button className="btn-cancel" onClick={() => setRoleConfirm(null)}>Cancel</button>
-              <button className={roleConfirm.is_superuser ? 'btn-warning' : 'btn-primary'} onClick={() => {
+              <button className={roleConfirm.isSuperuser ? 'btn-warning' : 'btn-primary'} onClick={() => {
                 handleToggleAdmin(roleConfirm);
                 setRoleConfirm(null);
-              }}>{roleConfirm.is_superuser ? 'Remove Admin' : 'Make Admin'}</button>
+              }}>{roleConfirm.isSuperuser ? 'Remove Admin' : 'Make Admin'}</button>
             </div>
           </div>
         </div>
@@ -475,9 +475,9 @@ const AdminUsers = () => {
             <div className="confirm-icon promote-icon" aria-hidden="true">
               <FiLink size={24} />
             </div>
-            <h3>{apiKeyConfirm.has_api_key ? 'Regenerate API Key?' : 'Generate API Key?'}</h3>
+            <h3>{apiKeyConfirm.hasApiKey ? 'Regenerate API Key?' : 'Generate API Key?'}</h3>
             <p>
-              {apiKeyConfirm.has_api_key
+              {apiKeyConfirm.hasApiKey
                 ? <>This will replace the existing API key for <strong>{apiKeyConfirm.email}</strong>. The old key will stop working immediately.</>
                 : <>Generate an API key for <strong>{apiKeyConfirm.email}</strong>?</>
               }

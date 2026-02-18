@@ -12,6 +12,7 @@ const Project = require('../models/Project');
 const Job = require('../models/Job');
 const response = require('../utils/responseHelper');
 const { getProjectPath } = require('../utils/pathUtils');
+const { mapKeys } = require('../utils/mapKeys');
 
 /**
  * Create a new live session (and optionally a new project)
@@ -21,41 +22,41 @@ exports.createSession = async (req, res) => {
   try {
     const {
       // Project fields (if creating new project)
-      project_name,
+      projectName,
       description,
       // Or existing project
-      project_id: existingProjectId,
+      projectId: existingProjectId,
       // Session config
-      input_mode,
-      watch_directory,
-      file_pattern,
+      inputMode,
+      watchDirectory,
+      filePattern,
       optics,
-      motion_config,
-      ctf_config,
-      picking_config,
-      extraction_config,
-      class2d_config,
+      motionConfig,
+      ctfConfig,
+      pickingConfig,
+      extractionConfig,
+      class2dConfig,
       thresholds,
-      slurm_config
+      slurmConfig
     } = req.body;
 
-    // Validate input_mode
-    if (input_mode && !['watch', 'existing'].includes(input_mode)) {
-      return response.badRequest(res, 'input_mode must be "watch" or "existing"');
+    // Validate inputMode
+    if (inputMode && !['watch', 'existing'].includes(inputMode)) {
+      return response.badRequest(res, 'inputMode must be "watch" or "existing"');
     }
 
     // Validate watch directory
-    if (!watch_directory) {
+    if (!watchDirectory) {
       return response.badRequest(res, 'Watch directory is required');
     }
 
     // Validate optics
-    if (!optics || !optics.pixel_size || !optics.voltage || !optics.cs) {
-      return response.badRequest(res, 'Optics parameters (pixel_size, voltage, cs) are required');
+    if (!optics || !optics.pixelSize || !optics.voltage || !optics.cs) {
+      return response.badRequest(res, 'Optics parameters (pixelSize, voltage, cs) are required');
     }
 
     // Validate optics numeric ranges
-    if (optics.pixel_size <= 0) {
+    if (optics.pixelSize <= 0) {
       return response.badRequest(res, 'Pixel size must be positive');
     }
     if (optics.voltage <= 0) {
@@ -64,23 +65,23 @@ exports.createSession = async (req, res) => {
 
     // Validate watch directory exists
     try {
-      const stats = fs.statSync(watch_directory);
+      const stats = fs.statSync(watchDirectory);
       if (!stats.isDirectory()) {
         return response.badRequest(res, 'Watch directory path is not a directory');
       }
     } catch (err) {
-      return response.badRequest(res, `Watch directory does not exist: ${watch_directory}`);
+      return response.badRequest(res, `Watch directory does not exist: ${watchDirectory}`);
     }
 
     let projectId = existingProjectId;
 
-    // Create new project if project_name is provided
-    if (project_name && !existingProjectId) {
+    // Create new project if projectName is provided
+    if (projectName && !existingProjectId) {
       const project = new Project({
         id: Project.generateId(),
-        project_name,
+        project_name: projectName,
         description: description || '',
-        folder_name: project_name.replace(/[^a-zA-Z0-9_-]/g, '_'),
+        folder_name: projectName.replace(/[^a-zA-Z0-9_-]/g, '_'),
         created_by_id: req.user.id
       });
 
@@ -92,11 +93,11 @@ exports.createSession = async (req, res) => {
 
       await project.save();
       projectId = project.id;
-      logger.info(`[LiveSession] Created project "${project_name}" (${projectId})`);
+      logger.info(`[LiveSession] Created project "${projectName}" (${projectId})`);
     }
 
     if (!projectId) {
-      return response.badRequest(res, 'Either project_id or project_name is required');
+      return response.badRequest(res, 'Either projectId or projectName is required');
     }
 
     // Verify project exists
@@ -114,23 +115,23 @@ exports.createSession = async (req, res) => {
       project_id: projectId,
       user_id: req.user.id,
       session_name: sessionName,
-      input_mode: input_mode || 'watch',
-      watch_directory,
-      file_pattern: file_pattern || '*.tiff',
+      input_mode: inputMode || 'watch',
+      watch_directory: watchDirectory,
+      file_pattern: filePattern || '*.tiff',
       optics: {
-        pixel_size: optics.pixel_size,
+        pixel_size: optics.pixelSize,
         voltage: optics.voltage,
         cs: optics.cs,
-        amplitude_contrast: optics.amplitude_contrast || 0.1,
-        optics_group_name: optics.optics_group_name || 'opticsGroup1'
+        amplitude_contrast: optics.amplitudeContrast || 0.1,
+        optics_group_name: optics.opticsGroupName || 'opticsGroup1'
       },
-      motion_config: motion_config || {},
-      ctf_config: ctf_config || {},
-      picking_config: picking_config || {},
-      extraction_config: extraction_config || {},
-      class2d_config: class2d_config || {},
+      motion_config: motionConfig || {},
+      ctf_config: ctfConfig || {},
+      picking_config: pickingConfig || {},
+      extraction_config: extractionConfig || {},
+      class2d_config: class2dConfig || {},
       thresholds: thresholds || {},
-      slurm_config: slurm_config || {},
+      slurm_config: slurmConfig || {},
       activity_log: [{
         timestamp: new Date(),
         event: 'session_created',
@@ -143,10 +144,10 @@ exports.createSession = async (req, res) => {
     logger.info(`[LiveSession] Created session "${sessionName}" (${sessionId}) for project ${projectId}`);
 
     return response.success(res, {
-      data: session,
-      project_id: projectId,
-      session_id: sessionId,
-      session_name: sessionName
+      data: mapKeys(session.toObject()),
+      projectId,
+      sessionId,
+      sessionName
     });
   } catch (error) {
     logger.error(`[LiveSession] Create failed: ${error.message}`);
@@ -290,7 +291,7 @@ exports.getSession = async (req, res) => {
       return response.notFound(res, 'Session not found');
     }
 
-    return response.success(res, { data: session });
+    return response.success(res, { data: mapKeys(session) });
   } catch (error) {
     logger.error(`[LiveSession] Get failed: ${error.message}`);
     return response.serverError(res, error.message);
@@ -332,7 +333,7 @@ exports.getSessionStats = async (req, res) => {
     return response.success(res, {
       data: {
         state: session.state,
-        jobs: jobsByType,
+        jobs: mapKeys(jobsByType),
         thresholds: session.thresholds
       }
     });
@@ -389,11 +390,11 @@ exports.getSessionExposures = async (req, res) => {
 
     const micrographs = (starData.files || []).map(mic => ({
       filename: path.basename(mic.rlnMicrographName || ''),
-      ctf_resolution: mic.rlnCtfMaxResolution || null,
-      defocus_u: mic.rlnDefocusU || null,
-      defocus_v: mic.rlnDefocusV || null,
+      ctfResolution: mic.rlnCtfMaxResolution || null,
+      defocusU: mic.rlnDefocusU || null,
+      defocusV: mic.rlnDefocusV || null,
       astigmatism: mic.rlnCtfAstigmatism || null,
-      phase_shift: mic.rlnPhaseShift || null
+      phaseShift: mic.rlnPhaseShift || null
     }));
 
     const total = micrographs.length;
@@ -462,7 +463,7 @@ exports.getSessionActivity = async (req, res) => {
       .slice(-parseInt(limit))
       .reverse(); // Most recent first
 
-    return response.success(res, { data: logs, total, unfiltered_total: unfilteredTotal });
+    return response.success(res, { data: logs.map(mapKeys), total, unfilteredTotal });
   } catch (error) {
     logger.error(`[LiveSession] Activity failed: ${error.message}`);
     return response.serverError(res, error.message);
@@ -482,7 +483,7 @@ exports.listProjectSessions = async (req, res) => {
       .select('id session_name status state input_mode created_at start_time end_time')
       .lean();
 
-    return response.success(res, { data: sessions });
+    return response.success(res, { data: sessions.map(mapKeys) });
   } catch (error) {
     logger.error(`[LiveSession] List failed: ${error.message}`);
     return response.serverError(res, error.message);

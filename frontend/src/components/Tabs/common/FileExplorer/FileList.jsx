@@ -35,13 +35,13 @@ const FileList = () => {
         <div
           key={index}
           className={`flex justify-between flex-wrap items-center ${
-            isEvenRow ? "bg-lightgray" : "bg-white dark:bg-slate-800"
+            isEvenRow ? "bg-lightgray" : "bg-[var(--color-bg-card)]"
           }
            ${
              item.type === "file" &&
              item.name === selectedFile?.name &&
              item.path === selectedFile?.path
-               ? "border-l-4 border-black !bg-[#d3daea]"
+               ? "border-l-4 border-[var(--color-primary)] !bg-[var(--color-bg-active)]"
                : ""
            }
           `}
@@ -49,8 +49,8 @@ const FileList = () => {
           <div
             style={{ paddingLeft: level * 16 }}
             className={`cursor-pointer flex-1 p-2 rounded text-sm ${
-              item.type === "folder" ? "font-medium text-black" : "text-black"
-            } hover:text-[#000]`}
+              item.type === "folder" ? "font-medium text-[var(--color-text)]" : "text-[var(--color-text)]"
+            } hover:text-[var(--color-text-heading)]`}
             onClick={() => {
               if (item.type === "folder") {
                 toggleFolder(item.name, newPath);
@@ -73,10 +73,10 @@ const FileList = () => {
               {item.name}
             </span>
           </div>
-          <div className="w-40 text-gray-600 text-sm">
+          <div className="w-40 text-[var(--color-text-secondary)] text-sm">
             {item.lastModified || "-"}
           </div>
-          <div className="w-20 text-gray-600 text-sm">{item.size || "-"}</div>
+          <div className="w-20 text-[var(--color-text-secondary)] text-sm">{item.size || "-"}</div>
 
           {/* Render nested children if folder is open */}
           {item.type === "folder" &&
@@ -100,7 +100,7 @@ const FileList = () => {
     <>
       <div className="rounded-lg relative h-full">
         {/* Table Header */}
-        <div className="flex justify-between text-midgray text-sm font-medium p-2 border-b border-gray-300">
+        <div className="flex justify-between text-midgray text-sm font-medium p-2 border-b border-[var(--color-border)]">
           <div className="flex-1">File Name</div>
           <div className="w-40">Last Modified</div>
           <div className="w-20">Size</div>
@@ -112,7 +112,7 @@ const FileList = () => {
           style={{ height: "calc(100% - 200px)" }}
         >
           {isLoading ? (
-            <p className="flex font-normal items-center text-black/80 mb-5">
+            <p className="flex font-normal items-center text-[var(--color-text-secondary)] mb-5">
               <BiLoader className="mr-1 text-xl animate-spin" />
               Loading, please wait
             </p>
@@ -121,10 +121,10 @@ const FileList = () => {
           )}
         </div>
       </div>
-      <div className="flex justify-end w-full bg-white dark:bg-slate-800 mt-2 absolute bottom-0">
+      <div className="flex justify-end w-full bg-[var(--color-bg-card)] mt-2 absolute bottom-0">
         {selectedFile?.path ? (
-          <p className="mr-auto text-black/80 font-medium text-sm">
-            Selected File: <span className="text-black font-semibold">{selectedFile?.path}</span>
+          <p className="mr-auto text-[var(--color-text-secondary)] font-medium text-sm">
+            Selected File: <span className="text-[var(--color-text)] font-semibold">{selectedFile?.path}</span>
           </p>
         ) : (
           ""

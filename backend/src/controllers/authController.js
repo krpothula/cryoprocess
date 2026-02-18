@@ -36,7 +36,7 @@ const setAuthCookie = (res, token) => {
  */
 exports.register = async (req, res) => {
   try {
-    const { username, email, password, first_name = '', last_name = '' } = req.body;
+    const { username, email, password, firstName = '', lastName = '' } = req.body;
 
     if (!username || !email || !password) {
       return response.badRequest(res, 'Username, email, and password are required');
@@ -76,8 +76,8 @@ exports.register = async (req, res) => {
       username: username.toLowerCase(),
       email: email.toLowerCase(),
       password,
-      first_name,
-      last_name
+      first_name: firstName,
+      last_name: lastName
     });
 
     // Generate token and set HttpOnly cookie
@@ -93,8 +93,8 @@ exports.register = async (req, res) => {
           id: user.id,
           username: user.username,
           email: user.email,
-          first_name: user.first_name,
-          last_name: user.last_name
+          firstName: user.first_name,
+          lastName: user.last_name
         }
       }
     });
@@ -149,10 +149,10 @@ exports.login = async (req, res) => {
         id: user.id,
         username: user.username,
         email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        is_staff: user.is_staff,
-        is_superuser: user.is_superuser
+        firstName: user.first_name,
+        lastName: user.last_name,
+        isStaff: user.is_staff,
+        isSuperuser: user.is_superuser
       }
     });
   } catch (error) {
@@ -178,17 +178,17 @@ exports.getCurrentUser = async (req, res) => {
       id: user.id,
       username: user.username,
       email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      is_staff: user.is_staff,
-      is_superuser: user.is_superuser,
-      date_joined: user.date_joined,
-      last_login: user.last_login,
-      notify_email_default: user.notify_email_default !== false,
-      cluster_username: user.cluster_username || '',
-      cluster_connected: user.cluster_connected || false,
-      cluster_enabled: user.cluster_enabled || false,
-      cluster_ssh_key_set: !!user.cluster_ssh_key
+      firstName: user.first_name,
+      lastName: user.last_name,
+      isStaff: user.is_staff,
+      isSuperuser: user.is_superuser,
+      dateJoined: user.date_joined,
+      lastLogin: user.last_login,
+      notifyEmailDefault: user.notify_email_default !== false,
+      clusterUsername: user.cluster_username || '',
+      clusterConnected: user.cluster_connected || false,
+      clusterEnabled: user.cluster_enabled || false,
+      clusterSshKeySet: !!user.cluster_ssh_key
     });
   } catch (error) {
     logger.error('[Auth] getCurrentUser error:', error);
@@ -209,7 +209,7 @@ exports.getPasswordStatus = async (req, res) => {
     }
 
     return response.success(res, {
-      must_change_password: user.must_change_password || false
+      mustChangePassword: user.must_change_password || false
     });
   } catch (error) {
     logger.error('[Auth] getPasswordStatus error:', error);
@@ -223,18 +223,18 @@ exports.getPasswordStatus = async (req, res) => {
  */
 exports.changePassword = async (req, res) => {
   try {
-    const { current_password, new_password, confirm_password } = req.body;
+    const { currentPassword, newPassword, confirmPassword } = req.body;
 
-    if (!current_password || !new_password) {
+    if (!currentPassword || !newPassword) {
       return response.badRequest(res, 'Current password and new password are required');
     }
 
-    if (new_password !== confirm_password) {
+    if (newPassword !== confirmPassword) {
       return response.badRequest(res, 'New password and confirmation do not match');
     }
 
     // Validate password strength
-    const passwordValidation = validatePassword(new_password);
+    const passwordValidation = validatePassword(newPassword);
     if (!passwordValidation.valid) {
       return response.badRequest(res, passwordValidation.errors.join(', '));
     }
@@ -247,13 +247,13 @@ exports.changePassword = async (req, res) => {
     }
 
     // Verify current password
-    const isMatch = await user.comparePassword(current_password);
+    const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
       return response.unauthorized(res, 'Current password is incorrect');
     }
 
     // Update password
-    user.password = new_password;
+    user.password = newPassword;
     user.must_change_password = false;
     await user.save();
 
@@ -273,7 +273,7 @@ exports.changePassword = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
   try {
-    const { first_name, last_name, email, notify_email_default } = req.body;
+    const { firstName, lastName, email, notifyEmailDefault } = req.body;
 
     const user = await User.findOne({ id: req.user.id });
     if (!user) {
@@ -293,9 +293,9 @@ exports.updateProfile = async (req, res) => {
     }
 
     // Update fields if provided
-    if (first_name !== undefined) user.first_name = first_name;
-    if (last_name !== undefined) user.last_name = last_name;
-    if (notify_email_default !== undefined) user.notify_email_default = !!notify_email_default;
+    if (firstName !== undefined) user.first_name = firstName;
+    if (lastName !== undefined) user.last_name = lastName;
+    if (notifyEmailDefault !== undefined) user.notify_email_default = !!notifyEmailDefault;
 
     await user.save();
 
@@ -305,11 +305,11 @@ exports.updateProfile = async (req, res) => {
       id: user.id,
       username: user.username,
       email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      is_staff: user.is_staff,
-      is_superuser: user.is_superuser,
-      notify_email_default: user.notify_email_default !== false
+      firstName: user.first_name,
+      lastName: user.last_name,
+      isStaff: user.is_staff,
+      isSuperuser: user.is_superuser,
+      notifyEmailDefault: user.notify_email_default !== false
     });
   } catch (error) {
     logger.error('[Auth] updateProfile error:', error);
@@ -373,37 +373,37 @@ exports.refreshToken = async (req, res) => {
  */
 exports.updateClusterSettings = async (req, res) => {
   try {
-    const { cluster_username, cluster_ssh_key, cluster_enabled } = req.body;
+    const { clusterUsername, clusterSshKey, clusterEnabled } = req.body;
 
     const user = await User.findOne({ id: req.user.id });
     if (!user) {
       return response.notFound(res, 'User not found');
     }
 
-    if (cluster_username !== undefined) {
-      const trimmed = cluster_username.trim();
+    if (clusterUsername !== undefined) {
+      const trimmed = clusterUsername.trim();
       if (trimmed && !/^[a-zA-Z0-9_.\-]+$/.test(trimmed)) {
         return response.badRequest(res, 'Cluster username contains invalid characters');
       }
       user.cluster_username = trimmed;
     }
 
-    if (cluster_ssh_key !== undefined) {
-      if (cluster_ssh_key === '') {
+    if (clusterSshKey !== undefined) {
+      if (clusterSshKey === '') {
         user.cluster_ssh_key = '';
         user.cluster_enabled = false;
       } else {
-        user.cluster_ssh_key = encryptField(cluster_ssh_key);
+        user.cluster_ssh_key = encryptField(clusterSshKey);
       }
       user.cluster_connected = false;
     }
 
-    if (cluster_enabled !== undefined) {
+    if (clusterEnabled !== undefined) {
       // Only allow enabling if credentials are configured and tested
-      if (cluster_enabled && !user.cluster_connected) {
+      if (clusterEnabled && !user.cluster_connected) {
         return response.badRequest(res, 'Test your connection first before enabling');
       }
-      user.cluster_enabled = !!cluster_enabled;
+      user.cluster_enabled = !!clusterEnabled;
     }
 
     await user.save();
@@ -411,10 +411,10 @@ exports.updateClusterSettings = async (req, res) => {
     logger.info(`[Auth] Cluster settings updated for user: ${user.username} (enabled: ${user.cluster_enabled})`);
 
     return response.successData(res, {
-      cluster_username: user.cluster_username,
-      cluster_connected: user.cluster_connected,
-      cluster_enabled: user.cluster_enabled,
-      cluster_ssh_key_set: !!user.cluster_ssh_key
+      clusterUsername: user.cluster_username,
+      clusterConnected: user.cluster_connected,
+      clusterEnabled: user.cluster_enabled,
+      clusterSshKeySet: !!user.cluster_ssh_key
     });
   } catch (error) {
     logger.error('[Auth] updateClusterSettings error:', error);
@@ -599,17 +599,17 @@ exports.forgotPassword = async (req, res) => {
  */
 exports.resetPassword = async (req, res) => {
   try {
-    const { token, new_password, confirm_password } = req.body;
+    const { token, newPassword, confirmPassword } = req.body;
 
-    if (!token || !new_password) {
+    if (!token || !newPassword) {
       return response.badRequest(res, 'Token and new password are required');
     }
 
-    if (new_password !== confirm_password) {
+    if (newPassword !== confirmPassword) {
       return response.badRequest(res, 'New password and confirmation do not match');
     }
 
-    const passwordValidation = validatePassword(new_password);
+    const passwordValidation = validatePassword(newPassword);
     if (!passwordValidation.valid) {
       return response.badRequest(res, passwordValidation.errors.join(', '));
     }
@@ -631,7 +631,7 @@ exports.resetPassword = async (req, res) => {
       return response.badRequest(res, 'Invalid or expired reset token');
     }
 
-    user.password = new_password;
+    user.password = newPassword;
     user.must_change_password = false;
     await user.save();
 

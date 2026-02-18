@@ -64,12 +64,3 @@ export const getMovieAllFramesApi = (moviePath, maxFrames = 50, size = 256, jobI
 export const generateThumbnailsApi = (jobId, size = 512) => {
   return axiosInstance.post(`/api/import/generate-thumbnails/${jobId}/`, { size });
 };
-
-/**
- * Get thumbnail URL for a movie
- * @param {string} jobId - Job ID
- * @param {string} filename - Thumbnail filename (e.g., "movie_name.png")
- */
-export const getThumbnailUrl = (jobId, filename) => {
-  return `/api/import/thumbnail/${jobId}/${filename}`;
-};

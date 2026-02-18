@@ -96,7 +96,7 @@ class Class2DBuilder extends BaseJobBuilder {
     if (continueFrom) {
       logger.info(`[Class2D] Continuing from optimiser file: ${continueFrom}`);
       cmd.push('--o', relOutputDir + path.sep);
-      cmd.push('--continue', continueFrom);
+      cmd.push('--continue', this.makeRelative(this.resolveInputPath(continueFrom)));
       cmd.push('--dont_combine_weights_via_disc');
       cmd.push('--pool', String(pooled));
       cmd.push('--j', String(threads));
@@ -183,7 +183,7 @@ class Class2DBuilder extends BaseJobBuilder {
           cmd.push('--bimodal_psi');
         }
 
-        cmd.push('--helical_rise', String(getFloatParam(data, ['helicalRise'], 4.75)));
+        cmd.push('--helical_rise_initial', String(getFloatParam(data, ['helicalRise'], 4.75)));
 
         if (getBoolParam(data, ['restrictHelicalOffsets'], false)) {
           cmd.push('--helical_offset_step', String(offsetStep));

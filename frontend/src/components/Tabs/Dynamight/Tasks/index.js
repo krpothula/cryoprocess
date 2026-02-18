@@ -1,6 +1,6 @@
 import React from "react";
 import CustomInput from "../../common/Input";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import CustomDropdown from "../../common/Dropdown";
 
 const Tasks = ({
@@ -26,8 +26,8 @@ const Tasks = ({
       <CustomDropdown
         label="Do visualization?"
         options={dropdownOptions}
-        value={formData.doVisulization}
-        name="doVisulization"
+        value={formData.doVisualization}
+        name="doVisualization"
         onChange={handleInputChange}
         tooltipText="Generate visualization of the flexibility analysis results."
       />

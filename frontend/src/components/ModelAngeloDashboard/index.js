@@ -108,7 +108,7 @@ const ModelAngeloDashboard = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${selectedJob.job_name || "model"}.pdb`;
+      a.download = `${selectedJob.jobName || "model"}.pdb`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -122,18 +122,23 @@ const ModelAngeloDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading ModelAngelo results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -141,41 +146,39 @@ const ModelAngeloDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                ModelAngelo/{selectedJob?.job_name || "Job"}
+                ModelAngelo/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -189,7 +192,7 @@ const ModelAngeloDashboard = () => {
                 <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
-            {showCommand && selectedJob?.command && (
+            {showCommand && command && (
               <button
                 onClick={copyCommand}
                 className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
@@ -213,48 +216,48 @@ const ModelAngeloDashboard = () => {
                 lineHeight: '1.4'
               }}
             >
-              {selectedJob?.command || "Command not available for this job"}
+              {command || "Command not available for this job"}
             </div>
           )}
         </div>
       </div>
 
       {/* Stats Card - Merged */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Chains:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.num_chains || 0}
+              {results?.numChains ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiDatabase className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Residues:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.num_residues?.toLocaleString() || 0}
+              {results?.numResidues?.toLocaleString() ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiFileText className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>PDB Output:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.has_pdb ? "Yes" : "No"}
+              {results?.hasPdb ? "Yes" : "No"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiSearch className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>HMMER:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {results?.has_hmmer_results ? "Done" : results?.perform_hmmer === "Yes" ? "Pending" : "No"}
+              {results?.hasHmmerResults ? "Done" : results?.performHmmer === "Yes" ? "Pending" : "No"}
             </span>
           </div>
         </div>
       </div>
 
       {/* Model Info */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiFileText className="text-blue-500" />
@@ -262,10 +265,10 @@ const ModelAngeloDashboard = () => {
           </h3>
 
           <div className="flex items-center gap-3">
-            {results?.has_pdb && (
+            {results?.hasPdb && (
               <button
                 onClick={downloadPDB}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-lg transition-colors"
               >
                 <FiDownload />
                 Download PDB
@@ -281,7 +284,7 @@ const ModelAngeloDashboard = () => {
           </div>
         </div>
 
-        {results?.has_pdb ? (
+        {results?.hasPdb ? (
           <div className="bg-[var(--color-bg)] rounded-lg p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -289,19 +292,19 @@ const ModelAngeloDashboard = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">Total Chains:</span>
-                    <span className="font-medium">{results?.num_chains || 0}</span>
+                    <span className="font-medium">{results?.numChains ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">Total Residues:</span>
-                    <span className="font-medium">{results?.num_residues?.toLocaleString() || 0}</span>
+                    <span className="font-medium">{results?.numResidues?.toLocaleString() ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">PDB Available:</span>
-                    <span className="font-medium text-green-600">Yes</span>
+                    <span className="font-medium text-[var(--color-success)]">Yes</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">mmCIF Available:</span>
-                    <span className="font-medium">{results?.has_cif ? "Yes" : "No"}</span>
+                    <span className="font-medium">{results?.hasCif ? "Yes" : "No"}</span>
                   </div>
                 </div>
               </div>
@@ -310,19 +313,19 @@ const ModelAngeloDashboard = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">Protein FASTA:</span>
-                    <span className="font-medium">{results?.has_protein_fasta ? "Provided" : "No"}</span>
+                    <span className="font-medium">{results?.hasProteinFasta ? "Provided" : "No"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">DNA FASTA:</span>
-                    <span className="font-medium">{results?.has_dna_fasta ? "Provided" : "No"}</span>
+                    <span className="font-medium">{results?.hasDnaFasta ? "Provided" : "No"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">RNA FASTA:</span>
-                    <span className="font-medium">{results?.has_rna_fasta ? "Provided" : "No"}</span>
+                    <span className="font-medium">{results?.hasRnaFasta ? "Provided" : "No"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--color-text-secondary)]">HMMER Search:</span>
-                    <span className="font-medium">{results?.perform_hmmer || "No"}</span>
+                    <span className="font-medium">{results?.performHmmer || "No"}</span>
                   </div>
                 </div>
               </div>
@@ -334,7 +337,7 @@ const ModelAngeloDashboard = () => {
             <p className="text-lg font-medium">No Model Yet</p>
             <p className="text-sm text-center mt-2">
               The atomic model will appear here once ModelAngelo completes.
-              {selectedJob?.status === "running" && (
+              {status === "running" && (
                 <span className="block mt-2 text-amber-500">Job is currently running...</span>
               )}
             </p>
@@ -343,23 +346,23 @@ const ModelAngeloDashboard = () => {
       </div>
 
       {/* Output Status */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
           <FiCheckCircle className="text-green-500" />
           Output Status
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className={`p-3 rounded-lg ${results?.has_pdb ? 'bg-[var(--color-success-bg)] text-green-700' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
-            PDB File: {results?.has_pdb ? "Available" : "Pending"}
+          <div className={`p-3 rounded-lg ${results?.hasPdb ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
+            PDB File: {results?.hasPdb ? "Available" : "Pending"}
           </div>
-          <div className={`p-3 rounded-lg ${results?.has_cif ? 'bg-[var(--color-success-bg)] text-green-700' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
-            mmCIF File: {results?.has_cif ? "Available" : "Pending"}
+          <div className={`p-3 rounded-lg ${results?.hasCif ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
+            mmCIF File: {results?.hasCif ? "Available" : "Pending"}
           </div>
-          <div className={`p-3 rounded-lg ${results?.has_hmmer_results ? 'bg-[var(--color-success-bg)] text-green-700' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
-            HMMER Results: {results?.has_hmmer_results ? "Available" : results?.perform_hmmer === "Yes" ? "Pending" : "N/A"}
+          <div className={`p-3 rounded-lg ${results?.hasHmmerResults ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
+            HMMER Results: {results?.hasHmmerResults ? "Available" : results?.performHmmer === "Yes" ? "Pending" : "N/A"}
           </div>
-          <div className={`p-3 rounded-lg ${results?.has_logfile_pdf ? 'bg-[var(--color-success-bg)] text-green-700' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
-            Log File: {results?.has_logfile_pdf ? "Available" : "Pending"}
+          <div className={`p-3 rounded-lg ${results?.hasLogfilePdf ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]' : 'bg-[var(--color-bg)] text-[var(--color-text-secondary)]'}`}>
+            Log File: {results?.hasLogfilePdf ? "Available" : "Pending"}
           </div>
         </div>
       </div>

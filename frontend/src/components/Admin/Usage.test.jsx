@@ -25,12 +25,12 @@ const { getUsageReport, downloadUsageCsv } = require('../../services/usageApi');
 const mockUsageData = {
   data: {
     rows: [
-      { username: 'alice', name: 'Alice Smith', total_jobs: 10, successful_jobs: 8, failed_jobs: 2, total_hours: 24.5 },
-      { username: 'bob', name: 'Bob Jones', total_jobs: 5, successful_jobs: 5, failed_jobs: 0, total_hours: 12.0 },
+      { username: 'alice', name: 'Alice Smith', totalJobs: 10, successfulJobs: 8, failedJobs: 2, totalHours: 24.5 },
+      { username: 'bob', name: 'Bob Jones', totalJobs: 5, successfulJobs: 5, failedJobs: 0, totalHours: 12.0 },
     ],
-    totals: { total_jobs: 15, successful_jobs: 13, failed_jobs: 2, total_hours: 36.5 },
-    date_range: { start: '2025-12-01T00:00:00.000Z', end: '2026-01-01T00:00:00.000Z' },
-    group_by: 'user',
+    totals: { totalJobs: 15, successfulJobs: 13, failedJobs: 2, totalHours: 36.5 },
+    dateRange: { start: '2025-12-01T00:00:00.000Z', end: '2026-01-01T00:00:00.000Z' },
+    groupBy: 'user',
   },
 };
 
@@ -86,9 +86,9 @@ describe('AdminUsage', () => {
     await waitFor(() => {
       expect(getUsageReport).toHaveBeenCalledTimes(2);
     });
-    // Verify group_by parameter was updated
+    // Verify groupBy parameter was updated
     const lastCall = getUsageReport.mock.calls[1][0];
-    expect(lastCall.group_by).toBe('project');
+    expect(lastCall.groupBy).toBe('project');
   });
 
   test('export CSV button calls downloadUsageCsv', async () => {
@@ -109,7 +109,7 @@ describe('AdminUsage', () => {
 
   test('shows empty state when no data', async () => {
     getUsageReport.mockResolvedValue({
-      data: { rows: [], totals: { total_jobs: 0, successful_jobs: 0, failed_jobs: 0, total_hours: 0 } },
+      data: { rows: [], totals: { totalJobs: 0, successfulJobs: 0, failedJobs: 0, totalHours: 0 } },
     });
 
     render(<AdminUsage />);

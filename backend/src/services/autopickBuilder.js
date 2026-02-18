@@ -99,7 +99,7 @@ class AutoPickBuilder extends BaseJobBuilder {
     if (getBoolParam(data, ['useTopaz'], false)) {
       // Topaz picking (using trained model)
       if (getBoolParam(data, ['performTopazPicking'], false)) {
-        const trainedModel = getParam(data, ['trainedTopazparticles'], null);
+        const trainedModel = getParam(data, ['trainedTopazParticles', 'trainedTopazparticles'], null);
         if (trainedModel) {
           cmd.push('--topaz_extract', '--topaz_model', trainedModel);
         } else {
@@ -172,15 +172,20 @@ class AutoPickBuilder extends BaseJobBuilder {
         cmd.push('--ref', relRef3d);
 
         // Symmetry for 3D reference
-        const sym = getParam(data, ['Symmetry', 'symmetry'], null);
+        const sym = getParam(data, ['symmetry', 'Symmetry'], null);
         if (sym && sym.trim()) {
           cmd.push('--sym', sym.trim());
         }
       }
 
       // Reference pixel size and angular sampling
-      cmd.push('--angpix_ref', String(getFloatParam(data, ['pixelRefe'], -1)));
-      cmd.push('--ang', String(getFloatParam(data, ['angular'], 5)));
+      cmd.push('--angpix_ref', String(getFloatParam(data, ['pixelSizeReference'], -1)));
+
+      // Angular sampling: check dropdown string (e.g., "5 degrees") first, then numeric field
+      const angSamplingStr = getParam(data, ['angularSampling'], null);
+      const angSamplingNum = angSamplingStr ? parseFloat(angSamplingStr) : NaN;
+      const angValue = !isNaN(angSamplingNum) ? angSamplingNum : getFloatParam(data, ['angular'], 5);
+      cmd.push('--ang', String(angValue));
 
       // Lowpass and highpass filters for references
       cmd.push('--lowpass', String(getFloatParam(data, ['lowpassFilterReference'], 20)));

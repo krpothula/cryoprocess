@@ -14,6 +14,7 @@ const {
   isGpuEnabled,
   getGpuIds,
   getInputStarFile,
+  getContinueFrom,
   getMaskDiameter,
   getNumberOfClasses,
   getPooledParticles,
@@ -21,7 +22,8 @@ const {
   getScratchDir,
   getIntParam,
   getFloatParam,
-  getBoolParam
+  getBoolParam,
+  getParam
 } = require('../utils/paramHelper');
 
 class InitialModelBuilder extends BaseJobBuilder {
@@ -31,6 +33,13 @@ class InitialModelBuilder extends BaseJobBuilder {
   }
 
   validate() {
+    // Continue mode: only need the optimiser file
+    const continueFile = getContinueFrom(this.data);
+    if (continueFile) {
+      logger.info(`[InitialModel] Validation: Passed (continue mode) | continueFrom: ${continueFile}`);
+      return { valid: true, error: null };
+    }
+
     const inputStar = getInputStarFile(this.data);
     if (!inputStar) {
       logger.warn('[InitialModel] Validation: Failed | inputStarFile is required');
@@ -71,6 +80,24 @@ class InitialModelBuilder extends BaseJobBuilder {
     // IMPORTANT: Do NOT use MPI for gradient refinement - always use single process
     const cmd = ['relion_refine'];
 
+    // Continue from previous run: RELION reads all parameters from the optimiser file
+    const continueFile = getContinueFrom(data);
+    if (continueFile) {
+      cmd.push('--continue', this.makeRelative(this.resolveInputPath(continueFile)));
+      cmd.push('--o', path.join(relOutputDir, 'run'));
+      cmd.push('--j', String(threads));
+      cmd.push('--pipeline_control', relOutputDir + path.sep);
+      if (!getBoolParam(data, ['useParallelIO', 'Useparalleldisc'], true)) {
+        cmd.push('--no_parallel_disc_io');
+      }
+      if (gpuEnabled) {
+        cmd.push('--gpu', getGpuIds(data));
+      }
+      this.addAdditionalArguments(cmd);
+      logger.info(`[InitialModel] Command: Built (continue mode) | ${cmd.join(' ')}`);
+      return cmd;
+    }
+
     // Get iteration count - frontend sends numberOfVdam
     const iterations = getIntParam(data, ['numberOfVdam'], 200);
 
@@ -84,7 +111,11 @@ class InitialModelBuilder extends BaseJobBuilder {
     cmd.push('--denovo_3dref');
     cmd.push('--i', relInput);
     cmd.push('--K', String(getNumberOfClasses(data, 1)));
-    cmd.push('--sym', getSymmetry(data));
+
+    // Run in C1: override symmetry to C1 for SGD, apply symmetry afterward
+    const runInC1 = getBoolParam(data, ['runInC1'], true);
+    const requestedSym = getSymmetry(data);
+    cmd.push('--sym', runInC1 && requestedSym !== 'C1' ? 'C1' : requestedSym);
     cmd.push('--zero_mask');
     cmd.push('--pool', String(pooled));
     cmd.push('--pad', '1');
@@ -103,7 +134,7 @@ class InitialModelBuilder extends BaseJobBuilder {
       cmd.push('--ctf');
     }
 
-    if (getBoolParam(data, ['ignoreCTFs', 'igonreCtf'], false)) {
+    if (getBoolParam(data, ['ignoreCTFs', 'ignoreCtf'], false)) {
       cmd.push('--ctf_intact_first_peak');
     }
 
@@ -113,7 +144,7 @@ class InitialModelBuilder extends BaseJobBuilder {
     }
 
     // I/O options
-    if (!getBoolParam(data, ['Useparalleldisc'], true)) {
+    if (!getBoolParam(data, ['useParallelIO', 'Useparalleldisc'], true)) {
       cmd.push('--no_parallel_disc_io');
     }
 

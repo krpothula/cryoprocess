@@ -102,18 +102,23 @@ const DynamightDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading DynaMight results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 dark:bg-red-900/30 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 dark:text-red-400 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -121,63 +126,61 @@ const DynamightDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
-              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text)" }}>
-                DynaMight/{selectedJob?.job_name || "Job"}
+              <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
+                DynaMight/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
-                  ? "var(--color-success)"
-                  : selectedJob?.status === "failed"
+                color: status === "success"
+                  ? "var(--color-success-text)"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "#f59e0b"
-                  : "#ca8a04"
+                  : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
-              className="flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded px-1 py-0.5 transition-colors"
+              className="flex items-center gap-2 hover:bg-[var(--color-bg)] rounded px-1 py-0.5 transition-colors"
             >
-              <FiTerminal className="text-gray-400 dark:text-slate-500" size={12} />
+              <FiTerminal className="text-[var(--color-text-muted)]" size={12} />
               <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text-secondary)" }}>RELION Command</span>
               {showCommand ? (
-                <FiChevronUp className="text-gray-400 dark:text-slate-500" size={12} />
+                <FiChevronUp className="text-[var(--color-text-muted)]" size={12} />
               ) : (
-                <FiChevronDown className="text-gray-400 dark:text-slate-500" size={12} />
+                <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
-            {showCommand && selectedJob?.command && (
+            {showCommand && command && (
               <button
                 onClick={copyCommand}
-                className="flex items-center gap-1 px-2 py-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 title="Copy command"
               >
-                <FiCopy className="text-gray-400 dark:text-slate-500" size={12} />
+                <FiCopy className="text-[var(--color-text-muted)]" size={12} />
                 {commandCopied && (
-                  <span style={{ fontSize: "10px", color: "var(--color-success)" }}>Copied!</span>
+                  <span style={{ fontSize: "10px", color: "var(--color-success-text)" }}>Copied!</span>
                 )}
               </button>
             )}
@@ -187,75 +190,70 @@ const DynamightDashboard = () => {
               className="mt-2 overflow-x-auto font-mono"
               style={{
                 fontSize: '9px',
-                color: 'var(--color-text-label)',
+                color: 'var(--color-text-secondary)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 lineHeight: '1.4'
               }}
             >
-              {selectedJob?.command || "Command not available for this job"}
+              {command || "Command not available for this job"}
             </div>
           )}
         </div>
       </div>
 
       {/* Stats Card - Merged */}
-      {(() => {
-        const stats = selectedJob?.pipeline_stats || {};
-        return (
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiLayers className="text-gray-400 dark:text-slate-500" size={14} />
+            <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Iteration:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {stats.iteration_count || 0}/{stats.total_iterations || 0}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {pStats.iterationCount ?? 0}/{pStats.totalIterations ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiImage className="text-gray-400 dark:text-slate-500" size={14} />
+            <FiImage className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {(stats.particle_count || 0).toLocaleString()}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {(pStats.particleCount ?? 0).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiBox className="text-gray-400 dark:text-slate-500" size={14} />
+            <FiBox className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Maps:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {results?.mrc_files?.length || 0}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {results?.mrcFiles?.length ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiFilm className="text-gray-400 dark:text-slate-500" size={14} />
+            <FiFilm className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Movies:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-              {results?.has_movies ? "Yes" : "No"}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {results?.hasMovies ? "Yes" : "No"}
             </span>
           </div>
         </div>
       </div>
-        );
-      })()}
 
       {/* 3D Visualization */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-700 dark:text-slate-200 flex items-center gap-2" style={{ fontSize: "12px" }}>
+          <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiBox className="text-blue-500" size={13} />
             Volume Viewer
           </h3>
 
           <div className="flex items-center gap-3">
-            {results?.num_iterations > 0 && (
+            {results?.numIterations > 0 && (
               <select
                 value={selectedIteration}
                 onChange={(e) => setSelectedIteration(e.target.value)}
-                className="px-3 py-1 border border-gray-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-blue-300 dark:bg-slate-800 dark:text-slate-200"
+                className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-border-focus)]"
                 style={{ fontSize: "12px" }}
               >
-                <option value="latest">Latest (Iteration {results.latest_iteration})</option>
-                {Array.from({ length: results.num_iterations }, (_, i) => i + 1).map((it) => (
+                <option value="latest">Latest (Iteration {results.latestIteration})</option>
+                {Array.from({ length: results.numIterations }, (_, i) => i + 1).map((it) => (
                   <option key={it} value={it}>
                     Iteration {it}
                   </option>
@@ -265,7 +263,7 @@ const DynamightDashboard = () => {
 
             <button
               onClick={fetchResults}
-              className="flex items-center gap-1 px-3 py-1 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-lg transition-colors dark:text-slate-200"
+              className="flex items-center gap-1 px-3 py-1 bg-[var(--color-bg-hover)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
               style={{ fontSize: "12px" }}
             >
               <FiRefreshCw size={13} />
@@ -274,7 +272,7 @@ const DynamightDashboard = () => {
           </div>
         </div>
 
-        {results?.has_output ? (
+        {results?.hasOutput ? (
           <MolstarViewer
             key={`${selectedJob?.id}-${selectedIteration}`}
             jobId={selectedJob?.id}
@@ -283,12 +281,12 @@ const DynamightDashboard = () => {
             apiEndpoint={`/dynamight/mrc/?iteration=${selectedIteration}&class=1`}
           />
         ) : (
-          <div className="h-[500px] flex flex-col items-center justify-center text-gray-400 bg-[var(--color-bg)] rounded-lg">
+          <div className="h-[500px] flex flex-col items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)] rounded-lg">
             <FiBox className="text-5xl mb-4" />
             <p className="text-lg font-medium">No Volume Yet</p>
             <p className="text-sm text-center mt-2">
               The flexibility analysis results will appear here once processing completes.
-              {selectedJob?.status === "running" && (
+              {status === "running" && (
                 <span className="block mt-2 text-amber-500">Job is currently running...</span>
               )}
             </p>
@@ -297,15 +295,15 @@ const DynamightDashboard = () => {
       </div>
 
       {/* Output Files */}
-      {results?.mrc_files?.length > 0 && (
-        <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-          <h3 className="font-bold text-gray-700 dark:text-slate-200 mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
+      {results?.mrcFiles?.length > 0 && (
+        <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
+          <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiBox className="text-green-500" />
             Output Files
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {results.mrc_files.map((file, index) => (
-              <div key={index} className="p-2 bg-[var(--color-bg)] rounded text-xs text-gray-600 dark:text-slate-300 truncate">
+            {results.mrcFiles.map((file, index) => (
+              <div key={index} className="p-2 bg-[var(--color-bg)] rounded text-xs text-[var(--color-text-secondary)] truncate">
                 {file}
               </div>
             ))}

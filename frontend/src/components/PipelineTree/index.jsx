@@ -367,7 +367,7 @@ export default function PipelineTree({ projectId, expanded, setSelectedTreeJob, 
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
-        <Background color={isDark ? "#334155" : "#e2e8f0"} gap={20} size={1} />
+        <Background color="var(--color-border)" gap={20} size={1} />
         <Controls
           position="top-right"
           showInteractive={false}

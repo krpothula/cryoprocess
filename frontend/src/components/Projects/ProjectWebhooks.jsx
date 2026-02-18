@@ -17,7 +17,7 @@ const ProjectWebhooks = ({ projectId, projectName, onClose }) => {
     getProjectApi(projectId)
       .then((resp) => {
         const project = resp?.data?.data || resp?.data;
-        setUrls(project?.webhook_urls || []);
+        setUrls(project?.webhookUrls || []);
       })
       .catch(() => {
         showToast("Failed to load project webhooks", { type: "error" });

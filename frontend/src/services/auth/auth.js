@@ -27,7 +27,7 @@ const getCurrentUser = () => {
 
 /**
  * Update user profile
- * @param {object} payload - { first_name, last_name, email }
+ * @param {object} payload - { firstName, lastName, email }
  */
 const updateProfileApi = (payload = {}) => {
   return axiosInstance.put(`/api/auth/profile`, payload);
@@ -35,7 +35,7 @@ const updateProfileApi = (payload = {}) => {
 
 /**
  * Change password
- * @param {object} payload - { current_password, new_password }
+ * @param {object} payload - { currentPassword, newPassword }
  */
 const changePasswordApi = (payload = {}) => {
   return axiosInstance.post(`/api/auth/change-password`, payload);
@@ -43,7 +43,7 @@ const changePasswordApi = (payload = {}) => {
 
 /**
  * Update cluster SSH settings
- * @param {object} payload - { cluster_username, cluster_ssh_key }
+ * @param {object} payload - { clusterUsername, clusterSshKey }
  */
 const updateClusterSettingsApi = (payload = {}) => {
   return axiosInstance.put(`/api/auth/cluster-settings`, payload);
@@ -67,7 +67,7 @@ const forgotPasswordApi = (payload = {}) => {
 
 /**
  * Reset password with token
- * @param {object} payload - { token, new_password, confirm_password }
+ * @param {object} payload - { token, newPassword, confirmPassword }
  */
 const resetPasswordApi = (payload = {}) => {
   return axiosInstance.post(`/api/auth/reset-password`, payload);

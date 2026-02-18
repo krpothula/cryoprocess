@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import CustomDropdown from "../../common/Dropdown";
 import CustomInput from "../../common/Input";
 import SimpleInput from "../../common/SimpleInput";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import FolderBrowserPopup from "../../common/FolderBrowser/FolderBrowserPopup";
 
 const References = ({
@@ -98,8 +98,8 @@ const References = ({
       <SimpleInput
         label="Symmetey"
         placeholder="C1"
-        name="Symmetry"
-        value={formData.Symmetry}
+        name="symmetry"
+        value={formData.symmetry}
         onChange={handleInputChange}
         disabled={disable3dReferences}
       />
@@ -128,8 +128,8 @@ const References = ({
         placeholder=""
         min={0}
         max={200}
-        value={formData.HighpassFilterReference}
-        name="HighpassFilterReference"
+        value={formData.highpassFilterReference}
+        name="highpassFilterReference"
         onChange={handleRangeChange}
         handleInputChange={handleInputChange}
         tooltipText="High-pass filter references (Angstroms). Removes low-frequency variations. Use -1 to disable."
@@ -140,8 +140,8 @@ const References = ({
         placeholder=""
         min={0}
         max={200}
-        value={formData.pixelRefe}
-        name="pixelRefe"
+        value={formData.pixelSizeReference}
+        name="pixelSizeReference"
         onChange={handleRangeChange}
         handleInputChange={handleInputChange}
         tooltipText="Pixel size of reference images (Angstroms). Set to -1 to read from the STAR file header."

@@ -13,7 +13,7 @@ import { DefaultMessages } from "../common/Data";
 import { useFormValidation } from "../../../hooks/useFormValidation";
 import { mustBePositive, mustBeAtLeast, vdamMiniBatchesRule, gpuIdsFormat } from "../../../utils/validationRules";
 
-const intitalFormData = {
+const initialFormData = {
   ctfCorrection: "Yes",
   ignoreCTFs: "No",
   numberOfClasses: 1,
@@ -26,7 +26,6 @@ const intitalFormData = {
   offsetSearchRange: 5,
   offsetSearchStep: 1,
   tubeDiameter: 200,
-  angularSearchpsi: 6,
   helicalRise: 4.75,
   pooledParticles: 3,
   mpiProcs: 1,
@@ -38,22 +37,18 @@ const intitalFormData = {
   centerClassAverages: "Yes",
   performImageAlignment: "Yes",
   allowCoarseSampling: "No",
-  classify2DHelical: "No",
-  doBimodalAngular: "Yes",
-  restrictHelicalOffsets: "Yes",
   useParallelIO: "Yes",
   preReadAllParticles: "No",
-  copyParticlesToScratch: "",
+  copyParticle: "",
   combineIterations: "No",
   gpuAcceleration: "No",
-  useGPU: "",
+  gpuToUse: "",
   submitToQueue: "Yes",
   queueName: "",
-  queueSubmitCommand: "",
   additionalArguments: "",
 };
 const DClassification = () => {
-  const [formData, setFormData] = useState(intitalFormData);
+  const [formData, setFormData] = useState(initialFormData);
   const [isLoading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("I/O");
   const [message, setMessage] = useState("");
@@ -67,7 +62,7 @@ const DClassification = () => {
     mustBeAtLeast('numberOfClasses', 'Number of classes', 1),
     vdamMiniBatchesRule(),
     mustBeAtLeast('numberEMIterations', 'EM iterations', 1),
-    gpuIdsFormat('useGPU'),
+    gpuIdsFormat('gpuToUse'),
   ], []);
 
   const { getFieldStatus, hasErrors: hasValidationErrors, errorCount } = useFormValidation(formData, validationRules);
@@ -140,7 +135,7 @@ const DClassification = () => {
   // Force MPI to 1 when VDAM is enabled (VDAM does not support multiple MPI processes)
   useEffect(() => {
     if (formData.useVDAM === "Yes") {
-      setFormData(prev => ({ ...prev, runningmpi: 1, numberOfMpiProcs: 1, mpiProcs: 1 }));
+      setFormData(prev => ({ ...prev, mpiProcs: 1 }));
     }
   }, [formData.useVDAM]);
 
@@ -280,16 +275,16 @@ const DClassification = () => {
                   padding: "10px 14px",
                   marginTop: "10px",
                   marginLeft: "5px",
-                  backgroundColor: "#fef2f2",
-                  border: "1px solid #fecaca",
+                  backgroundColor: "var(--color-danger-bg)",
+                  border: "1px solid var(--color-danger-border)",
                   borderRadius: "8px",
-                  color: "#dc2626",
+                  color: "var(--color-danger-text)",
                   fontSize: "13px",
                   fontWeight: 500,
                   lineHeight: 1.4,
                 }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />

@@ -16,7 +16,7 @@ import { FiTrendingUp } from "react-icons/fi";
  * FSC curve chart — used by PostProcess and AutoRefine dashboards.
  *
  * Props:
- *   data        – array of { resolution, fsc_unmasked, fsc_masked, fsc_corrected }
+ *   data        – array of { resolution, fscUnmasked, fscMasked, fscCorrected }
  *   goldStdRes  – gold-standard resolution in Å (draws a vertical marker)
  *   height      – chart height in px (default 300)
  *   title       – optional override (default "FSC Curve")
@@ -29,16 +29,16 @@ const FscChart = ({ data = [], goldStdRes, height = 300, title }) => {
       .filter((d) => d.resolution > 0)
       .map((d) => ({
         ...d,
-        inv_resolution: parseFloat((1 / d.resolution).toFixed(4)),
-        res_label: d.resolution.toFixed(1),
+        invResolution: parseFloat((1 / d.resolution).toFixed(4)),
+        resLabel: d.resolution.toFixed(1),
       }))
-      .sort((a, b) => a.inv_resolution - b.inv_resolution);
+      .sort((a, b) => a.invResolution - b.invResolution);
   }, [data]);
 
   // Generate resolution-in-Å tick labels for X axis (must be before early return)
   const xTicks = useMemo(() => {
     if (!chartData.length) return [];
-    const maxInv = chartData[chartData.length - 1].inv_resolution;
+    const maxInv = chartData[chartData.length - 1].invResolution;
     // Show ticks at nice resolution values
     const resValues = [50, 20, 10, 7, 5, 4, 3, 2.5, 2, 1.5];
     return resValues
@@ -69,9 +69,9 @@ const FscChart = ({ data = [], goldStdRes, height = 300, title }) => {
   }
 
   // Determine which curves are present
-  const hasCorrected = chartData.some((d) => d.fsc_corrected != null && d.fsc_corrected !== 0);
-  const hasMasked = chartData.some((d) => d.fsc_masked != null && d.fsc_masked !== 0);
-  const hasUnmasked = chartData.some((d) => d.fsc_unmasked != null && d.fsc_unmasked !== 0);
+  const hasCorrected = chartData.some((d) => d.fscCorrected != null && d.fscCorrected !== 0);
+  const hasMasked = chartData.some((d) => d.fscMasked != null && d.fscMasked !== 0);
+  const hasUnmasked = chartData.some((d) => d.fscUnmasked != null && d.fscUnmasked !== 0);
 
   // 1/Å value for the gold-standard resolution marker
   const goldStdInv = goldStdRes && goldStdRes > 0 ? 1 / goldStdRes : null;
@@ -118,7 +118,7 @@ const FscChart = ({ data = [], goldStdRes, height = 300, title }) => {
 
           {/* X axis: 1/Resolution (Å) */}
           <XAxis
-            dataKey="inv_resolution"
+            dataKey="invResolution"
             type="number"
             domain={[0, "dataMax"]}
             ticks={xTicks}
@@ -190,7 +190,7 @@ const FscChart = ({ data = [], goldStdRes, height = 300, title }) => {
           {hasCorrected && (
             <Line
               type="monotone"
-              dataKey="fsc_corrected"
+              dataKey="fscCorrected"
               name="Phase-randomized (corrected)"
               stroke="#10b981"
               strokeWidth={2.5}
@@ -201,7 +201,7 @@ const FscChart = ({ data = [], goldStdRes, height = 300, title }) => {
           {hasMasked && (
             <Line
               type="monotone"
-              dataKey="fsc_masked"
+              dataKey="fscMasked"
               name="Masked"
               stroke="#3b82f6"
               strokeWidth={2}
@@ -212,7 +212,7 @@ const FscChart = ({ data = [], goldStdRes, height = 300, title }) => {
           {hasUnmasked && (
             <Line
               type="monotone"
-              dataKey="fsc_unmasked"
+              dataKey="fscUnmasked"
               name="Unmasked"
               stroke="#f59e0b"
               strokeWidth={1.5}

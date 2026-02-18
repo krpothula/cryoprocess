@@ -1,6 +1,6 @@
 import React from "react";
 import CustomDropdown from "../../common/Dropdown";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import SimpleInput from "../../common/SimpleInput";
 
 const Optimization = ({
@@ -68,8 +68,8 @@ const Optimization = ({
       <SimpleInput
         label="Symmetry:"
         placeholder=""
-        value={formData.Symmetry}
-        name="Symmetry"
+        value={formData.symmetry}
+        name="symmetry"
         onChange={handleInputChange}
         tooltipText="Point group symmetry (C1, C2, D2, etc.). Use C1 if unknown. Correct symmetry dramatically speeds up processing and improves resolution."
       />

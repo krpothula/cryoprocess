@@ -16,8 +16,6 @@ const initialFormData = {
   lastMovieFrame: -1,      // -1 = use all frames (RELION default)
   extractionSize: -1,      // -1 = auto-detect from particle size
   rescaledSize: -1,        // -1 = keep original size
-  fractions: 0.5,          // Fraction of Fourier pixels for testing
-  manyParticles: 5000,     // Number of particles for training
   fractionFourierPixels: 0.5,
   useParticles: 10000,     // RELION GUI default
   // Polish parameters
@@ -30,15 +28,13 @@ const initialFormData = {
   // Running parameters
   mpiProcs: 1,
   threads: 1,
-  minCoresPerNode: 1,
-  performParticle: "Yes",
+  coresPerNode: 1,
   particlePolishing: "Yes",
   ownParams: "No",
   submitToQueue: "Yes",
   float16: "Yes",
   queueName: "",
-  queueSubmitCommand: "",
-  addArguments: "",
+  additionalArguments: "",
 };
 
 const Bayesian = () => {
@@ -262,7 +258,7 @@ const Bayesian = () => {
     maxResolution: -1,
     mpiProcs: 0,
     threads: 0,
-    minCoresPerNode: 0,
+    coresPerNode: 0,
     performParticle: "Yes",
     ownParams: "No",
     submitToQueue: "Yes",
@@ -270,7 +266,7 @@ const Bayesian = () => {
     queueName: "",
     queueSubmitCommand: "",
     //submissionScript: "",
-    addArguments: "",
+    additionalArguments: "",
   };
   const isFormFilled = () => {
     const requiredFields = Object.keys(formData).filter((key) => {

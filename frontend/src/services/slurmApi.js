@@ -55,12 +55,12 @@ export const getSlurmStatus = async () => {
       success: false,
       data: {
         available: false,
-        total_nodes: 0,
-        idle_nodes: 0,
-        busy_nodes: 0,
-        down_nodes: 0,
-        running_jobs: 0,
-        pending_jobs: 0,
+        totalNodes: 0,
+        idleNodes: 0,
+        busyNodes: 0,
+        downNodes: 0,
+        runningJobs: 0,
+        pendingJobs: 0,
         partitions: []
       },
       error: error.message
@@ -324,7 +324,7 @@ export const updateJobStatus = async (jobId, status) => {
 /**
  * Toggle email notification for a job
  * @param {string} jobId - CryoScale job ID
- * @returns {Promise<{success: boolean, notify_email: boolean}>}
+ * @returns {Promise<{success: boolean, notifyEmail: boolean}>}
  */
 export const toggleJobNotifyEmail = async (jobId) => {
   try {

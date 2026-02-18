@@ -13,56 +13,56 @@ import {
 
 const INITIAL_FORM_DATA = {
   // Project & Data Source
-  project_name: "",
+  projectName: "",
   description: "",
-  input_mode: "watch",
-  watch_directory: "",
-  file_pattern: "*.tiff",
+  inputMode: "watch",
+  watchDirectory: "",
+  filePattern: "*.tiff",
   // Optics
-  pixel_size: 1.0,
+  pixelSize: 1.0,
   voltage: 300,
   cs: 2.7,
-  amplitude_contrast: 0.1,
+  amplitudeContrast: 0.1,
   // Motion Correction
-  motion_enabled: true,
-  bin_factor: 1,
-  dose_per_frame: 1.0,
-  patch_x: 5,
-  patch_y: 5,
-  motion_use_gpu: false,
-  motion_gpu_ids: "0",
+  motionEnabled: true,
+  binFactor: 1,
+  dosePerFrame: 1.0,
+  patchX: 5,
+  patchY: 5,
+  motionUseGpu: false,
+  motionGpuIds: "0",
   // CTF Estimation
-  ctf_enabled: true,
-  defocus_min: 5000,
-  defocus_max: 50000,
-  defocus_step: 500,
+  ctfEnabled: true,
+  defocusMin: 5000,
+  defocusMax: 50000,
+  defocusStep: 500,
   // Particle Picking
-  pick_enabled: true,
-  pick_method: "LoG",
-  min_diameter: 100,
-  max_diameter: 200,
-  pick_threshold: 0.0,
+  pickEnabled: true,
+  pickMethod: "LoG",
+  minDiameter: 100,
+  maxDiameter: 200,
+  pickThreshold: 0.0,
   // Particle Extraction
-  extract_enabled: true,
-  box_size: 256,
+  extractEnabled: true,
+  boxSize: 256,
   rescale: false,
-  rescaled_size: 128,
+  rescaledSize: 128,
   // 2D Classification
-  class2d_enabled: false,
-  num_classes: 50,
-  particle_threshold: 5000,
-  class2d_particle_diameter: 200,
-  class2d_iterations: 200,
-  class2d_use_vdam: true,
-  class2d_vdam_mini_batches: 200,
+  class2dEnabled: false,
+  numClasses: 50,
+  particleThreshold: 5000,
+  class2dParticleDiameter: 200,
+  class2dIterations: 200,
+  class2dUseVdam: true,
+  class2dVdamMiniBatches: 200,
   // Quality Filters
-  ctf_resolution_max: 5.0,
-  total_motion_max: 30.0,
+  ctfResolutionMax: 5.0,
+  totalMotionMax: 30.0,
   // SLURM Settings
   queue: "",
   threads: 4,
-  mpi_procs: 1,
-  gpu_count: 1,
+  mpiProcs: 1,
+  gpuCount: 1,
 };
 
 const INITIAL_OPEN_SECTIONS = {
@@ -106,13 +106,13 @@ const CreateLiveProject = () => {
   };
 
   const validate = () => {
-    if (!formData.project_name.trim()) {
+    if (!formData.projectName.trim()) {
       return "Project name is required.";
     }
-    if (!formData.watch_directory.trim()) {
+    if (!formData.watchDirectory.trim()) {
       return "Watch directory is required.";
     }
-    if (!(parseFloat(formData.pixel_size) > 0)) {
+    if (!(parseFloat(formData.pixelSize) > 0)) {
       return "Pixel size must be greater than 0.";
     }
     if (!(parseFloat(formData.voltage) > 0)) {
@@ -121,7 +121,7 @@ const CreateLiveProject = () => {
     if (!(parseFloat(formData.cs) > 0)) {
       return "Spherical aberration (Cs) must be greater than 0.";
     }
-    if (!(parseFloat(formData.amplitude_contrast) > 0)) {
+    if (!(parseFloat(formData.amplitudeContrast) > 0)) {
       return "Amplitude contrast must be greater than 0.";
     }
     return null;
@@ -142,7 +142,7 @@ const CreateLiveProject = () => {
     try {
       // Step 1: Create the project
       const projectResp = await createProjectApi({
-        project_name: formData.project_name,
+        projectName: formData.projectName,
         description: formData.description,
       });
 
@@ -151,70 +151,70 @@ const CreateLiveProject = () => {
 
       // Step 2: Create the live session with full config
       const payload = {
-        project_id: projectId,
-        project_name: formData.project_name,
+        projectId: projectId,
+        projectName: formData.projectName,
         description: formData.description,
-        input_mode: formData.input_mode,
-        watch_directory: formData.watch_directory,
-        file_pattern: formData.file_pattern,
+        inputMode: formData.inputMode,
+        watchDirectory: formData.watchDirectory,
+        filePattern: formData.filePattern,
         optics: {
-          pixel_size: parseFloat(formData.pixel_size),
+          pixelSize: parseFloat(formData.pixelSize),
           voltage: parseFloat(formData.voltage),
           cs: parseFloat(formData.cs),
-          amplitude_contrast: parseFloat(formData.amplitude_contrast),
+          amplitudeContrast: parseFloat(formData.amplitudeContrast),
         },
-        motion_config: {
-          enabled: formData.motion_enabled,
-          bin_factor: parseInt(formData.bin_factor),
-          dose_per_frame: parseFloat(formData.dose_per_frame),
-          patch_x: parseInt(formData.patch_x),
-          patch_y: parseInt(formData.patch_y),
-          use_gpu: formData.motion_use_gpu,
-          gpu_ids: formData.motion_gpu_ids || "0",
+        motionConfig: {
+          enabled: formData.motionEnabled,
+          binFactor: parseInt(formData.binFactor),
+          dosePerFrame: parseFloat(formData.dosePerFrame),
+          patchX: parseInt(formData.patchX),
+          patchY: parseInt(formData.patchY),
+          useGpu: formData.motionUseGpu,
+          gpuIds: formData.motionGpuIds || "0",
         },
-        ctf_config: {
-          enabled: formData.ctf_enabled,
-          defocus_min: parseFloat(formData.defocus_min),
-          defocus_max: parseFloat(formData.defocus_max),
-          defocus_step: parseFloat(formData.defocus_step),
+        ctfConfig: {
+          enabled: formData.ctfEnabled,
+          defocusMin: parseFloat(formData.defocusMin),
+          defocusMax: parseFloat(formData.defocusMax),
+          defocusStep: parseFloat(formData.defocusStep),
         },
-        picking_config: {
-          enabled: formData.pick_enabled,
-          method: formData.pick_method,
-          min_diameter: parseFloat(formData.min_diameter),
-          max_diameter: parseFloat(formData.max_diameter),
-          threshold: parseFloat(formData.pick_threshold),
+        pickingConfig: {
+          enabled: formData.pickEnabled,
+          method: formData.pickMethod,
+          minDiameter: parseFloat(formData.minDiameter),
+          maxDiameter: parseFloat(formData.maxDiameter),
+          threshold: parseFloat(formData.pickThreshold),
         },
-        extraction_config: {
-          enabled: formData.extract_enabled,
-          box_size: parseInt(formData.box_size),
+        extractionConfig: {
+          enabled: formData.extractEnabled,
+          boxSize: parseInt(formData.boxSize),
           rescale: formData.rescale,
-          rescaled_size: parseInt(formData.rescaled_size),
+          rescaledSize: parseInt(formData.rescaledSize),
         },
-        class2d_config: {
-          enabled: formData.class2d_enabled,
-          num_classes: parseInt(formData.num_classes),
-          particle_threshold: parseInt(formData.particle_threshold),
-          particle_diameter: parseInt(formData.class2d_particle_diameter),
-          iterations: parseInt(formData.class2d_iterations),
-          use_vdam: formData.class2d_use_vdam,
-          vdam_mini_batches: parseInt(formData.class2d_vdam_mini_batches),
+        class2dConfig: {
+          enabled: formData.class2dEnabled,
+          numClasses: parseInt(formData.numClasses),
+          particleThreshold: parseInt(formData.particleThreshold),
+          particleDiameter: parseInt(formData.class2dParticleDiameter),
+          iterations: parseInt(formData.class2dIterations),
+          useVdam: formData.class2dUseVdam,
+          vdamMiniBatches: parseInt(formData.class2dVdamMiniBatches),
         },
         thresholds: {
-          ctf_resolution_max: parseFloat(formData.ctf_resolution_max),
-          total_motion_max: parseFloat(formData.total_motion_max),
+          ctfResolutionMax: parseFloat(formData.ctfResolutionMax),
+          totalMotionMax: parseFloat(formData.totalMotionMax),
         },
-        slurm_config: {
+        slurmConfig: {
           queue: formData.queue || null,
           threads: parseInt(formData.threads),
-          mpi_procs: parseInt(formData.mpi_procs),
-          gpu_count: parseInt(formData.gpu_count),
+          mpiProcs: parseInt(formData.mpiProcs),
+          gpuCount: parseInt(formData.gpuCount),
         },
       };
 
-      // response.success returns: { success, status, data: session, session_id, session_name }
+      // response.success returns: { success, status, data: session, sessionId, sessionName }
       const sessionResp = await createLiveSession(payload);
-      const sessionId = sessionResp.data?.session_id || sessionResp.data?.data?.id;
+      const sessionId = sessionResp.data?.sessionId || sessionResp.data?.data?.id;
 
       showToast("Live session created successfully!", {
         type: "success",
@@ -228,7 +228,7 @@ const CreateLiveProject = () => {
       const errorMessage =
         err?.response?.data?.message ||
         "Something went wrong while creating the live session, please try again.";
-      const errorType = err?.response?.data?.error_type || "unknown";
+      const errorType = err?.response?.data?.errorType || "unknown";
       setError({ message: errorMessage, type: errorType });
     } finally {
       setLoading(false);
@@ -349,12 +349,12 @@ const CreateLiveProject = () => {
             {openSections.project && (
               <div className="lp-section-body">
                 <div className="lp-form-group">
-                  <label htmlFor="project_name">Project Name</label>
+                  <label htmlFor="projectName">Project Name</label>
                   <input
                     type="text"
-                    id="project_name"
-                    name="project_name"
-                    value={formData.project_name}
+                    id="projectName"
+                    name="projectName"
+                    value={formData.projectName}
                     onChange={handleChange}
                     placeholder="e.g. Ribosome_20250205"
                     required
@@ -382,11 +382,11 @@ const CreateLiveProject = () => {
                   <div className="lp-mode-toggle">
                     <button
                       type="button"
-                      className={`lp-mode-btn ${formData.input_mode === "watch" ? "lp-mode-active" : ""}`}
+                      className={`lp-mode-btn ${formData.inputMode === "watch" ? "lp-mode-active" : ""}`}
                       onClick={() =>
                         setFormData((prev) => ({
                           ...prev,
-                          input_mode: "watch",
+                          inputMode: "watch",
                         }))
                       }
                     >
@@ -394,11 +394,11 @@ const CreateLiveProject = () => {
                     </button>
                     <button
                       type="button"
-                      className={`lp-mode-btn ${formData.input_mode === "existing" ? "lp-mode-active" : ""}`}
+                      className={`lp-mode-btn ${formData.inputMode === "existing" ? "lp-mode-active" : ""}`}
                       onClick={() =>
                         setFormData((prev) => ({
                           ...prev,
-                          input_mode: "existing",
+                          inputMode: "existing",
                         }))
                       }
                     >
@@ -406,19 +406,19 @@ const CreateLiveProject = () => {
                     </button>
                   </div>
                   <span className="lp-form-hint">
-                    {formData.input_mode === "watch"
+                    {formData.inputMode === "watch"
                       ? "Watches for new files arriving from the microscope"
                       : "Process all existing movies in the directory once"}
                   </span>
                 </div>
 
                 <div className="lp-form-group">
-                  <label htmlFor="watch_directory">Watch Directory</label>
+                  <label htmlFor="watchDirectory">Watch Directory</label>
                   <input
                     type="text"
-                    id="watch_directory"
-                    name="watch_directory"
-                    value={formData.watch_directory}
+                    id="watchDirectory"
+                    name="watchDirectory"
+                    value={formData.watchDirectory}
                     onChange={handleChange}
                     placeholder="/data/microscope/session_001"
                     required
@@ -426,12 +426,12 @@ const CreateLiveProject = () => {
                 </div>
 
                 <div className="lp-form-group">
-                  <label htmlFor="file_pattern">File Pattern</label>
+                  <label htmlFor="filePattern">File Pattern</label>
                   <input
                     type="text"
-                    id="file_pattern"
-                    name="file_pattern"
-                    value={formData.file_pattern}
+                    id="filePattern"
+                    name="filePattern"
+                    value={formData.filePattern}
                     onChange={handleChange}
                     placeholder="*.tiff"
                   />
@@ -451,12 +451,12 @@ const CreateLiveProject = () => {
               <div className="lp-section-body">
                 <div className="lp-form-row">
                   <div className="lp-form-group">
-                    <label htmlFor="pixel_size">Pixel Size (A/px)</label>
+                    <label htmlFor="pixelSize">Pixel Size (A/px)</label>
                     <input
                       type="number"
-                      id="pixel_size"
-                      name="pixel_size"
-                      value={formData.pixel_size}
+                      id="pixelSize"
+                      name="pixelSize"
+                      value={formData.pixelSize}
                       onChange={handleChange}
                       step="any"
                       min="0"
@@ -489,14 +489,14 @@ const CreateLiveProject = () => {
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="amplitude_contrast">
+                    <label htmlFor="amplitudeContrast">
                       Amplitude Contrast
                     </label>
                     <input
                       type="number"
-                      id="amplitude_contrast"
-                      name="amplitude_contrast"
-                      value={formData.amplitude_contrast}
+                      id="amplitudeContrast"
+                      name="amplitudeContrast"
+                      value={formData.amplitudeContrast}
                       onChange={handleChange}
                       step="any"
                       min="0"
@@ -514,67 +514,67 @@ const CreateLiveProject = () => {
               "motion",
               "Motion Correction",
               "Beam-induced motion correction settings",
-              "motion_enabled"
+              "motionEnabled"
             )}
             {openSections.motion && (
               <div
-                className={`lp-section-body ${isSectionDisabled("motion_enabled") ? "lp-disabled" : ""}`}
+                className={`lp-section-body ${isSectionDisabled("motionEnabled") ? "lp-disabled" : ""}`}
               >
                 <div className="lp-form-row">
                   <div className="lp-form-group">
-                    <label htmlFor="bin_factor">Binning Factor</label>
+                    <label htmlFor="binFactor">Binning Factor</label>
                     <input
                       type="number"
-                      id="bin_factor"
-                      name="bin_factor"
-                      value={formData.bin_factor}
+                      id="binFactor"
+                      name="binFactor"
+                      value={formData.binFactor}
                       onChange={handleChange}
                       min="1"
                       step="1"
-                      disabled={!formData.motion_enabled}
+                      disabled={!formData.motionEnabled}
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="dose_per_frame">
+                    <label htmlFor="dosePerFrame">
                       Dose per Frame (e/A^2)
                     </label>
                     <input
                       type="number"
-                      id="dose_per_frame"
-                      name="dose_per_frame"
-                      value={formData.dose_per_frame}
+                      id="dosePerFrame"
+                      name="dosePerFrame"
+                      value={formData.dosePerFrame}
                       onChange={handleChange}
                       step="0.1"
                       min="0"
-                      disabled={!formData.motion_enabled}
+                      disabled={!formData.motionEnabled}
                     />
                   </div>
                 </div>
                 <div className="lp-form-row">
                   <div className="lp-form-group">
-                    <label htmlFor="patch_x">Patch X</label>
+                    <label htmlFor="patchX">Patch X</label>
                     <input
                       type="number"
-                      id="patch_x"
-                      name="patch_x"
-                      value={formData.patch_x}
+                      id="patchX"
+                      name="patchX"
+                      value={formData.patchX}
                       onChange={handleChange}
                       min="1"
                       step="1"
-                      disabled={!formData.motion_enabled}
+                      disabled={!formData.motionEnabled}
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="patch_y">Patch Y</label>
+                    <label htmlFor="patchY">Patch Y</label>
                     <input
                       type="number"
-                      id="patch_y"
-                      name="patch_y"
-                      value={formData.patch_y}
+                      id="patchY"
+                      name="patchY"
+                      value={formData.patchY}
                       onChange={handleChange}
                       min="1"
                       step="1"
-                      disabled={!formData.motion_enabled}
+                      disabled={!formData.motionEnabled}
                     />
                   </div>
                 </div>
@@ -588,33 +588,33 @@ const CreateLiveProject = () => {
                       <label className="lp-toggle">
                         <input
                           type="checkbox"
-                          checked={formData.motion_use_gpu}
-                          onChange={() => handleToggle("motion_use_gpu")}
-                          disabled={!formData.motion_enabled}
+                          checked={formData.motionUseGpu}
+                          onChange={() => handleToggle("motionUseGpu")}
+                          disabled={!formData.motionEnabled}
                         />
                         <span className="lp-toggle-slider"></span>
                       </label>
                       <span className="lp-toggle-label">
-                        {formData.motion_use_gpu ? "GPU" : "CPU (RELION)"}
+                        {formData.motionUseGpu ? "GPU" : "CPU (RELION)"}
                       </span>
                     </div>
                     <span className="lp-form-hint">
-                      {formData.motion_use_gpu
+                      {formData.motionUseGpu
                         ? "Uses MotionCor2 with GPU acceleration"
                         : "Uses RELION's own CPU implementation"}
                     </span>
                   </div>
-                  {formData.motion_use_gpu && (
+                  {formData.motionUseGpu && (
                     <div className="lp-form-group">
-                      <label htmlFor="motion_gpu_ids">GPU IDs</label>
+                      <label htmlFor="motionGpuIds">GPU IDs</label>
                       <input
                         type="text"
-                        id="motion_gpu_ids"
-                        name="motion_gpu_ids"
-                        value={formData.motion_gpu_ids}
+                        id="motionGpuIds"
+                        name="motionGpuIds"
+                        value={formData.motionGpuIds}
                         onChange={handleChange}
                         placeholder="0"
-                        disabled={!formData.motion_enabled}
+                        disabled={!formData.motionEnabled}
                       />
                       <span className="lp-form-hint">
                         Comma-separated GPU IDs (e.g., 0,1,2)
@@ -632,50 +632,50 @@ const CreateLiveProject = () => {
               "ctf",
               "CTF Estimation",
               "Contrast transfer function estimation parameters",
-              "ctf_enabled"
+              "ctfEnabled"
             )}
             {openSections.ctf && (
               <div
-                className={`lp-section-body ${isSectionDisabled("ctf_enabled") ? "lp-disabled" : ""}`}
+                className={`lp-section-body ${isSectionDisabled("ctfEnabled") ? "lp-disabled" : ""}`}
               >
                 <div className="lp-form-row lp-form-row-3">
                   <div className="lp-form-group">
-                    <label htmlFor="defocus_min">Min Defocus (A)</label>
+                    <label htmlFor="defocusMin">Min Defocus (A)</label>
                     <input
                       type="number"
-                      id="defocus_min"
-                      name="defocus_min"
-                      value={formData.defocus_min}
+                      id="defocusMin"
+                      name="defocusMin"
+                      value={formData.defocusMin}
                       onChange={handleChange}
                       step="100"
                       min="0"
-                      disabled={!formData.ctf_enabled}
+                      disabled={!formData.ctfEnabled}
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="defocus_max">Max Defocus (A)</label>
+                    <label htmlFor="defocusMax">Max Defocus (A)</label>
                     <input
                       type="number"
-                      id="defocus_max"
-                      name="defocus_max"
-                      value={formData.defocus_max}
+                      id="defocusMax"
+                      name="defocusMax"
+                      value={formData.defocusMax}
                       onChange={handleChange}
                       step="100"
                       min="0"
-                      disabled={!formData.ctf_enabled}
+                      disabled={!formData.ctfEnabled}
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="defocus_step">Defocus Step (A)</label>
+                    <label htmlFor="defocusStep">Defocus Step (A)</label>
                     <input
                       type="number"
-                      id="defocus_step"
-                      name="defocus_step"
-                      value={formData.defocus_step}
+                      id="defocusStep"
+                      name="defocusStep"
+                      value={formData.defocusStep}
                       onChange={handleChange}
                       step="50"
                       min="0"
-                      disabled={!formData.ctf_enabled}
+                      disabled={!formData.ctfEnabled}
                     />
                   </div>
                 </div>
@@ -689,20 +689,20 @@ const CreateLiveProject = () => {
               "picking",
               "Particle Picking",
               "Automated particle detection on micrographs",
-              "pick_enabled"
+              "pickEnabled"
             )}
             {openSections.picking && (
               <div
-                className={`lp-section-body ${isSectionDisabled("pick_enabled") ? "lp-disabled" : ""}`}
+                className={`lp-section-body ${isSectionDisabled("pickEnabled") ? "lp-disabled" : ""}`}
               >
                 <div className="lp-form-group">
-                  <label htmlFor="pick_method">Method</label>
+                  <label htmlFor="pickMethod">Method</label>
                   <select
-                    id="pick_method"
-                    name="pick_method"
-                    value={formData.pick_method}
+                    id="pickMethod"
+                    name="pickMethod"
+                    value={formData.pickMethod}
                     onChange={handleChange}
-                    disabled={!formData.pick_enabled}
+                    disabled={!formData.pickEnabled}
                   >
                     <option value="LoG">LoG</option>
                     <option value="Template">Template</option>
@@ -710,41 +710,41 @@ const CreateLiveProject = () => {
                 </div>
                 <div className="lp-form-row lp-form-row-3">
                   <div className="lp-form-group">
-                    <label htmlFor="min_diameter">Min Diameter (A)</label>
+                    <label htmlFor="minDiameter">Min Diameter (A)</label>
                     <input
                       type="number"
-                      id="min_diameter"
-                      name="min_diameter"
-                      value={formData.min_diameter}
+                      id="minDiameter"
+                      name="minDiameter"
+                      value={formData.minDiameter}
                       onChange={handleChange}
                       step="10"
                       min="0"
-                      disabled={!formData.pick_enabled}
+                      disabled={!formData.pickEnabled}
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="max_diameter">Max Diameter (A)</label>
+                    <label htmlFor="maxDiameter">Max Diameter (A)</label>
                     <input
                       type="number"
-                      id="max_diameter"
-                      name="max_diameter"
-                      value={formData.max_diameter}
+                      id="maxDiameter"
+                      name="maxDiameter"
+                      value={formData.maxDiameter}
                       onChange={handleChange}
                       step="10"
                       min="0"
-                      disabled={!formData.pick_enabled}
+                      disabled={!formData.pickEnabled}
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="pick_threshold">Picking Threshold</label>
+                    <label htmlFor="pickThreshold">Picking Threshold</label>
                     <input
                       type="number"
-                      id="pick_threshold"
-                      name="pick_threshold"
-                      value={formData.pick_threshold}
+                      id="pickThreshold"
+                      name="pickThreshold"
+                      value={formData.pickThreshold}
                       onChange={handleChange}
                       step="0.1"
-                      disabled={!formData.pick_enabled}
+                      disabled={!formData.pickEnabled}
                     />
                   </div>
                 </div>
@@ -758,24 +758,24 @@ const CreateLiveProject = () => {
               "extraction",
               "Particle Extraction",
               "Extract particle images from micrographs",
-              "extract_enabled"
+              "extractEnabled"
             )}
             {openSections.extraction && (
               <div
-                className={`lp-section-body ${isSectionDisabled("extract_enabled") ? "lp-disabled" : ""}`}
+                className={`lp-section-body ${isSectionDisabled("extractEnabled") ? "lp-disabled" : ""}`}
               >
                 <div className="lp-form-row">
                   <div className="lp-form-group">
-                    <label htmlFor="box_size">Box Size (px)</label>
+                    <label htmlFor="boxSize">Box Size (px)</label>
                     <input
                       type="number"
-                      id="box_size"
-                      name="box_size"
-                      value={formData.box_size}
+                      id="boxSize"
+                      name="boxSize"
+                      value={formData.boxSize}
                       onChange={handleChange}
                       step="16"
                       min="16"
-                      disabled={!formData.extract_enabled}
+                      disabled={!formData.extractEnabled}
                     />
                   </div>
                   <div className="lp-form-group">
@@ -789,7 +789,7 @@ const CreateLiveProject = () => {
                           type="checkbox"
                           checked={formData.rescale}
                           onChange={() => handleToggle("rescale")}
-                          disabled={!formData.extract_enabled}
+                          disabled={!formData.extractEnabled}
                         />
                         <span className="lp-toggle-slider"></span>
                       </label>
@@ -801,16 +801,16 @@ const CreateLiveProject = () => {
                 </div>
                 {formData.rescale && (
                   <div className="lp-form-group">
-                    <label htmlFor="rescaled_size">Rescaled Size (px)</label>
+                    <label htmlFor="rescaledSize">Rescaled Size (px)</label>
                     <input
                       type="number"
-                      id="rescaled_size"
-                      name="rescaled_size"
-                      value={formData.rescaled_size}
+                      id="rescaledSize"
+                      name="rescaledSize"
+                      value={formData.rescaledSize}
                       onChange={handleChange}
                       step="16"
                       min="16"
-                      disabled={!formData.extract_enabled}
+                      disabled={!formData.extractEnabled}
                     />
                   </div>
                 )}
@@ -824,114 +824,114 @@ const CreateLiveProject = () => {
               "class2d",
               "2D Classification",
               "Run 2D class averaging once enough particles accumulate",
-              "class2d_enabled"
+              "class2dEnabled"
             )}
             {openSections.class2d && (
               <div
-                className={`lp-section-body ${isSectionDisabled("class2d_enabled") ? "lp-disabled" : ""}`}
+                className={`lp-section-body ${isSectionDisabled("class2dEnabled") ? "lp-disabled" : ""}`}
               >
                 <div className="lp-form-row">
                   <div className="lp-form-group">
-                    <label htmlFor="num_classes">Number of Classes</label>
+                    <label htmlFor="numClasses">Number of Classes</label>
                     <input
                       type="number"
-                      id="num_classes"
-                      name="num_classes"
-                      value={formData.num_classes}
+                      id="numClasses"
+                      name="numClasses"
+                      value={formData.numClasses}
                       onChange={handleChange}
                       min="1"
                       step="1"
-                      disabled={!formData.class2d_enabled}
+                      disabled={!formData.class2dEnabled}
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="particle_threshold">
+                    <label htmlFor="particleThreshold">
                       Min Particles Before Running
                     </label>
                     <input
                       type="number"
-                      id="particle_threshold"
-                      name="particle_threshold"
-                      value={formData.particle_threshold}
+                      id="particleThreshold"
+                      name="particleThreshold"
+                      value={formData.particleThreshold}
                       onChange={handleChange}
                       min="100"
                       step="100"
-                      disabled={!formData.class2d_enabled}
+                      disabled={!formData.class2dEnabled}
                     />
                   </div>
                 </div>
                 <div className="lp-form-row">
                   <div className="lp-form-group">
-                    <label htmlFor="class2d_particle_diameter">
+                    <label htmlFor="class2dParticleDiameter">
                       Particle Diameter (A)
                     </label>
                     <input
                       type="number"
-                      id="class2d_particle_diameter"
-                      name="class2d_particle_diameter"
-                      value={formData.class2d_particle_diameter}
+                      id="class2dParticleDiameter"
+                      name="class2dParticleDiameter"
+                      value={formData.class2dParticleDiameter}
                       onChange={handleChange}
                       min="10"
                       step="10"
-                      disabled={!formData.class2d_enabled}
+                      disabled={!formData.class2dEnabled}
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="class2d_iterations">
+                    <label htmlFor="class2dIterations">
                       Number of Iterations
                     </label>
                     <input
                       type="number"
-                      id="class2d_iterations"
-                      name="class2d_iterations"
-                      value={formData.class2d_iterations}
+                      id="class2dIterations"
+                      name="class2dIterations"
+                      value={formData.class2dIterations}
                       onChange={handleChange}
                       min="1"
                       max="999"
                       step="1"
-                      disabled={!formData.class2d_enabled}
+                      disabled={!formData.class2dEnabled}
                     />
                   </div>
                 </div>
                 <div className="lp-form-row">
                   <div className="lp-form-group">
-                    <label htmlFor="class2d_use_vdam">
+                    <label htmlFor="class2dUseVdam">
                       Use VDAM (Gradient Optimization)
                     </label>
                     <select
-                      id="class2d_use_vdam"
-                      name="class2d_use_vdam"
-                      value={formData.class2d_use_vdam ? "true" : "false"}
+                      id="class2dUseVdam"
+                      name="class2dUseVdam"
+                      value={formData.class2dUseVdam ? "true" : "false"}
                       onChange={(e) =>
                         handleChange({
                           target: {
-                            name: "class2d_use_vdam",
+                            name: "class2dUseVdam",
                             value: e.target.value === "true",
                             type: "select",
                           },
                         })
                       }
-                      disabled={!formData.class2d_enabled}
+                      disabled={!formData.class2dEnabled}
                     >
                       <option value="true">Yes</option>
                       <option value="false">No</option>
                     </select>
                   </div>
-                  {formData.class2d_use_vdam && (
+                  {formData.class2dUseVdam && (
                     <div className="lp-form-group">
-                      <label htmlFor="class2d_vdam_mini_batches">
+                      <label htmlFor="class2dVdamMiniBatches">
                         VDAM Mini-batch Size
                       </label>
                       <input
                         type="number"
-                        id="class2d_vdam_mini_batches"
-                        name="class2d_vdam_mini_batches"
-                        value={formData.class2d_vdam_mini_batches}
+                        id="class2dVdamMiniBatches"
+                        name="class2dVdamMiniBatches"
+                        value={formData.class2dVdamMiniBatches}
                         onChange={handleChange}
                         min="100"
                         max="1000"
                         step="50"
-                        disabled={!formData.class2d_enabled}
+                        disabled={!formData.class2dEnabled}
                       />
                     </div>
                   )}
@@ -951,28 +951,28 @@ const CreateLiveProject = () => {
               <div className="lp-section-body">
                 <div className="lp-form-row">
                   <div className="lp-form-group">
-                    <label htmlFor="ctf_resolution_max">
+                    <label htmlFor="ctfResolutionMax">
                       Max CTF Resolution (A)
                     </label>
                     <input
                       type="number"
-                      id="ctf_resolution_max"
-                      name="ctf_resolution_max"
-                      value={formData.ctf_resolution_max}
+                      id="ctfResolutionMax"
+                      name="ctfResolutionMax"
+                      value={formData.ctfResolutionMax}
                       onChange={handleChange}
                       step="0.5"
                       min="0"
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="total_motion_max">
+                    <label htmlFor="totalMotionMax">
                       Max Total Motion (px)
                     </label>
                     <input
                       type="number"
-                      id="total_motion_max"
-                      name="total_motion_max"
-                      value={formData.total_motion_max}
+                      id="totalMotionMax"
+                      name="totalMotionMax"
+                      value={formData.totalMotionMax}
                       onChange={handleChange}
                       step="1"
                       min="0"
@@ -1017,24 +1017,24 @@ const CreateLiveProject = () => {
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="mpi_procs">MPI Processes</label>
+                    <label htmlFor="mpiProcs">MPI Processes</label>
                     <input
                       type="number"
-                      id="mpi_procs"
-                      name="mpi_procs"
-                      value={formData.mpi_procs}
+                      id="mpiProcs"
+                      name="mpiProcs"
+                      value={formData.mpiProcs}
                       onChange={handleChange}
                       min="1"
                       step="1"
                     />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="gpu_count">GPU Count</label>
+                    <label htmlFor="gpuCount">GPU Count</label>
                     <input
                       type="number"
-                      id="gpu_count"
-                      name="gpu_count"
-                      value={formData.gpu_count}
+                      id="gpuCount"
+                      name="gpuCount"
+                      value={formData.gpuCount}
                       onChange={handleChange}
                       min="0"
                       step="1"

@@ -65,10 +65,11 @@ class DynamightBuilder extends BaseJobBuilder {
 
     const gpuDevice = String(getIntParam(data, ['gpuToUse'], 0));
     const threads = getThreads(data);
-    const checkpointFile = getParam(data, ['checkpointFile'], null);
+    const rawCheckpoint = getParam(data, ['checkpointFile'], null);
+    const checkpointFile = rawCheckpoint ? this.makeRelative(this.resolveInputPath(rawCheckpoint)) : null;
 
     // Determine which subcommand(s) to run
-    const doVisualization = getBoolParam(data, ['doVisulization'], false);
+    const doVisualization = getBoolParam(data, ['doVisualization', 'doVisulization'], false);
     const doInverse = getBoolParam(data, ['inverseDeformation'], false);
     const doBackprojection = getBoolParam(data, ['deformedBackProjection'], false);
 

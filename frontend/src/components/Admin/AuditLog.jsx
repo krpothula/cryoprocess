@@ -143,7 +143,7 @@ const AuditLog = () => {
                   {logs.map((log, i) => (
                     <tr key={log._id || i}>
                       <td className="col-time">
-                        {new Date(log.created_at).toLocaleString()}
+                        {new Date(log.createdAt).toLocaleString()}
                       </td>
                       <td className="col-user">{log.username || "-"}</td>
                       <td>
@@ -152,12 +152,12 @@ const AuditLog = () => {
                         </span>
                       </td>
                       <td className="col-resource">
-                        {log.resource_type ? (
-                          <span>{log.resource_type} {log.resource_id ? `#${log.resource_id}` : ""}</span>
+                        {log.resourceType ? (
+                          <span>{log.resourceType} {log.resourceId ? `#${log.resourceId}` : ""}</span>
                         ) : "-"}
                       </td>
                       <td className="col-details">{log.details || "-"}</td>
-                      <td className="col-ip">{log.ip_address || "-"}</td>
+                      <td className="col-ip">{log.ipAddress || "-"}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -21,7 +21,7 @@ const PipelineMenu = ({ selectedJob, onSelectJob }) => {
     "DynaMight flexibility",
     "Mask creation",
     "Join star files",
-    "Particle substraction",
+    "Particle subtraction",
     "Post-processing",
     "Local resolution",
     "ModelAngelo building",

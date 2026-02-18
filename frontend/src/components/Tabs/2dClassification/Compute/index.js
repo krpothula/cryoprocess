@@ -1,6 +1,6 @@
 import React from "react";
 import CustomDropdown from "../../common/Dropdown";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import SimpleInput from "../../common/SimpleInput";
 
 const Compute = ({
@@ -43,8 +43,8 @@ const Compute = ({
       <SimpleInput
         label="Copy particles to scratch directory?"
         placeholder=""
-        name="copyParticlesToScratch"
-        value={formData.copyParticlesToScratch}
+        name="copyParticle"
+        value={formData.copyParticle}
         onChange={handleInputChange}
         tooltipText="Path to fast local storage (e.g., /scratch). Particles are copied here before processing for faster I/O. Leave empty to read from original location."
         disabled={formData.preReadAllParticles === "Yes"}
@@ -69,8 +69,8 @@ const Compute = ({
       <SimpleInput
         label="Which GPUs to use?"
         placeholder=""
-        name="useGPU"
-        value={formData.useGPU}
+        name="gpuToUse"
+        value={formData.gpuToUse}
         onChange={handleInputChange}
         tooltipText="Comma-separated GPU device IDs (e.g., '0', '0,1'). Leave empty to use all available GPUs. Each MPI process uses one GPU."
         disabled={!isEnable}

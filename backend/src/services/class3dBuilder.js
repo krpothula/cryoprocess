@@ -14,6 +14,7 @@ const {
   isGpuEnabled,
   getGpuIds,
   getInputStarFile,
+  getContinueFrom,
   getMaskDiameter,
   getNumberOfClasses,
   getIterations,
@@ -34,6 +35,13 @@ class Class3DBuilder extends BaseJobBuilder {
   }
 
   validate() {
+    // Continue mode: only need the optimiser file
+    const continueFile = getContinueFrom(this.data);
+    if (continueFile) {
+      logger.info(`[Class3D] Validation: Passed (continue mode) | continueFrom: ${continueFile}`);
+      return { valid: true, error: null };
+    }
+
     const inputStar = getInputStarFile(this.data);
     const referenceMap = getReference(this.data);
 
@@ -79,6 +87,28 @@ class Class3DBuilder extends BaseJobBuilder {
 
     // Build command with MPI if requested (using configurable launcher)
     const cmd = this.buildMpiCommand('relion_refine', mpiProcs, gpuEnabled);
+
+    // Continue from previous run: RELION reads all parameters from the optimiser file
+    const continueFile = getContinueFrom(data);
+    if (continueFile) {
+      cmd.push('--continue', this.makeRelative(this.resolveInputPath(continueFile)));
+      cmd.push('--o', relOutputDir + path.sep);
+      cmd.push('--j', String(threads));
+      cmd.push('--pool', String(pooled));
+      cmd.push('--pipeline_control', relOutputDir + path.sep);
+      if (!getBoolParam(data, ['useParallelIO', 'Useparalleldisc'], true)) {
+        cmd.push('--no_parallel_disc_io');
+      }
+      if (!getBoolParam(data, ['combineIterations'], false)) {
+        cmd.push('--dont_combine_weights_via_disc');
+      }
+      if (gpuEnabled) {
+        cmd.push('--gpu', getGpuIds(data));
+      }
+      this.addAdditionalArguments(cmd);
+      logger.info(`[Class3D] Command: Built (continue mode) | ${cmd.join(' ')}`);
+      return cmd;
+    }
 
     // Get parameters using paramHelper
     const lowPass = getFloatParam(data, ['initialLowPassFilter'], 60);
@@ -135,7 +165,7 @@ class Class3DBuilder extends BaseJobBuilder {
     }
 
     // Ignore CTFs
-    if (getBoolParam(data, ['igonreCtf'], false)) {
+    if (getBoolParam(data, ['ignoreCTFs', 'ignoreCtf'], false)) {
       cmd.push('--ctf_intact_first_peak');
     }
 
@@ -150,12 +180,12 @@ class Class3DBuilder extends BaseJobBuilder {
     }
 
     // Mask particles
-    if (getBoolParam(data, ['maskIndividualparticles'], true)) {
+    if (getBoolParam(data, ['maskIndividualParticles', 'maskIndividualparticles'], true)) {
       cmd.push('--zero_mask');
     }
 
     // Image alignment options
-    if (getBoolParam(data, ['LocalSearchfromAutoSampling'], true)) {
+    if (getBoolParam(data, ['localSearchFromAutoSampling', 'LocalSearchfromAutoSampling'], true)) {
       cmd.push('--offset_range', String(offsetRange));
       cmd.push('--offset_step', String(offsetStep));
     } else {
@@ -163,7 +193,7 @@ class Class3DBuilder extends BaseJobBuilder {
     }
 
     // I/O options
-    if (!getBoolParam(data, ['Useparalleldisc'], true)) {
+    if (!getBoolParam(data, ['useParallelIO', 'Useparalleldisc'], true)) {
       cmd.push('--no_parallel_disc_io');
     }
     if (!getBoolParam(data, ['combineIterations'], false)) {
@@ -237,6 +267,12 @@ class Class3DBuilder extends BaseJobBuilder {
     };
     const healpixOrder = healpixMap[angularSampling] !== undefined ? healpixMap[angularSampling] : 2;
     cmd.push('--healpix_order', String(healpixOrder));
+
+    // Relax symmetry
+    const relaxSym = getParam(data, ['relaxSymmetry', 'RelaxSymmetry'], null);
+    if (relaxSym) {
+      cmd.push('--relax_sym', relaxSym);
+    }
 
     // Local angular searches
     if (getBoolParam(data, ['localAngularSearches'], false)) {

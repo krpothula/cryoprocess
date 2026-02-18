@@ -11,42 +11,41 @@ import "../../form.css";
 import SubmitButton from "../common/SubmitButton";
 import { FolderBrowserPopup } from "../common/FolderBrowser";
 import { JobTypes } from "../common/Data/jobs";
-import { threeDIntialModelAPI } from "../../../services/builders/3d-initialmodel/3d-initialmodel";
+import { threeDInitialModelAPI } from "../../../services/builders/3d-initialmodel/3d-initialmodel";
 import { useBuilder } from "../../../context/BuilderContext";
 import { DefaultMessages } from "../common/Data";
 
 const initialState = {
   numberOfVdam: 200,
-  regularisationParameter: 4,
+  regularisationParameter: 2,
   numberOfClasses: 1,
   maskDiameter: 200,
-  numberOfPooledParticle: 3,
-  numberOfMpiProcs: 1,
-  numberOfThreads: 1,
-  minimumDedicatedcoresPerNode: 1,
+  pooledParticles: 3,
+  mpiProcs: 1,
+  threads: 1,
+  coresPerNode: 1,
 
   // imagesStarFile: "",
   // continue: "",
 
   ctfCorrection: "Yes",
-  igonreCtf: "No",
+  ignoreCTFs: "No",
   nonNegativeSolvent: "Yes",
-  Symmetry: "C1",
+  symmetry: "C1",
   runInC1: "Yes",
-  Useparalleldisc: "Yes",
+  useParallelIO: "Yes",
   preReadAllParticles: "No",
   copyParticle: "",
   combineIterations: "No",
-  GpuAcceleration: "No",
+  gpuAcceleration: "No",
   gpuToUse: "",
   submitToQueue: "Yes",
-  queuename: "",
-  queueSubmitCommand: "",
+  queueName: "",
   // StandardSubmissionScript: "",
   additionalArguments: "",
 };
 
-const InitialModal = () => {
+const InitialModel = () => {
   const [activeTab, setActiveTab] = useState("I/O");
   const [isLoading, setLoading] = useState(false);
   const [formData, setFormData] = useState(initialState);
@@ -122,7 +121,7 @@ const InitialModal = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
-    threeDIntialModelAPI({ ...(formData || {}), project_id: projectId })
+    threeDInitialModelAPI({ ...(formData || {}), project_id: projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -268,4 +267,4 @@ const InitialModal = () => {
   );
 };
 
-export default InitialModal;
+export default InitialModel;

@@ -53,7 +53,7 @@ const Breadcrumb = () => {
 
   return (
     <div
-      className={`p-2 flex items-center border text-black rounded text-sm mb-2 ${
+      className={`p-2 flex items-center border text-[var(--color-text)] rounded text-sm mb-2 ${
         isEditing ? "border-b-primary border-b-2" : ""
       }`}
       onClick={handleEditClick}
@@ -73,7 +73,7 @@ const Breadcrumb = () => {
         <span key={index} className="">
           <span className="mx-1 text-midgray">/</span>
           <span
-            className="cursor-pointer text-black hover:underline"
+            className="cursor-pointer text-[var(--color-text)] hover:underline"
             onClick={handleEditClick}
           >
             {folder}
@@ -96,7 +96,7 @@ const Breadcrumb = () => {
       ) : (
         isFile && (
           <span
-            className="cursor-pointer text-black hover:underline"
+            className="cursor-pointer text-[var(--color-text)] hover:underline"
             onClick={handleEditClick}
           >
             {currentPath[currentPath.length - 1]}

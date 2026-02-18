@@ -37,22 +37,20 @@ exports.listUsers = async (req, res) => {
       .sort({ created_at: -1 })
       .lean();
 
-    res.json({
-      success: true,
-      status: 'success',
+    return response.success(res, {
       data: users.map(u => ({
         id: u.id,
         username: u.username,
         email: u.email,
-        first_name: u.first_name || '',
-        last_name: u.last_name || '',
-        is_active: u.is_active !== false,
-        is_staff: u.is_staff || false,
-        is_superuser: u.is_superuser || false,
-        must_change_password: u.must_change_password || false,
-        has_api_key: !!u.api_key_hash,
-        created_at: u.created_at,
-        last_login: u.last_login
+        firstName: u.first_name || '',
+        lastName: u.last_name || '',
+        isActive: u.is_active !== false,
+        isStaff: u.is_staff || false,
+        isSuperuser: u.is_superuser || false,
+        mustChangePassword: u.must_change_password || false,
+        hasApiKey: !!u.api_key_hash,
+        createdAt: u.created_at,
+        lastLogin: u.last_login
       })),
       count: users.length
     });
@@ -70,7 +68,7 @@ exports.listUsers = async (req, res) => {
  */
 exports.createUser = async (req, res) => {
   try {
-    const { email, username, first_name, last_name, is_staff, is_superuser } = req.body;
+    const { email, username, firstName, lastName, isStaff, isSuperuser } = req.body;
 
     if (!email) {
       return response.badRequest(res, 'Email is required');
@@ -90,7 +88,7 @@ exports.createUser = async (req, res) => {
     const normalizedEmail = email.toLowerCase();
 
     // Staff cannot create staff/superuser accounts
-    if (!req.user.is_superuser && (is_staff || is_superuser)) {
+    if (!req.user.is_superuser && (isStaff || isSuperuser)) {
       return response.forbidden(res, 'Only superusers can create staff or superuser accounts');
     }
 
@@ -116,25 +114,23 @@ exports.createUser = async (req, res) => {
       username: normalizedUsername,
       email: normalizedEmail,
       password: tempPassword,
-      first_name: first_name || '',
-      last_name: last_name || '',
+      first_name: firstName || '',
+      last_name: lastName || '',
       is_active: true,
-      is_staff: is_staff || false,
-      is_superuser: is_superuser || false,
+      is_staff: isStaff || false,
+      is_superuser: isSuperuser || false,
       must_change_password: true
     });
 
     logger.info(`[Admin] User created: ${normalizedUsername} by admin ${req.user.username}`);
     auditLog(req, 'admin_create_user', { resourceType: 'user', resourceId: newUser.id, details: normalizedUsername });
 
-    res.status(201).json({
-      success: true,
-      status: 'success',
+    return response.created(res, {
       data: {
         id: newUser.id,
         username: newUser.username,
         email: newUser.email,
-        temporary_password: tempPassword
+        temporaryPassword: tempPassword
       },
       message: 'User created with temporary password'
     });
@@ -160,23 +156,19 @@ exports.getUser = async (req, res) => {
       return response.notFound(res, 'User not found');
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         id: user.id,
         username: user.username,
         email: user.email,
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        is_active: user.is_active !== false,
-        is_staff: user.is_staff || false,
-        is_superuser: user.is_superuser || false,
-        must_change_password: user.must_change_password || false,
-        has_api_key: !!user.api_key_hash,
-        created_at: user.created_at,
-        last_login: user.last_login
-      }
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        isActive: user.is_active !== false,
+        isStaff: user.is_staff || false,
+        isSuperuser: user.is_superuser || false,
+        mustChangePassword: user.must_change_password || false,
+        hasApiKey: !!user.api_key_hash,
+        createdAt: user.created_at,
+        lastLogin: user.last_login
     });
   } catch (error) {
     logger.error('[Admin] getUser error:', error);
@@ -193,7 +185,7 @@ exports.getUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { first_name, last_name, is_active, is_staff, is_superuser } = req.body;
+    const { firstName, lastName, isActive, isStaff, isSuperuser } = req.body;
 
     const user = await User.findOne({ id: parseInt(userId, 10) });
 
@@ -207,19 +199,19 @@ exports.updateUser = async (req, res) => {
     }
 
     // Staff cannot grant staff/superuser privileges
-    if (!req.user.is_superuser && (is_staff || is_superuser)) {
+    if (!req.user.is_superuser && (isStaff || isSuperuser)) {
       return response.forbidden(res, 'Only superusers can grant staff or superuser privileges');
     }
 
     // Update fields
-    if (first_name !== undefined) user.first_name = first_name;
-    if (last_name !== undefined) user.last_name = last_name;
-    if (is_active !== undefined) user.is_active = is_active;
+    if (firstName !== undefined) user.first_name = firstName;
+    if (lastName !== undefined) user.last_name = lastName;
+    if (isActive !== undefined) user.is_active = isActive;
 
     // Only superuser can modify these
     if (req.user.is_superuser) {
-      if (is_staff !== undefined) user.is_staff = is_staff;
-      if (is_superuser !== undefined) user.is_superuser = is_superuser;
+      if (isStaff !== undefined) user.is_staff = isStaff;
+      if (isSuperuser !== undefined) user.is_superuser = isSuperuser;
     }
 
     user.updated_at = new Date();
@@ -229,18 +221,16 @@ exports.updateUser = async (req, res) => {
     logger.info(`[Admin] User updated: ${user.username} by admin ${req.user.username}`);
     auditLog(req, 'admin_update_user', { resourceType: 'user', resourceId: user.id, details: user.username });
 
-    res.json({
-      success: true,
-      status: 'success',
+    return response.success(res, {
       data: {
         id: user.id,
         username: user.username,
         email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        is_active: user.is_active,
-        is_staff: user.is_staff,
-        is_superuser: user.is_superuser
+        firstName: user.first_name,
+        lastName: user.last_name,
+        isActive: user.is_active,
+        isStaff: user.is_staff,
+        isSuperuser: user.is_superuser
       },
       message: 'User updated successfully'
     });
@@ -322,11 +312,9 @@ exports.resetPassword = async (req, res) => {
     logger.info(`[Admin] Password reset for: ${user.username} by admin ${req.user.username}`);
     auditLog(req, 'admin_reset_password', { resourceType: 'user', resourceId: user.id, details: user.username });
 
-    res.json({
-      success: true,
-      status: 'success',
+    return response.success(res, {
       data: {
-        temporary_password: tempPassword
+        temporaryPassword: tempPassword
       },
       message: 'Password reset successfully. User must change password on next login.'
     });
@@ -365,11 +353,9 @@ exports.generateApiKey = async (req, res) => {
     logger.info(`[Admin] API key generated for: ${user.username} by admin ${req.user.username}`);
     auditLog(req, 'admin_generate_api_key', { resourceType: 'user', resourceId: user.id, details: user.username });
 
-    res.json({
-      success: true,
-      status: 'success',
+    return response.success(res, {
       data: {
-        api_key: raw
+        apiKey: raw
       },
       message: 'API key generated. Store it securely — it cannot be shown again.'
     });

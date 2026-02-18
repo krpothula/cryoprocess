@@ -221,7 +221,8 @@ const submitProcessingJob = async (params) => {
     job_name: `SmartScope_${jobId.substring(0, 8)}`,
     job_type: 'SmartScopeProcess',
     status: JOB_STATUS.PENDING,
-    execution_mode: 'slurm',
+    execution_method: 'slurm',
+    system_type: 'local',
     output_file_path: jobOutputDir,
     parameters: {
       micrograph_path,

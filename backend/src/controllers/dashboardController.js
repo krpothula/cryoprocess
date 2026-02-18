@@ -12,7 +12,25 @@ const Job = require('../models/Job');
 const { parseStarFile } = require('../utils/starParser');
 const { getProjectPath } = require('../utils/pathUtils');
 const { frameToPng } = require('../utils/mrcParser');
-const { JOB_STATUS } = require('../config/constants');
+const { JOB_STATUS, IMPORT_NODE_TYPES } = require('../config/constants');
+const response = require('../utils/responseHelper');
+
+/**
+ * Compute min, max, mean of a numeric array in a single pass.
+ * Safe for arrays of any size (no spread operator / stack overflow risk).
+ * Returns { min: 0, max: 0, mean: 0 } for empty arrays.
+ */
+const arrayStats = (arr) => {
+  if (!arr || arr.length === 0) return { min: 0, max: 0, mean: 0 };
+  let min = arr[0], max = arr[0], sum = arr[0];
+  for (let i = 1; i < arr.length; i++) {
+    const v = arr[i];
+    if (v < min) min = v;
+    if (v > max) max = v;
+    sum += v;
+  }
+  return { min, max, mean: sum / arr.length };
+};
 
 /**
  * Get job and validate access
@@ -39,25 +57,65 @@ const getJobWithAccess = async (jobId, userId) => {
 };
 
 /**
- * Parse STAR file with caching
- * Skips MongoDB caching for large files (>10MB) to avoid BSON size limits
+ * Parse STAR file with two-tier caching:
+ *   1. In-memory LRU cache (fastest, avoids DB round-trip)
+ *   2. MongoDB star_cache field (persists across restarts)
+ *   3. Parse from disk (slowest)
+ *
+ * Both caches invalidate on file mtime change.
  */
 const STAR_CACHE_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MEMORY_CACHE_MAX_ENTRIES = 100;
+
+// In-memory LRU cache: key = filePath, value = { mtime, data }
+const memoryCache = new Map();
+
+const memoryCacheGet = (filePath, mtime) => {
+  const entry = memoryCache.get(filePath);
+  if (entry && entry.mtime === mtime) {
+    // Move to end (most recently used) for LRU
+    memoryCache.delete(filePath);
+    memoryCache.set(filePath, entry);
+    return entry.data;
+  }
+  return null;
+};
+
+const memoryCacheSet = (filePath, mtime, data) => {
+  // Evict oldest entry if at capacity
+  if (memoryCache.size >= MEMORY_CACHE_MAX_ENTRIES) {
+    const oldest = memoryCache.keys().next().value;
+    memoryCache.delete(oldest);
+  }
+  memoryCache.set(filePath, { mtime, data });
+};
 
 const parseStarWithCache = async (job, starPath) => {
   const stat = fs.statSync(starPath);
+  const mtime = stat.mtime.toISOString();
 
-  // Check if we have cached data
+  // Tier 1: In-memory cache (no DB round-trip)
+  const memHit = memoryCacheGet(starPath, mtime);
+  if (memHit) {
+    return memHit;
+  }
+
+  // Tier 2: MongoDB star_cache
   if (job.star_cache && job.star_cache.path === starPath) {
-    if (job.star_cache.mtime === stat.mtime.toISOString()) {
+    if (job.star_cache.mtime === mtime) {
+      // Promote to memory cache
+      memoryCacheSet(starPath, mtime, job.star_cache.data);
       return job.star_cache.data;
     }
   }
 
-  // Parse the file
+  // Tier 3: Parse from disk
   const data = await parseStarFile(starPath);
 
-  // Only cache in MongoDB if file is small enough to avoid BSON size limits
+  // Store in memory cache
+  memoryCacheSet(starPath, mtime, data);
+
+  // Store in MongoDB if file is small enough to avoid BSON size limits
   if (stat.size <= STAR_CACHE_MAX_FILE_SIZE) {
     try {
       await Job.findOneAndUpdate(
@@ -65,7 +123,7 @@ const parseStarWithCache = async (job, starPath) => {
         {
           star_cache: {
             path: starPath,
-            mtime: stat.mtime.toISOString(),
+            mtime,
             data
           }
         }
@@ -89,12 +147,12 @@ exports.getMotionResults = async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -134,40 +192,39 @@ exports.getMotionResults = async (req, res) => {
     // Base response with command
     const overview = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
-      job_dir: outputDir,
+      jobName: job.job_name,
+      jobStatus: job.status,
+      jobDir: outputDir,
       command: command,
-      total_micrographs: 0,
-      pixel_size: null,
-      summary_stats: {
-        total_motion: {},
-        early_motion: {},
-        late_motion: {},
+      totalMicrographs: 0,
+      pixelSize: null,
+      summaryStats: {
+        totalMotion: {},
+        earlyMotion: {},
+        lateMotion: {},
         processed: 0,
         total: 0
       },
-      pagination: { offset, limit, total: 0, has_more: false },
+      pagination: { offset, limit, total: 0, hasMore: false },
       micrographs: []
     };
 
     // Get pixel size from pipeline_stats or parameters
     if (job.pipeline_stats?.pixel_size) {
-      overview.pixel_size = job.pipeline_stats.pixel_size;
+      overview.pixelSize = job.pipeline_stats.pixel_size;
     } else if (job.pixel_size) {
-      overview.pixel_size = job.pixel_size;
+      overview.pixelSize = job.pixel_size;
     } else if (job.parameters?.angpix) {
       const binFactor = parseInt(job.parameters?.binningFactor) || 1;
-      overview.pixel_size = parseFloat(job.parameters.angpix) * binFactor;
+      overview.pixelSize = parseFloat(job.parameters.angpix) * binFactor;
     }
 
     if (!fs.existsSync(starPath)) {
-      return res.json({ success: true,
-      status: 'success', data: overview });
+      return response.successData(res, overview);
     }
 
     const starData = await parseStarWithCache(job, starPath);
-    const allMicrographs = starData.files || starData.files || starData.micrographs || starData.data_micrographs || [];
+    const allMicrographs = starData.files || starData.micrographs || starData.data_micrographs || [];
     const totalCount = allMicrographs.length;
 
     // Calculate stats
@@ -176,22 +233,10 @@ exports.getMotionResults = async (req, res) => {
       const earlyMotions = allMicrographs.map(m => parseFloat(m.rlnAccumMotionEarly) || 0);
       const lateMotions = allMicrographs.map(m => parseFloat(m.rlnAccumMotionLate) || 0);
 
-      overview.summary_stats = {
-        total_motion: {
-          min: Math.min(...totalMotions),
-          max: Math.max(...totalMotions),
-          mean: totalMotions.reduce((a, b) => a + b, 0) / totalMotions.length
-        },
-        early_motion: {
-          min: Math.min(...earlyMotions),
-          max: Math.max(...earlyMotions),
-          mean: earlyMotions.reduce((a, b) => a + b, 0) / earlyMotions.length
-        },
-        late_motion: {
-          min: Math.min(...lateMotions),
-          max: Math.max(...lateMotions),
-          mean: lateMotions.reduce((a, b) => a + b, 0) / lateMotions.length
-        },
+      overview.summaryStats = {
+        totalMotion: arrayStats(totalMotions),
+        earlyMotion: arrayStats(earlyMotions),
+        lateMotion: arrayStats(lateMotions),
         processed: totalCount,
         total: totalCount
       };
@@ -199,25 +244,24 @@ exports.getMotionResults = async (req, res) => {
 
     // Paginate micrographs
     const paginatedMicrographs = allMicrographs.slice(offset, offset + limit);
-    overview.total_micrographs = totalCount;
+    overview.totalMicrographs = totalCount;
     overview.pagination = {
       offset,
       limit,
       total: totalCount,
-      has_more: offset + limit < totalCount
+      hasMore: offset + limit < totalCount
     };
     overview.micrographs = paginatedMicrographs.map(m => ({
-      micrograph_name: m.rlnMicrographName || m.micrograph_name || '',
-      total_motion: parseFloat(m.rlnAccumMotionTotal) || 0,
-      early_motion: parseFloat(m.rlnAccumMotionEarly) || 0,
-      late_motion: parseFloat(m.rlnAccumMotionLate) || 0
+      micrographName: m.rlnMicrographName || m.micrograph_name || '',
+      totalMotion: parseFloat(m.rlnAccumMotionTotal) || 0,
+      earlyMotion: parseFloat(m.rlnAccumMotionEarly) || 0,
+      lateMotion: parseFloat(m.rlnAccumMotionLate) || 0
     }));
 
-    res.json({ success: true,
-      status: 'success', data: overview });
+    return response.successData(res, overview);
   } catch (error) {
     logger.error(`[Dashboard] Motion results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get motion results' });
+    return response.serverError(res, 'Failed to get motion results');
   }
 };
 
@@ -229,12 +273,12 @@ exports.getMotionLiveStats = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -243,43 +287,42 @@ exports.getMotionLiveStats = async (req, res) => {
 
     const stats = {
       id: job.id,
-      job_status: job.status,
+      jobStatus: job.status,
       processed: 0,
       total: 0,
-      progress_percent: 0,
-      latest_micrographs: [],
-      motion_stats: {
+      progressPercent: 0,
+      latestMicrographs: [],
+      motionStats: {
         total: { min: 0, max: 0, mean: 0, latest: 0 },
         early: { min: 0, max: 0, mean: 0, latest: 0 },
         late: { min: 0, max: 0, mean: 0, latest: 0 }
       },
-      motion_timeline: []
+      motionTimeline: []
     };
 
     if (!fs.existsSync(starPath)) {
-      return res.json({ success: true,
-      status: 'success', data: stats });
+      return response.successData(res, stats);
     }
 
     const starData = await parseStarWithCache(job, starPath);
-    const micrographs = starData.files || starData.files || starData.micrographs || starData.data_micrographs || [];
+    const micrographs = starData.files || starData.micrographs || starData.data_micrographs || [];
 
     stats.processed = micrographs.length;
     stats.total = micrographs.length;
-    stats.progress_percent = 100;
+    stats.progressPercent = 100;
 
     // Update pipeline_stats.micrograph_count in DB so stats cards stay current
-    if (micrographs.length > 0 && micrographs.length !== (job.pipeline_stats?.micrograph_count || 0)) {
+    if (micrographs.length > 0 && micrographs.length !== (job.pipeline_stats?.micrograph_count ?? 0)) {
       Job.updateOne({ id: job.id }, { 'pipeline_stats.micrograph_count': micrographs.length }).catch(() => {});
     }
 
     if (micrographs.length > 0) {
       // Get latest micrographs
-      stats.latest_micrographs = micrographs.slice(-5).map(m => ({
+      stats.latestMicrographs = micrographs.slice(-5).map(m => ({
         name: path.basename(m.rlnMicrographName || m.micrograph_name || ''),
-        total_motion: parseFloat(m.rlnAccumMotionTotal) || 0,
-        early_motion: parseFloat(m.rlnAccumMotionEarly) || 0,
-        late_motion: parseFloat(m.rlnAccumMotionLate) || 0
+        totalMotion: parseFloat(m.rlnAccumMotionTotal) || 0,
+        earlyMotion: parseFloat(m.rlnAccumMotionEarly) || 0,
+        lateMotion: parseFloat(m.rlnAccumMotionLate) || 0
       }));
 
       // Calculate motion stats
@@ -287,29 +330,14 @@ exports.getMotionLiveStats = async (req, res) => {
       const earlyMotions = micrographs.map(m => parseFloat(m.rlnAccumMotionEarly) || 0);
       const lateMotions = micrographs.map(m => parseFloat(m.rlnAccumMotionLate) || 0);
 
-      stats.motion_stats = {
-        total: {
-          min: Math.min(...totalMotions),
-          max: Math.max(...totalMotions),
-          mean: totalMotions.reduce((a, b) => a + b, 0) / totalMotions.length,
-          latest: totalMotions[totalMotions.length - 1] || 0
-        },
-        early: {
-          min: Math.min(...earlyMotions),
-          max: Math.max(...earlyMotions),
-          mean: earlyMotions.reduce((a, b) => a + b, 0) / earlyMotions.length,
-          latest: earlyMotions[earlyMotions.length - 1] || 0
-        },
-        late: {
-          min: Math.min(...lateMotions),
-          max: Math.max(...lateMotions),
-          mean: lateMotions.reduce((a, b) => a + b, 0) / lateMotions.length,
-          latest: lateMotions[lateMotions.length - 1] || 0
-        }
+      stats.motionStats = {
+        total: { ...arrayStats(totalMotions), latest: totalMotions[totalMotions.length - 1] || 0 },
+        early: { ...arrayStats(earlyMotions), latest: earlyMotions[earlyMotions.length - 1] || 0 },
+        late: { ...arrayStats(lateMotions), latest: lateMotions[lateMotions.length - 1] || 0 }
       };
 
       // Motion timeline (last 20)
-      stats.motion_timeline = micrographs.slice(-20).map((m, i) => ({
+      stats.motionTimeline = micrographs.slice(-20).map((m, i) => ({
         index: Math.max(0, micrographs.length - 20) + i,
         total: parseFloat(m.rlnAccumMotionTotal) || 0,
         early: parseFloat(m.rlnAccumMotionEarly) || 0,
@@ -317,11 +345,10 @@ exports.getMotionLiveStats = async (req, res) => {
       }));
     }
 
-    res.json({ success: true,
-      status: 'success', data: stats });
+    return response.successData(res, stats);
   } catch (error) {
     logger.error(`[Dashboard] Motion live stats error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get live stats' });
+    return response.serverError(res, 'Failed to get live stats');
   }
 };
 
@@ -335,12 +362,12 @@ exports.getMicrographShifts = async (req, res) => {
     const micrograph = req.query.micrograph;
 
     if (!jobId || !micrograph) {
-      return res.status(400).json({ status: 'error', message: 'job_id and micrograph are required' });
+      return response.badRequest(res, 'job_id and micrograph are required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -372,7 +399,7 @@ exports.getMicrographShifts = async (req, res) => {
     }
 
     if (!starFile) {
-      return res.status(404).json({ status: 'error', message: 'Shift data not found' });
+      return response.notFound(res, 'Shift data not found');
     }
 
     const starData = await parseStarFile(starFile);
@@ -392,30 +419,26 @@ exports.getMicrographShifts = async (req, res) => {
     // Frontend expects: { frames: [{ frame, shift_x, shift_y }, ...] }
     const frames = shiftRows.map((s, i) => ({
       frame: parseInt(s.rlnMicrographFrameNumber) || i + 1,
-      shift_x: parseFloat(s.rlnMicrographShiftX) || parseFloat(s.rlnShiftX) || 0,
-      shift_y: parseFloat(s.rlnMicrographShiftY) || parseFloat(s.rlnShiftY) || 0
+      shiftX: parseFloat(s.rlnMicrographShiftX) || parseFloat(s.rlnShiftX) || 0,
+      shiftY: parseFloat(s.rlnMicrographShiftY) || parseFloat(s.rlnShiftY) || 0
     }));
 
     // Include metadata like Python does
     const formattedShifts = {
-      micrograph_name: path.basename(starFile).replace('.star', ''),
-      image_size_x: parseInt(general.rlnImageSizeX) || 0,
-      image_size_y: parseInt(general.rlnImageSizeY) || 0,
-      num_frames: parseInt(general.rlnImageSizeZ) || frames.length,
-      pixel_size: parseFloat(general.rlnMicrographPixelSize || general.rlnMicrographOriginalPixelSize) || 0,
+      micrographName: path.basename(starFile).replace('.star', ''),
+      imageSizeX: parseInt(general.rlnImageSizeX) || 0,
+      imageSizeY: parseInt(general.rlnImageSizeY) || 0,
+      numFrames: parseInt(general.rlnImageSizeZ) || frames.length,
+      pixelSize: parseFloat(general.rlnMicrographPixelSize || general.rlnMicrographOriginalPixelSize) || 0,
       voltage: parseFloat(general.rlnVoltage) || 300,
-      dose_per_frame: parseFloat(general.rlnMicrographDoseRate) || 0,
+      dosePerFrame: parseFloat(general.rlnMicrographDoseRate) || 0,
       frames: frames
     };
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: { shifts: formattedShifts, processing: {} }
-    });
+    return response.successData(res, { shifts: formattedShifts, processing: {} });
   } catch (error) {
     logger.error(`[Dashboard] Micrograph shifts error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get shift data' });
+    return response.serverError(res, 'Failed to get shift data');
   }
 };
 
@@ -430,12 +453,12 @@ exports.getMicrographImage = async (req, res) => {
     const imageType = req.query.type || 'micrograph';
 
     if (!jobId || !micrograph) {
-      return res.status(400).json({ status: 'error', message: 'job_id and micrograph are required' });
+      return response.badRequest(res, 'job_id and micrograph are required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -478,16 +501,12 @@ exports.getMicrographImage = async (req, res) => {
         const base64 = imgData.toString('base64');
         const ext = path.extname(thumbPath).toLowerCase();
         const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
-        return res.json({
-          success: true,
-      status: 'success',
-          data: {
+        return response.successData(res, {
             micrograph,
             type: imageType,
             image: `data:${mimeType};base64,${base64}`,
             source: 'thumbnail'
-          }
-        });
+          });
       }
     }
 
@@ -514,16 +533,12 @@ exports.getMicrographImage = async (req, res) => {
           const pngBuffer = await frameToPng(mrcPath, 0, 512);
           if (pngBuffer) {
             const base64 = pngBuffer.toString('base64');
-            return res.json({
-              success: true,
-      status: 'success',
-              data: {
+            return response.successData(res, {
                 micrograph,
                 type: imageType,
                 image: `data:image/png;base64,${base64}`,
                 source: 'mrc_converted'
-              }
-            });
+              });
           }
         } catch (convErr) {
           logger.warn(`[Dashboard] MRC conversion failed for ${mrcPath}: ${convErr.message}`);
@@ -548,16 +563,12 @@ exports.getMicrographImage = async (req, res) => {
           const pngBuffer = await frameToPng(mrcPath, 0, 512);
           if (pngBuffer) {
             const base64 = pngBuffer.toString('base64');
-            return res.json({
-              success: true,
-      status: 'success',
-              data: {
+            return response.successData(res, {
                 micrograph,
                 type: imageType,
                 image: `data:image/png;base64,${base64}`,
                 source: 'mrc_converted'
-              }
-            });
+              });
           }
         } catch (convErr) {
           logger.warn(`[Dashboard] MRC conversion failed for ${mrcPath}: ${convErr.message}`);
@@ -566,13 +577,10 @@ exports.getMicrographImage = async (req, res) => {
     }
 
     logger.warn(`[Dashboard] No image found for micrograph: ${micrograph}`);
-    return res.status(404).json({
-      status: 'error',
-      message: 'No thumbnail or MRC file found for this micrograph.'
-    });
+    return response.notFound(res, 'No thumbnail or MRC file found for this micrograph.');
   } catch (error) {
     logger.error(`[Dashboard] Micrograph image error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get image' });
+    return response.serverError(res, 'Failed to get image');
   }
 };
 
@@ -584,7 +592,7 @@ exports.getMotionDashboard = async (req, res) => {
     const { jobId } = req.params;
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -594,19 +602,15 @@ exports.getMotionDashboard = async (req, res) => {
     const starPath = path.join(outputDir, 'corrected_micrographs.star');
 
     if (!fs.existsSync(starPath)) {
-      return res.json({
-        success: true,
-      status: 'success',
-        data: {
+      return response.successData(res, {
           job: { id: job.id, name: job.job_name, status: job.status },
           micrographs: [],
           stats: { total: 0, processed: 0 }
-        }
-      });
+        });
     }
 
     const starData = await parseStarWithCache(job, starPath);
-    const micrographs = starData.files || starData.files || starData.micrographs || starData.data_micrographs || [];
+    const micrographs = starData.files || starData.micrographs || starData.data_micrographs || [];
 
     // Calculate stats
     const stats = {
@@ -622,18 +626,14 @@ exports.getMotionDashboard = async (req, res) => {
       stats.avgMotion = totalMotion / micrographs.length;
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         job: { id: job.id, name: job.job_name, status: job.status },
         stats,
         micrographCount: micrographs.length
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Motion error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get motion dashboard' });
+    return response.serverError(res, 'Failed to get motion dashboard');
   }
 };
 
@@ -647,19 +647,18 @@ exports.getMotionMicrographs = async (req, res) => {
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const starPath = path.join(job.output_file_path, 'corrected_micrographs.star');
 
     if (!fs.existsSync(starPath)) {
-      return res.json({ success: true,
-      status: 'success', data: [], total: 0 });
+      return response.success(res, { data: [], total: 0 });
     }
 
     const starData = await parseStarWithCache(job, starPath);
-    const allMicrographs = starData.files || starData.files || starData.micrographs || starData.data_micrographs || [];
+    const allMicrographs = starData.files || starData.micrographs || starData.data_micrographs || [];
 
     // Paginate
     const start = parseInt(offset);
@@ -672,15 +671,10 @@ exports.getMotionMicrographs = async (req, res) => {
       motionLate: parseFloat(m.rlnAccumMotionLate) || 0
     }));
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: micrographs,
-      total: allMicrographs.length
-    });
+    return response.success(res, { data: micrographs, total: allMicrographs.length });
   } catch (error) {
     logger.error(`[Dashboard] Motion micrographs error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get micrographs' });
+    return response.serverError(res, 'Failed to get micrographs');
   }
 };
 
@@ -692,22 +686,18 @@ exports.getCtfDashboard = async (req, res) => {
     const { jobId } = req.params;
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const starPath = path.join(job.output_file_path, 'micrographs_ctf.star');
 
     if (!fs.existsSync(starPath)) {
-      return res.json({
-        success: true,
-      status: 'success',
-        data: {
+      return response.successData(res, {
           job: { id: job.id, name: job.job_name, status: job.status },
           micrographs: [],
           stats: { total: 0, processed: 0 }
-        }
-      });
+        });
     }
 
     const starData = await parseStarWithCache(job, starPath);
@@ -736,18 +726,14 @@ exports.getCtfDashboard = async (req, res) => {
       stats.avgMaxRes = totalMaxRes / micrographs.length;
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         job: { id: job.id, name: job.job_name, status: job.status },
         stats,
         micrographCount: micrographs.length
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] CTF error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get CTF dashboard' });
+    return response.serverError(res, 'Failed to get CTF dashboard');
   }
 };
 
@@ -761,15 +747,14 @@ exports.getCtfMicrographs = async (req, res) => {
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const starPath = path.join(job.output_file_path, 'micrographs_ctf.star');
 
     if (!fs.existsSync(starPath)) {
-      return res.json({ success: true,
-      status: 'success', data: [], total: 0 });
+      return response.success(res, { data: [], total: 0 });
     }
 
     const starData = await parseStarWithCache(job, starPath);
@@ -788,15 +773,10 @@ exports.getCtfMicrographs = async (req, res) => {
       powerSpectrum: m.rlnCtfImage || null
     }));
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: micrographs,
-      total: allMicrographs.length
-    });
+    return response.success(res, { data: micrographs, total: allMicrographs.length });
   } catch (error) {
     logger.error(`[Dashboard] CTF micrographs error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get micrographs' });
+    return response.serverError(res, 'Failed to get micrographs');
   }
 };
 
@@ -808,7 +788,7 @@ exports.getAutopickDashboard = async (req, res) => {
     const { jobId } = req.params;
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -833,21 +813,17 @@ exports.getAutopickDashboard = async (req, res) => {
 
     const avgPerMic = coordFiles.length > 0 ? totalParticles / Math.min(coordFiles.length, 100) : 0;
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         job: { id: job.id, name: job.job_name, status: job.status },
         stats: {
           micrographs: coordFiles.length,
           estimatedParticles: Math.round(avgPerMic * coordFiles.length),
           avgPerMicrograph: Math.round(avgPerMic)
         }
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Autopick error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get autopick dashboard' });
+    return response.serverError(res, 'Failed to get autopick dashboard');
   }
 };
 
@@ -861,7 +837,7 @@ exports.getAutopickMicrographs = async (req, res) => {
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -894,15 +870,10 @@ exports.getAutopickMicrographs = async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: micrographs,
-      total: coordFiles.length
-    });
+    return response.success(res, { data: micrographs, total: coordFiles.length });
   } catch (error) {
     logger.error(`[Dashboard] Autopick micrographs error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get micrographs' });
+    return response.serverError(res, 'Failed to get micrographs');
   }
 };
 
@@ -915,29 +886,25 @@ exports.getExtractDashboard = async (req, res) => {
     const { jobId } = req.params;
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const ps = job.pipeline_stats || {};
-    const totalParticles = ps.particle_count || job.particle_count || 0;
-    const micrographs = ps.micrograph_count || job.micrograph_count || 0;
+    const totalParticles = ps.particle_count ?? job.particle_count ?? 0;
+    const micrographs = ps.micrograph_count ?? job.micrograph_count ?? 0;
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         job: { id: job.id, name: job.job_name, status: job.status },
         stats: {
           totalParticles,
           micrographs,
           avgPerMicrograph: micrographs > 0 ? Math.round(totalParticles / micrographs) : 0
         }
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Extract error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get extract dashboard' });
+    return response.serverError(res, 'Failed to get extract dashboard');
   }
 };
 
@@ -949,7 +916,7 @@ exports.getClass2dDashboard = async (req, res) => {
     const { jobId } = req.params;
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -963,14 +930,10 @@ exports.getClass2dDashboard = async (req, res) => {
     const latestModel = modelFiles.length > 0 ? modelFiles[modelFiles.length - 1] : null;
 
     if (!latestModel) {
-      return res.json({
-        success: true,
-      status: 'success',
-        data: {
+      return response.successData(res, {
           job: { id: job.id, name: job.job_name, status: job.status },
           stats: { classes: 0, iteration: 0, totalParticles: 0 }
-        }
-      });
+        });
     }
 
     // Extract iteration number
@@ -987,10 +950,7 @@ exports.getClass2dDashboard = async (req, res) => {
       totalParticles += parseInt(c.rlnClassDistribution * 1000) || 0;
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         job: { id: job.id, name: job.job_name, status: job.status },
         stats: {
           classes: classes.length,
@@ -998,11 +958,10 @@ exports.getClass2dDashboard = async (req, res) => {
           totalParticles,
           modelFile: latestModel
         }
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Class2D error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get Class2D dashboard' });
+    return response.serverError(res, 'Failed to get Class2D dashboard');
   }
 };
 
@@ -1016,7 +975,7 @@ exports.getClass2dClasses = async (req, res) => {
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1034,8 +993,7 @@ exports.getClass2dClasses = async (req, res) => {
     }
 
     if (!modelFile || !fs.existsSync(path.join(outputDir, modelFile))) {
-      return res.json({ success: true,
-      status: 'success', data: [], total: 0 });
+      return response.success(res, { data: [], total: 0 });
     }
 
     const starData = await parseStarFile(path.join(outputDir, modelFile));
@@ -1053,15 +1011,10 @@ exports.getClass2dClasses = async (req, res) => {
     // Sort by distribution (most particles first)
     classes.sort((a, b) => b.distribution - a.distribution);
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: classes,
-      total: classes.length
-    });
+    return response.success(res, { data: classes, total: classes.length });
   } catch (error) {
     logger.error(`[Dashboard] Class2D classes error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get classes' });
+    return response.serverError(res, 'Failed to get classes');
   }
 };
 
@@ -1073,42 +1026,34 @@ exports.getImportDashboard = async (req, res) => {
     const { jobId } = req.params;
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const starPath = path.join(job.output_file_path, 'movies.star');
 
     if (!fs.existsSync(starPath)) {
-      return res.json({
-        success: true,
-      status: 'success',
-        data: {
+      return response.successData(res, {
           job: { id: job.id, name: job.job_name, status: job.status },
           stats: { movies: 0, importType: (job.parameters?.rawMovies === 'Yes' ? 'movies' : 'micrographs') }
-        }
-      });
+        });
     }
 
     const starData = await parseStarWithCache(job, starPath);
     const movies = starData.movies || starData.data_movies || [];
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         job: { id: job.id, name: job.job_name, status: job.status },
         stats: {
           movies: movies.length,
           importType: job.parameters?.rawMovies === 'Yes' ? 'movies' : 'micrographs',
-          pixelSize: job.pipeline_stats?.pixel_size || job.parameters?.angpix || null,
+          pixelSize: job.pipeline_stats?.pixel_size ?? job.parameters?.angpix ?? null,
           voltage: job.parameters?.kV || null
         }
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Import error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get import dashboard' });
+    return response.serverError(res, 'Failed to get import dashboard');
   }
 };
 
@@ -1120,7 +1065,7 @@ exports.getJobOutput = async (req, res) => {
     const { jobId } = req.params;
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1136,18 +1081,14 @@ exports.getJobOutput = async (req, res) => {
         }))
       : [];
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         job: { id: job.id, name: job.job_name, status: job.status, type: job.job_type },
         outputDir,
         files: files.filter(f => !f.isDirectory)
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Output error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get job output' });
+    return response.serverError(res, 'Failed to get job output');
   }
 };
 
@@ -1161,7 +1102,7 @@ exports.getJobLogs = async (req, res) => {
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1187,8 +1128,7 @@ exports.getJobLogs = async (req, res) => {
         job.error_message ? `Error: ${job.error_message}` : ''
       ].filter(Boolean).join('\n');
 
-      return res.json({ success: true,
-      status: 'success', data: logs });
+      return response.successData(res, logs);
     }
 
     // Standard jobs with log files
@@ -1218,14 +1158,10 @@ exports.getJobLogs = async (req, res) => {
       ].join('\n');
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: logs
-    });
+    return response.successData(res, logs);
   } catch (error) {
     logger.error(`[Dashboard] Logs error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get logs' });
+    return response.serverError(res, 'Failed to get logs');
   }
 };
 
@@ -1241,7 +1177,7 @@ exports.getCachedThumbnail = async (req, res) => {
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
       logger.warn(`[Dashboard] Thumbnail job not found: ${jobId}`);
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1250,14 +1186,14 @@ exports.getCachedThumbnail = async (req, res) => {
 
     if (!fs.existsSync(thumbnailPath)) {
       logger.warn(`[Dashboard] Thumbnail not found: ${thumbnailPath}`);
-      return res.status(404).json({ status: 'error', message: 'Thumbnail not found' });
+      return response.notFound(res, 'Thumbnail not found');
     }
 
     logger.info(`[Dashboard] Serving thumbnail: ${thumbnailPath}`);
     res.sendFile(thumbnailPath);
   } catch (error) {
     logger.error(`[Dashboard] Thumbnail error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get thumbnail' });
+    return response.serverError(res, 'Failed to get thumbnail');
   }
 };
 
@@ -1271,7 +1207,7 @@ exports.listCachedThumbnails = async (req, res) => {
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1284,15 +1220,10 @@ exports.listCachedThumbnails = async (req, res) => {
         .sort();
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      thumbnails,
-      count: thumbnails.length
-    });
+    return response.success(res, { thumbnails, count: thumbnails.length });
   } catch (error) {
     logger.error(`[Dashboard] List thumbnails error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to list thumbnails' });
+    return response.serverError(res, 'Failed to list thumbnails');
   }
 };
 
@@ -1306,7 +1237,7 @@ exports.getCachedStats = async (req, res) => {
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1314,16 +1245,14 @@ exports.getCachedStats = async (req, res) => {
 
     if (!fs.existsSync(statsPath)) {
       // Return basic job stats if no cached stats file
-      return res.json({
-        success: true,
-      status: 'success',
+      return response.success(res, {
         stats: {
           id: job.id,
-          job_name: job.job_name,
-          job_type: job.job_type,
+          jobName: job.job_name,
+          jobType: job.job_type,
           status: job.status,
-          created_at: job.created_at,
-          updated_at: job.updated_at
+          createdAt: job.created_at,
+          updatedAt: job.updated_at
         }
       });
     }
@@ -1331,14 +1260,10 @@ exports.getCachedStats = async (req, res) => {
     const statsContent = fs.readFileSync(statsPath, 'utf8');
     const stats = JSON.parse(statsContent);
 
-    res.json({
-      success: true,
-      status: 'success',
-      stats
-    });
+    return response.success(res, { stats });
   } catch (error) {
     logger.error(`[Dashboard] Stats error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get stats' });
+    return response.serverError(res, 'Failed to get stats');
   }
 };
 
@@ -1354,7 +1279,7 @@ exports.getPostProcessStatus = async (req, res) => {
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
       logger.warn(`[Dashboard] Job not found: ${jobId}`);
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1372,17 +1297,15 @@ exports.getPostProcessStatus = async (req, res) => {
 
     logger.info(`[Dashboard] PostProcess status: job=${job.job_name}, thumbnails=${thumbnailCount}, dir=${thumbnailsDir}`);
 
-    res.json({
-      success: true,
-      status: 'success',
+    return response.success(res, {
       complete,
-      thumbnail_count: thumbnailCount,
-      stats_available: statsAvailable,
-      job_status: job.status
+      thumbnailCount: thumbnailCount,
+      statsAvailable: statsAvailable,
+      jobStatus: job.status
     });
   } catch (error) {
     logger.error(`[Dashboard] PostProcess status error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get post-process status' });
+    return response.serverError(res, 'Failed to get post-process status');
   }
 };
 
@@ -1397,12 +1320,12 @@ exports.getCtfResults = async (req, res) => {
     const pageSize = parseInt(req.query.page_size) || 100;
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1429,17 +1352,16 @@ exports.getCtfResults = async (req, res) => {
     // Base response
     const overview = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: command,
-      total_micrographs: 0,
+      totalMicrographs: 0,
       summary: { processed: 0, total: 0 },
       micrographs: []
     };
 
     if (!fs.existsSync(starPath)) {
-      return res.json({ success: true,
-      status: 'success', data: overview });
+      return response.successData(res, overview);
     }
 
     const starData = await parseStarWithCache(job, starPath);
@@ -1450,24 +1372,23 @@ exports.getCtfResults = async (req, res) => {
     const offset = (page - 1) * pageSize;
     const paginatedMicrographs = allMicrographs.slice(offset, offset + pageSize);
 
-    overview.total_micrographs = totalCount;
+    overview.totalMicrographs = totalCount;
     overview.summary = { processed: totalCount, total: totalCount };
 
     overview.micrographs = paginatedMicrographs.map(m => ({
-      micrograph_name: m.rlnMicrographName || '',
-      defocus_u: parseFloat(m.rlnDefocusU) || 0,
-      defocus_v: parseFloat(m.rlnDefocusV) || 0,
-      defocus_angle: parseFloat(m.rlnDefocusAngle) || 0,
-      max_resolution: parseFloat(m.rlnCtfMaxResolution) || 0,
-      figure_of_merit: parseFloat(m.rlnCtfFigureOfMerit) || 0,
-      ctf_image: m.rlnCtfImage || ''
+      micrographName: m.rlnMicrographName || '',
+      defocusU: parseFloat(m.rlnDefocusU) || 0,
+      defocusV: parseFloat(m.rlnDefocusV) || 0,
+      defocusAngle: parseFloat(m.rlnDefocusAngle) || 0,
+      maxResolution: parseFloat(m.rlnCtfMaxResolution) || 0,
+      figureOfMerit: parseFloat(m.rlnCtfFigureOfMerit) || 0,
+      ctfImage: m.rlnCtfImage || ''
     }));
 
-    res.json({ success: true,
-      status: 'success', data: overview });
+    return response.successData(res, overview);
   } catch (error) {
     logger.error(`[Dashboard] CTF results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get CTF results' });
+    return response.serverError(res, 'Failed to get CTF results');
   }
 };
 
@@ -1479,12 +1400,12 @@ exports.getCtfLiveStats = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1493,21 +1414,20 @@ exports.getCtfLiveStats = async (req, res) => {
 
     const stats = {
       id: job.id,
-      job_status: job.status,
+      jobStatus: job.status,
       processed: 0,
       total: 0,
-      progress_percent: 0,
-      ctf_stats: {
+      progressPercent: 0,
+      ctfStats: {
         defocus: { min: 0, max: 0, mean: 0 },
-        max_resolution: { min: 0, max: 0, mean: 0 },
+        maxResolution: { min: 0, max: 0, mean: 0 },
         astigmatism: { min: 0, max: 0, mean: 0 },
-        figure_of_merit: { min: 0, max: 0, mean: 0 }
+        figureOfMerit: { min: 0, max: 0, mean: 0 }
       }
     };
 
     if (!fs.existsSync(starPath)) {
-      return res.json({ success: true,
-      status: 'success', data: stats });
+      return response.successData(res, stats);
     }
 
     const starData = await parseStarWithCache(job, starPath);
@@ -1515,7 +1435,12 @@ exports.getCtfLiveStats = async (req, res) => {
 
     stats.processed = micrographs.length;
     stats.total = micrographs.length;
-    stats.progress_percent = 100;
+    stats.progressPercent = 100;
+
+    // Update pipeline_stats.micrograph_count in DB so stats cards stay current
+    if (micrographs.length > 0 && micrographs.length !== (job.pipeline_stats?.micrograph_count ?? 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.micrograph_count': micrographs.length }).catch(() => {});
+    }
 
     if (micrographs.length > 0) {
       const defocusValues = micrographs.map(m => {
@@ -1531,35 +1456,18 @@ exports.getCtfLiveStats = async (req, res) => {
       });
       const fomValues = micrographs.map(m => parseFloat(m.rlnCtfFigureOfMerit) || 0);
 
-      stats.ctf_stats = {
-        defocus: {
-          min: Math.min(...defocusValues),
-          max: Math.max(...defocusValues),
-          mean: defocusValues.reduce((a, b) => a + b, 0) / defocusValues.length
-        },
-        max_resolution: {
-          min: Math.min(...resValues),
-          max: Math.max(...resValues),
-          mean: resValues.reduce((a, b) => a + b, 0) / resValues.length
-        },
-        astigmatism: {
-          min: Math.min(...astigmatismValues),
-          max: Math.max(...astigmatismValues),
-          mean: astigmatismValues.reduce((a, b) => a + b, 0) / astigmatismValues.length
-        },
-        figure_of_merit: {
-          min: Math.min(...fomValues),
-          max: Math.max(...fomValues),
-          mean: fomValues.reduce((a, b) => a + b, 0) / fomValues.length
-        }
+      stats.ctfStats = {
+        defocus: arrayStats(defocusValues),
+        maxResolution: arrayStats(resValues),
+        astigmatism: arrayStats(astigmatismValues),
+        figureOfMerit: arrayStats(fomValues)
       };
     }
 
-    res.json({ success: true,
-      status: 'success', data: stats });
+    return response.successData(res, stats);
   } catch (error) {
     logger.error(`[Dashboard] CTF live stats error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get CTF live stats' });
+    return response.serverError(res, 'Failed to get CTF live stats');
   }
 };
 
@@ -1573,12 +1481,12 @@ exports.getCtfImage = async (req, res) => {
     const micrograph = req.query.micrograph;
 
     if (!jobId || !micrograph) {
-      return res.status(400).json({ status: 'error', message: 'job_id and micrograph are required' });
+      return response.badRequest(res, 'job_id and micrograph are required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1610,16 +1518,12 @@ exports.getCtfImage = async (req, res) => {
         const base64 = imgData.toString('base64');
         const ext = path.extname(thumbPath).toLowerCase();
         const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
-        return res.json({
-          success: true,
-      status: 'success',
-          data: {
+        return response.successData(res, {
             micrograph,
             image: `data:${mimeType};base64,${base64}`,
             source: 'thumbnail',
             cached: true
-          }
-        });
+          });
       }
     }
 
@@ -1660,16 +1564,12 @@ exports.getCtfImage = async (req, res) => {
           fs.writeFileSync(cachePath, pngBuffer);
           logger.info(`[CTF Image] Cached thumbnail: ${cachePath}`);
 
-          return res.json({
-            success: true,
-      status: 'success',
-            data: {
+          return response.successData(res, {
               micrograph,
               image: `data:image/png;base64,${base64}`,
               source: 'converted',
               cached: false
-            }
-          });
+            });
         }
       } catch (convError) {
         logger.error(`[CTF Image] On-the-fly conversion failed: ${convError.message}`);
@@ -1677,13 +1577,10 @@ exports.getCtfImage = async (req, res) => {
     }
 
     logger.warn(`[CTF Image] No power spectrum found for ${baseName}`);
-    return res.status(404).json({
-      status: 'error',
-      message: 'CTF power spectrum image not found'
-    });
+    return response.notFound(res, 'CTF power spectrum image not found');
   } catch (error) {
     logger.error(`[Dashboard] CTF image error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get CTF image' });
+    return response.serverError(res, 'Failed to get CTF image');
   }
 };
 
@@ -1700,12 +1597,12 @@ exports.getCtfMicrographImage = async (req, res) => {
     const micrograph = req.query.micrograph;
 
     if (!jobId || !micrograph) {
-      return res.status(400).json({ status: 'error', message: 'job_id and micrograph are required' });
+      return response.badRequest(res, 'job_id and micrograph are required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1758,26 +1655,19 @@ exports.getCtfMicrographImage = async (req, res) => {
         const base64 = imgData.toString('base64');
         const ext = path.extname(thumbPath).toLowerCase();
         const mimeType = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
-        return res.json({
-          success: true,
-      status: 'success',
-          data: {
+        return response.successData(res, {
             micrograph,
             image: `data:${mimeType};base64,${base64}`,
             source: 'thumbnail'
-          }
-        });
+          });
       }
     }
 
     logger.warn(`[CTF Micrograph] No thumbnail found for ${baseName}`);
-    return res.status(404).json({
-      status: 'error',
-      message: 'Micrograph image not found'
-    });
+    return response.notFound(res, 'Micrograph image not found');
   } catch (error) {
     logger.error(`[Dashboard] CTF micrograph image error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get micrograph image' });
+    return response.serverError(res, 'Failed to get micrograph image');
   }
 };
 
@@ -1871,17 +1761,17 @@ exports.exportCtfSelection = async (req, res) => {
     logger.info(`[CTF Export] Received export request - job_id: ${jobId}, filename: ${filename}, micrograph_count: ${micrographNames?.length}`);
 
     if (!jobId || !micrographNames || !Array.isArray(micrographNames)) {
-      return res.status(400).json({ status: 'error', message: 'job_id and micrograph_names are required' });
+      return response.badRequest(res, 'job_id and micrograph_names are required');
     }
 
     if (micrographNames.length === 0) {
-      return res.status(400).json({ status: 'error', message: 'No micrographs selected' });
+      return response.badRequest(res, 'No micrographs selected');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
       logger.error(`[CTF Export] Job not found or access denied: ${jobId}`);
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -1891,14 +1781,14 @@ exports.exportCtfSelection = async (req, res) => {
     const starPath = path.join(outputDir, 'micrographs_ctf.star');
 
     if (!fs.existsSync(starPath)) {
-      return res.status(404).json({ status: 'error', message: 'CTF results not found' });
+      return response.notFound(res, 'CTF results not found');
     }
 
     // Parse the original file preserving structure
     const { opticsBlock, columnHeaders, dataRows, micrographNameCol, dataBlockName } = parseFullStarFile(starPath);
 
     if (micrographNameCol === null) {
-      return res.status(500).json({ status: 'error', message: 'Could not find micrograph name column' });
+      return response.serverError(res, 'Could not find micrograph name column');
     }
 
     // Convert selected micrographs to a set for fast lookup (handle both full paths and basenames)
@@ -1921,7 +1811,7 @@ exports.exportCtfSelection = async (req, res) => {
     }
 
     if (selectedRows.length === 0) {
-      return res.status(400).json({ status: 'error', message: 'No matching micrographs found in star file' });
+      return response.badRequest(res, 'No matching micrographs found in star file');
     }
 
     // Generate unique filename with timestamp
@@ -1987,20 +1877,16 @@ exports.exportCtfSelection = async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         filename: exportFilename,
         filepath: exportPath,
-        selected_count: selectedRows.length,
-        total_available: dataRows.length,
-        download_url: `/ctf/download-selection/?job_id=${jobId}&filename=${exportFilename}`
-      }
-    });
+        selectedCount: selectedRows.length,
+        totalAvailable: dataRows.length,
+        downloadUrl: `/ctf/download-selection/?job_id=${jobId}&filename=${exportFilename}`
+      });
   } catch (error) {
     logger.error(`[Dashboard] CTF export error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to export selection' });
+    return response.serverError(res, 'Failed to export selection');
   }
 };
 
@@ -2014,26 +1900,26 @@ exports.downloadCtfSelection = async (req, res) => {
     const filename = req.query.filename;
 
     if (!jobId || !filename) {
-      return res.status(400).json({ status: 'error', message: 'job_id and filename are required' });
+      return response.badRequest(res, 'job_id and filename are required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const exportPath = path.join(job.output_file_path, filename);
 
     if (!fs.existsSync(exportPath)) {
-      return res.status(404).json({ status: 'error', message: 'Export file not found' });
+      return response.notFound(res, 'Export file not found');
     }
 
     // Security check - ensure file is within expected directory
     const realExportPath = fs.realpathSync(exportPath);
     const realJobDir = fs.realpathSync(job.output_file_path);
     if (!realExportPath.startsWith(realJobDir)) {
-      return res.status(403).json({ status: 'error', message: 'Invalid file path' });
+      return response.forbidden(res, 'Invalid file path');
     }
 
     res.download(exportPath, filename, (err) => {
@@ -2043,7 +1929,7 @@ exports.downloadCtfSelection = async (req, res) => {
     });
   } catch (error) {
     logger.error(`[Dashboard] CTF download error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to download file' });
+    return response.serverError(res, 'Failed to download file');
   }
 };
 
@@ -2057,16 +1943,14 @@ exports.generateThumbnails = async (req, res) => {
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const { generateThumbnailsForJob } = require('../services/thumbnailGenerator');
 
     // Run thumbnail generation asynchronously
-    res.json({
-      success: true,
-      status: 'success',
+    response.success(res, {
       message: 'Thumbnail generation started',
       id: job.id
     });
@@ -2082,7 +1966,7 @@ exports.generateThumbnails = async (req, res) => {
     });
   } catch (error) {
     logger.error(`[Dashboard] Generate thumbnails error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to start thumbnail generation' });
+    return response.serverError(res, 'Failed to start thumbnail generation');
   }
 };
 
@@ -2101,12 +1985,12 @@ exports.getAutopickResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -2132,17 +2016,16 @@ exports.getAutopickResults = async (req, res) => {
     const micrographs = [];
     let totalParticles = 0;
 
-    console.log(`[AutoPick] Looking for: ${mainStarPath}, exists: ${fs.existsSync(mainStarPath)}`);
+    logger.debug(`[AutoPick] Looking for: ${mainStarPath}, exists: ${fs.existsSync(mainStarPath)}`);
     if (fs.existsSync(mainStarPath)) {
       try {
         const starData = await parseStarFile(mainStarPath);
-        console.log(`[AutoPick] Parsed star data keys: ${Object.keys(starData)}`);
+        logger.debug(`[AutoPick] Parsed star data keys: ${Object.keys(starData)}`);
         // The parser returns blocks as { columns: [], rows: [] }
         // For data_coordinate_files block, access .rows to get the array
         const coordBlock = starData.coordinate_files || starData[''];
         const coordList = coordBlock?.rows || coordBlock || [];
 
-        console.log(`[AutoPick] Parsed ${coordList.length} micrographs from autopick.star`);
         logger.info(`[AutoPick] Parsed ${coordList.length} micrographs from autopick.star`);
 
         for (const entry of coordList) {
@@ -2178,11 +2061,11 @@ exports.getAutopickResults = async (req, res) => {
           }
 
           micrographs.push({
-            micrograph_name: micrographName,
-            micrograph_path: micrographPath,
-            coord_file: coordFilePath,
-            particle_count: particleCount,
-            fom_avg: Math.round(avgFom * 1000) / 1000
+            micrographName: micrographName,
+            micrographPath: micrographPath,
+            coordFile: coordFilePath,
+            particleCount: particleCount,
+            fomAvg: Math.round(avgFom * 1000) / 1000
           });
           totalParticles += particleCount;
         }
@@ -2192,28 +2075,27 @@ exports.getAutopickResults = async (req, res) => {
     }
 
     // Sort by particle count descending
-    micrographs.sort((a, b) => b.particle_count - a.particle_count);
+    micrographs.sort((a, b) => b.particleCount - a.particleCount);
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: command,
-      summary_stats: {
+      summaryStats: {
         processed: micrographs.length,
         total: micrographs.length,
-        total_micrographs: micrographs.length,
-        total_particles: totalParticles,
-        avg_particles_per_micrograph: micrographs.length > 0 ? Math.round(totalParticles / micrographs.length) : 0
+        totalMicrographs: micrographs.length,
+        totalParticles: totalParticles,
+        avgParticlesPerMicrograph: micrographs.length > 0 ? Math.round(totalParticles / micrographs.length) : 0
       },
       micrographs: micrographs.slice(0, 50) // Limit to 50 for display
     };
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] AutoPick results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get autopick results' });
+    return response.serverError(res, 'Failed to get autopick results');
   }
 };
 
@@ -2231,12 +2113,12 @@ exports.getAutopickImage = async (req, res) => {
     const radius = parseInt(req.query.radius) || 50;
 
     if (!jobId || !micrograph) {
-      return res.status(400).json({ status: 'error', message: 'job_id and micrograph are required' });
+      return response.badRequest(res, 'job_id and micrograph are required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -2272,10 +2154,7 @@ exports.getAutopickImage = async (req, res) => {
     }
 
     if (!imagePath) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Micrograph image not found'
-      });
+      return response.notFound(res, 'Micrograph image not found');
     }
 
     // Read image and optionally overlay picks
@@ -2354,24 +2233,20 @@ exports.getAutopickImage = async (req, res) => {
     }
 
     // Get pixel size for Å→pixel conversion (micrograph pixel size used for picking)
-    const pixelSize = job.pipeline_stats?.pixel_size || null;
+    const pixelSize = job.pipeline_stats?.pixel_size ?? null;
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         micrograph: baseName,
         image: `data:image/png;base64,${base64}`,
         coordinates: coordinates,
-        particle_count: coordinates.length,
-        original_width: originalWidth,
-        original_height: originalHeight,
-        pixel_size: pixelSize
-      }
-    });
+        particleCount: coordinates.length,
+        originalWidth: originalWidth,
+        originalHeight: originalHeight,
+        pixelSize: pixelSize
+      });
   } catch (error) {
     logger.error(`[Dashboard] AutoPick image error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get autopick image' });
+    return response.serverError(res, 'Failed to get autopick image');
   }
 };
 
@@ -2385,12 +2260,12 @@ exports.getAutopickLiveStats = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -2429,7 +2304,7 @@ exports.getAutopickLiveStats = async (req, res) => {
                 const count = Array.isArray(coords) ? coords.length : 0;
                 recentCounts.push(count);
                 totalParticles += count;
-                latestMicrographs.push({ name: micName, particle_count: count });
+                latestMicrographs.push({ name: micName, particleCount: count });
               } catch (e) {
                 recentCounts.push(0);
               }
@@ -2469,23 +2344,27 @@ exports.getAutopickLiveStats = async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    // Update pipeline_stats in DB so stats cards stay current
+    if (processedCount > 0 && processedCount !== (job.pipeline_stats?.micrograph_count ?? 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.micrograph_count': processedCount }).catch(() => {});
+    }
+    if (totalParticles > 0 && totalParticles !== (job.pipeline_stats?.particle_count ?? 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.particle_count': totalParticles }).catch(() => {});
+    }
+
+    return response.successData(res, {
         id: job.id,
-        job_status: job.status,
+        jobStatus: job.status,
         processed: processedCount,
-        total_particles: totalParticles,
-        avg_particles: processedCount > 0 ? Math.round(totalParticles / processedCount) : 0,
-        recent_counts: recentCounts,
-        latest_micrographs: latestMicrographs,
-        progress_percent: job.status === JOB_STATUS.SUCCESS ? 100 : (job.status === JOB_STATUS.RUNNING ? 50 : 0)
-      }
-    });
+        totalParticles: totalParticles,
+        avgParticles: processedCount > 0 ? Math.round(totalParticles / processedCount) : 0,
+        recentCounts: recentCounts,
+        latestMicrographs: latestMicrographs,
+        progressPercent: job.status === JOB_STATUS.SUCCESS ? 100 : (job.status === JOB_STATUS.RUNNING ? 50 : 0)
+      });
   } catch (error) {
     logger.error(`[Dashboard] AutoPick live stats error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get autopick live stats' });
+    return response.serverError(res, 'Failed to get autopick live stats');
   }
 };
 
@@ -2501,12 +2380,12 @@ exports.getExtractResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -2523,25 +2402,24 @@ exports.getExtractResults = async (req, res) => {
     }
 
     const eps = job.pipeline_stats || {};
-    const totalParticles = eps.particle_count || job.particle_count || 0;
-    const numMicrographs = eps.micrograph_count || job.micrograph_count || 0;
+    const totalParticles = eps.particle_count ?? job.particle_count ?? 0;
+    const numMicrographs = eps.micrograph_count ?? job.micrograph_count ?? 0;
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: command,
-      total_particles: totalParticles,
-      num_micrographs: numMicrographs,
-      box_size: eps.box_size || job.parameters?.boxSize || 0,
-      pixel_size: eps.pixel_size || job.parameters?.angpix || 0
+      totalParticles: totalParticles,
+      numMicrographs: numMicrographs,
+      boxSize: eps.box_size ?? job.parameters?.boxSize ?? 0,
+      pixelSize: eps.pixel_size ?? job.parameters?.angpix ?? 0
     };
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] Extract results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get extract results' });
+    return response.serverError(res, 'Failed to get extract results');
   }
 };
 
@@ -2556,23 +2434,19 @@ exports.getExtractParticlesImage = async (req, res) => {
     const maxParticles = parseInt(req.query.max) || 100;
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const outputDir = job.output_file_path;
 
     if (!fs.existsSync(outputDir)) {
-      return res.json({
-        success: true,
-      status: 'success',
-        data: { image: null, message: 'Output directory not found' }
-      });
+      return response.successData(res, { image: null, message: 'Output directory not found' });
     }
 
     // Find particle stack file
@@ -2607,11 +2481,7 @@ exports.getExtractParticlesImage = async (req, res) => {
     }
 
     if (!stackFile || !fs.existsSync(stackFile)) {
-      return res.json({
-        success: true,
-      status: 'success',
-        data: { image: null, message: 'No particle stacks found yet' }
-      });
+      return response.successData(res, { image: null, message: 'No particle stacks found yet' });
     }
 
     // Import stack-to-grid function
@@ -2623,30 +2493,22 @@ exports.getExtractParticlesImage = async (req, res) => {
     // Generate grid image
     const gridResult = await stackToGridPng(stackFile, maxParticles, 10, 1200);
     if (!gridResult) {
-      return res.json({
-        success: true,
-      status: 'success',
-        data: { image: null, message: 'Could not read particle stack' }
-      });
+      return response.successData(res, { image: null, message: 'Could not read particle stack' });
     }
 
     const base64 = gridResult.buffer.toString('base64');
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         image: `data:image/png;base64,${base64}`,
-        num_particles: gridResult.numImages,
-        box_size: info ? info.width : 0,
-        grid_cols: gridResult.cols,
-        grid_rows: gridResult.rows,
+        numParticles: gridResult.numImages,
+        boxSize: info ? info.width : 0,
+        gridCols: gridResult.cols,
+        gridRows: gridResult.rows,
         micrograph: micrograph || path.basename(stackFile, '.mrcs')
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Extract particles image error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get particles image' });
+    return response.serverError(res, 'Failed to get particles image');
   }
 };
 
@@ -2658,12 +2520,12 @@ exports.getExtractLiveStats = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -2677,19 +2539,20 @@ exports.getExtractLiveStats = async (req, res) => {
       totalParticles = particles.length;
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    // Update pipeline_stats.particle_count in DB so stats cards stay current
+    if (totalParticles > 0 && totalParticles !== (job.pipeline_stats?.particle_count ?? 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.particle_count': totalParticles }).catch(() => {});
+    }
+
+    return response.successData(res, {
         id: job.id,
-        job_status: job.status,
-        total_particles: totalParticles,
-        progress_percent: job.status === JOB_STATUS.SUCCESS ? 100 : (job.status === JOB_STATUS.RUNNING ? 50 : 0)
-      }
-    });
+        jobStatus: job.status,
+        totalParticles: totalParticles,
+        progressPercent: job.status === JOB_STATUS.SUCCESS ? 100 : (job.status === JOB_STATUS.RUNNING ? 50 : 0)
+      });
   } catch (error) {
     logger.error(`[Dashboard] Extract live stats error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get extract live stats' });
+    return response.serverError(res, 'Failed to get extract live stats');
   }
 };
 
@@ -2705,12 +2568,12 @@ exports.getClass2dResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -2800,21 +2663,21 @@ exports.getClass2dResults = async (req, res) => {
       }
     }
 
-    const response = {
-      job_id: jobId,
-      job_name: job.job_name,
-      job_status: job.status,
-      output_dir: outputDir,
+    const responseData = {
+      jobId: jobId,
+      jobName: job.job_name,
+      jobStatus: job.status,
+      outputDir: outputDir,
       command: command,
-      total_iterations: iterations.length,
-      latest_iteration: latestIteration,
-      num_classes: numClasses,
+      totalIterations: iterations.length,
+      latestIteration: latestIteration,
+      numClasses: numClasses,
       iterations: iterations,
-      box_size: boxSize,
-      num_particles: numParticles,
-      mask_diameter: job.parameters?.maskDiameter,
-      num_classes_param: job.parameters?.numberOfClasses,
-      num_iterations_param: job.parameters?.useVDAM === 'Yes'
+      boxSize: boxSize,
+      numParticles: numParticles,
+      maskDiameter: job.parameters?.maskDiameter,
+      numClassesParam: job.parameters?.numberOfClasses,
+      numIterationsParam: job.parameters?.useVDAM === 'Yes'
         ? (parseInt(job.parameters?.vdamMiniBatches) || 200)
         : (parseInt(job.parameters?.numberOfIterations) || parseInt(job.parameters?.numberEMIterations) || 25),
       classes: []
@@ -2827,19 +2690,18 @@ exports.getClass2dResults = async (req, res) => {
       const classesBlock = starData.model_classes || starData.data_model_classes || {};
       const classes = classesBlock.rows || (Array.isArray(classesBlock) ? classesBlock : []);
 
-      response.classes = classes.map((c, i) => ({
-        class_number: i + 1,
+      responseData.classes = classes.map((c, i) => ({
+        classNumber: i + 1,
         distribution: parseFloat(c.rlnClassDistribution) || 0,
         resolution: parseFloat(c.rlnEstimatedResolution) || 0,
-        reference_image: c.rlnReferenceImage || null
+        referenceImage: c.rlnReferenceImage || null
       }));
     }
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] Class2D results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get Class2D results' });
+    return response.serverError(res, 'Failed to get Class2D results');
   }
 };
 
@@ -2853,19 +2715,19 @@ exports.getClass2dClassesImage = async (req, res) => {
     const iteration = req.query.iteration;
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const outputDir = job.output_file_path;
 
     if (!fs.existsSync(outputDir)) {
-      return res.status(404).json({ status: 'error', message: 'Output directory not found' });
+      return response.notFound(res, 'Output directory not found');
     }
 
     // Find the classes MRC file - support multiple naming patterns
@@ -2902,7 +2764,7 @@ exports.getClass2dClassesImage = async (req, res) => {
     }
 
     if (!classesMrc || !fs.existsSync(classesMrc)) {
-      return res.status(404).json({ status: 'error', message: 'Classes image not found' });
+      return response.notFound(res, 'Classes image not found');
     }
 
     // Import stack-to-grid function
@@ -2919,27 +2781,23 @@ exports.getClass2dClassesImage = async (req, res) => {
     // Generate grid image of all classes
     const gridResult = await stackToGridPng(classesMrc, 200, cols, 1200);
     if (!gridResult) {
-      return res.status(500).json({ status: 'error', message: 'Could not generate classes image' });
+      return response.serverError(res, 'Could not generate classes image');
     }
 
     const base64 = gridResult.buffer.toString('base64');
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        job_id: jobId,
+    return response.successData(res, {
+        jobId: jobId,
         iteration: iterationNum,
         filename: path.basename(classesMrc),
-        num_classes: gridResult.numImages,
+        numClasses: gridResult.numImages,
         width: info ? info.width : 0,
         height: info ? info.height : 0,
         image: `data:image/png;base64,${base64}`
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Class2D classes image error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get classes image' });
+    return response.serverError(res, 'Failed to get classes image');
   }
 };
 
@@ -2951,21 +2809,21 @@ exports.getClass2dLiveStats = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const outputDir = job.output_file_path;
 
     // Match both run_it*_model.star and _it*_model.star patterns
-    const modelFiles = fs.existsSync(outputDir)
-      ? fs.readdirSync(outputDir).filter(f => f.match(/_it\d+_model\.star$/)).sort()
-      : [];
+    let dirFiles = [];
+    try { dirFiles = await fs.promises.readdir(outputDir); } catch { /* dir may not exist yet */ }
+    const modelFiles = dirFiles.filter(f => f.match(/_it\d+_model\.star$/)).sort();
 
     // Extract iteration number from latest model file
     let currentIteration = 0;
@@ -2980,24 +2838,20 @@ exports.getClass2dLiveStats = async (req, res) => {
       : (parseInt(job.parameters?.numberOfIterations) || parseInt(job.parameters?.numberEMIterations) || 25);
 
     // Update pipeline_stats.iteration_count in DB so stats cards stay current
-    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {
+    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count ?? 0)) {
       Job.updateOne({ id: job.id }, { 'pipeline_stats.iteration_count': currentIteration }).catch(() => {});
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         id: job.id,
-        job_status: job.status,
-        current_iteration: currentIteration,
-        total_iterations: totalIterations,
-        progress_percent: Math.round((currentIteration / totalIterations) * 100)
-      }
-    });
+        jobStatus: job.status,
+        currentIteration: currentIteration,
+        totalIterations: totalIterations,
+        progressPercent: Math.round((currentIteration / totalIterations) * 100)
+      });
   } catch (error) {
     logger.error(`[Dashboard] Class2D live stats error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get Class2D live stats' });
+    return response.serverError(res, 'Failed to get Class2D live stats');
   }
 };
 
@@ -3013,12 +2867,12 @@ exports.getManualSelectResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -3042,44 +2896,43 @@ exports.getManualSelectResults = async (req, res) => {
       try {
         const sourceJob = await Job.findOne({ id: job.input_job_ids[0] }).lean();
         if (sourceJob) {
-          particlesBefore = sourceJob.pipeline_stats?.particle_count || sourceJob.particle_count || 0;
+          particlesBefore = sourceJob.pipeline_stats?.particle_count ?? sourceJob.particle_count ?? 0;
         }
       } catch (e) {
         logger.warn(`[ManualSelect] Could not get source job particle count: ${e.message}`);
       }
     }
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
-      particle_count: job.pipeline_stats?.particle_count || job.particle_count || 0,
-      particles_before: particlesBefore,
+      jobName: job.job_name,
+      jobStatus: job.status,
+      particleCount: job.pipeline_stats?.particle_count ?? job.particle_count ?? 0,
+      particlesBefore: particlesBefore,
       // Include both field names for frontend compatibility
-      selected_classes: selectedClasses,
-      classes_selected: selectedClasses,
-      num_classes_selected: selectedClasses.length,
-      total_classes: job.parameters?.num_classes_selected || selectedClasses.length || 0,
-      source_star_file: job.parameters?.source_star_file || null,
-      source_job_name: job.parameters?.source_job_name || null
+      selectedClasses: selectedClasses,
+      classesSelected: selectedClasses,
+      numClassesSelected: selectedClasses.length,
+      totalClasses: job.parameters?.num_classes_selected || selectedClasses.length || 0,
+      sourceStarFile: job.parameters?.sourceStarFile || job.parameters?.source_star_file || null,
+      sourceJobName: job.parameters?.sourceJobName || job.parameters?.source_job_name || null
     };
 
     // Try to read particle count from file if not in job record
-    if (response.particle_count === 0 && fs.existsSync(starPath)) {
+    if (responseData.particleCount === 0 && fs.existsSync(starPath)) {
       try {
         const starData = await parseStarWithCache(job, starPath);
         const particles = starData.particles || starData.data_particles || [];
-        response.particle_count = Array.isArray(particles.rows) ? particles.rows.length : particles.length;
+        responseData.particleCount = Array.isArray(particles.rows) ? particles.rows.length : particles.length;
       } catch (e) {
         logger.warn(`[ManualSelect] Could not read particle count from ${starPath}`);
       }
     }
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] ManualSelect results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get ManualSelect results' });
+    return response.serverError(res, 'Failed to get ManualSelect results');
   }
 };
 
@@ -3095,12 +2948,12 @@ exports.getInitialModelResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -3118,7 +2971,7 @@ exports.getInitialModelResults = async (req, res) => {
             iteration: parseInt(match[1]),
             class: parseInt(match[2]),
             filename: f,
-            file_path: path.join(outputDir, f)
+            filePath: path.join(outputDir, f)
           });
         }
       }
@@ -3147,8 +3000,8 @@ exports.getInitialModelResults = async (req, res) => {
 
     // Try to get from pipeline_stats first
     const ips = job.pipeline_stats || {};
-    boxSize = ips.box_size || null;
-    pixelSize = ips.pixel_size || null;
+    boxSize = ips.box_size ?? null;
+    pixelSize = ips.pixel_size ?? null;
     originalPixelSize = job.parameters?.angpix ? parseFloat(job.parameters.angpix) : null;
 
     // Try to read from input STAR file if not in parameters
@@ -3185,33 +3038,32 @@ exports.getInitialModelResults = async (req, res) => {
       boxSizeAngstrom = boxSize * pixelSize;
     }
 
-    const response = {
-      job_id: jobId,
-      job_name: job.job_name,
-      job_status: job.status,
-      output_dir: outputDir,
+    const responseData = {
+      jobId: jobId,
+      jobName: job.job_name,
+      jobStatus: job.status,
+      outputDir: outputDir,
       command: job.command,
-      total_iterations: uniqueIterations.length,
-      latest_iteration: latestIteration,
-      num_classes: numClasses || params.numberOfClasses || 1,
+      totalIterations: uniqueIterations.length,
+      latestIteration: latestIteration,
+      numClasses: numClasses || params.numberOfClasses || 1,
       symmetry: params.symmetry || 'C1',
-      mask_diameter: params.maskDiameter || params.particleDiameter || 200,
-      latest_mrc_path: latestMrcPath,
-      has_output: iterations.length > 0,
+      maskDiameter: params.maskDiameter || params.particleDiameter || 200,
+      latestMrcPath: latestMrcPath,
+      hasOutput: iterations.length > 0,
       iterations: iterations,
-      unique_iterations: uniqueIterations,
+      uniqueIterations: uniqueIterations,
       // Pipeline metadata
-      box_size: boxSize,
-      pixel_size: pixelSize,
-      original_pixel_size: originalPixelSize,
-      box_size_angstrom: boxSizeAngstrom
+      boxSize: boxSize,
+      pixelSize: pixelSize,
+      originalPixelSize: originalPixelSize,
+      boxSizeAngstrom: boxSizeAngstrom
     };
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] InitialModel results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get InitialModel results' });
+    return response.serverError(res, 'Failed to get InitialModel results');
   }
 };
 
@@ -3230,10 +3082,10 @@ exports.getInitialModelMrc = async (req, res) => {
     // Direct file path mode
     if (filePath) {
       if (!filePath.endsWith('.mrc')) {
-        return res.status(400).json({ status: 'error', message: 'Invalid file type' });
+        return response.badRequest(res, 'Invalid file type');
       }
       if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ status: 'error', message: 'MRC file not found' });
+        return response.notFound(res, 'MRC file not found');
       }
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath)}"`);
@@ -3242,12 +3094,12 @@ exports.getInitialModelMrc = async (req, res) => {
     }
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -3295,7 +3147,7 @@ exports.getInitialModelMrc = async (req, res) => {
     }
 
     if (!mrcPath || !fs.existsSync(mrcPath)) {
-      return res.status(404).json({ status: 'error', message: 'MRC file not found' });
+      return response.notFound(res, 'MRC file not found');
     }
 
     // Send MRC file
@@ -3305,7 +3157,7 @@ exports.getInitialModelMrc = async (req, res) => {
     fs.createReadStream(mrcPath).pipe(res);
   } catch (error) {
     logger.error(`[Dashboard] InitialModel MRC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get MRC file' });
+    return response.serverError(res, 'Failed to get MRC file');
   }
 };
 
@@ -3317,21 +3169,21 @@ exports.getInitialModelLiveStats = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const outputDir = job.output_file_path;
 
-    // Find model files - match both run_it* and _it* patterns
-    const modelFiles = fs.existsSync(outputDir)
-      ? fs.readdirSync(outputDir).filter(f => f.match(/_it\d+_model\.star$/)).sort()
-      : [];
+    // Find model files - match both run_it* and _it* patterns (async to avoid blocking)
+    let dirFiles = [];
+    try { dirFiles = await fs.promises.readdir(outputDir); } catch { /* dir may not exist yet */ }
+    const modelFiles = dirFiles.filter(f => f.match(/_it\d+_model\.star$/)).sort();
 
     // Find current iteration from model files
     let currentIteration = 0;
@@ -3343,11 +3195,9 @@ exports.getInitialModelLiveStats = async (req, res) => {
     }
 
     // Also check for MRC files to determine has_model
-    const mrcFiles = fs.existsSync(outputDir)
-      ? fs.readdirSync(outputDir).filter(f => f.match(/_it\d+_class\d+\.mrc$/) && !f.includes('half'))
-      : [];
+    const mrcFiles = dirFiles.filter(f => f.match(/_it\d+_class\d+\.mrc$/) && !f.includes('half'));
 
-    const totalIterations = job.parameters?.numberOfIterations || job.parameters?.numberIterations || 200;
+    const totalIterations = job.parameters?.numberOfVdam || job.parameters?.numberOfIterations || job.parameters?.numberIterations || 200;
 
     // Get unique iterations from MRC files
     const iterationsCompleted = [...new Set(
@@ -3358,26 +3208,22 @@ exports.getInitialModelLiveStats = async (req, res) => {
     )].sort((a, b) => a - b);
 
     // Update pipeline_stats.iteration_count in DB so stats cards stay current
-    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {
+    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count ?? 0)) {
       Job.updateOne({ id: job.id }, { 'pipeline_stats.iteration_count': currentIteration }).catch(() => {});
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        job_id: job.id,
-        job_status: job.status,
-        current_iteration: currentIteration,
-        total_iterations: totalIterations,
-        has_model: mrcFiles.length > 0,
-        iterations_completed: iterationsCompleted,
-        progress_percent: Math.round((currentIteration / totalIterations) * 100)
-      }
-    });
+    return response.successData(res, {
+        jobId: job.id,
+        jobStatus: job.status,
+        currentIteration: currentIteration,
+        totalIterations: totalIterations,
+        hasModel: mrcFiles.length > 0,
+        iterationsCompleted: iterationsCompleted,
+        progressPercent: Math.round((currentIteration / totalIterations) * 100)
+      });
   } catch (error) {
     logger.error(`[Dashboard] InitialModel live stats error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get InitialModel live stats' });
+    return response.serverError(res, 'Failed to get InitialModel live stats');
   }
 };
 
@@ -3393,12 +3239,12 @@ exports.getClass3dResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -3453,24 +3299,24 @@ exports.getClass3dResults = async (req, res) => {
     // Count classes in latest iteration
     const numClassesInLatest = iterations.filter(it => it.iteration === latestIteration).length;
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      output_dir: outputDir,
-      latest_iteration: latestIteration,
-      total_iterations: job.parameters?.useVDAM === 'Yes'
+      outputDir: outputDir,
+      latestIteration: latestIteration,
+      totalIterations: job.parameters?.useVDAM === 'Yes'
         ? (parseInt(job.parameters?.vdamMiniBatches) || 200)
         : (parseInt(job.parameters?.numberOfIterations) || parseInt(job.parameters?.numberIterations) || 25),
-      num_classes: numClassesInLatest || job.parameters?.numberOfClasses || job.parameters?.numberClasses || 1,
+      numClasses: numClassesInLatest || job.parameters?.numberOfClasses || job.parameters?.numberClasses || 1,
       symmetry: job.parameters?.symmetry || job.parameters?.Symmetry || 'C1',
-      mask_diameter: job.parameters?.maskDiameter || job.parameters?.particleDiameter || 200,
-      has_output: mrcFiles.length > 0,
+      maskDiameter: job.parameters?.maskDiameter || job.parameters?.particleDiameter || 200,
+      hasOutput: mrcFiles.length > 0,
       iterations: iterations,
-      unique_iterations: uniqueIterations,
-      latest_mrc_path: latestMrcPath,
-      classes_per_iteration: uniqueIterations.reduce((acc, it) => {
+      uniqueIterations: uniqueIterations,
+      latestMrcPath: latestMrcPath,
+      classesPerIteration: uniqueIterations.reduce((acc, it) => {
         acc[it] = iterations.filter(x => x.iteration === it).length;
         return acc;
       }, {}),
@@ -3485,17 +3331,17 @@ exports.getClass3dResults = async (req, res) => {
       const classesBlock = starData.model_classes || starData.data_model_classes || {};
       const classes = classesBlock.rows || (Array.isArray(classesBlock) ? classesBlock : []);
 
-      response.classes = classes.map((c, i) => ({
-        class_number: i + 1,
+      responseData.classes = classes.map((c, i) => ({
+        classNumber: i + 1,
         distribution: parseFloat(c.rlnClassDistribution) || 0,
         resolution: parseFloat(c.rlnEstimatedResolution) || 0
       }));
     }
 
-    res.json({ success: true, status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] Class3D results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get Class3D results' });
+    return response.serverError(res, 'Failed to get Class3D results');
   }
 };
 
@@ -3511,10 +3357,10 @@ exports.getClass3dMrc = async (req, res) => {
     if (filePath) {
       // Security: Ensure the file exists and is an MRC file
       if (!filePath.endsWith('.mrc')) {
-        return res.status(400).json({ status: 'error', message: 'Invalid file type' });
+        return response.badRequest(res, 'Invalid file type');
       }
       if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ status: 'error', message: 'MRC file not found' });
+        return response.notFound(res, 'MRC file not found');
       }
       const filename = path.basename(filePath);
       res.setHeader('Content-Type', 'application/octet-stream');
@@ -3528,12 +3374,12 @@ exports.getClass3dMrc = async (req, res) => {
     const classNum = req.query.class || 1;
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -3556,7 +3402,7 @@ exports.getClass3dMrc = async (req, res) => {
     }
 
     if (!mrcPath || !fs.existsSync(mrcPath)) {
-      return res.status(404).json({ status: 'error', message: 'MRC file not found' });
+      return response.notFound(res, 'MRC file not found');
     }
 
     res.setHeader('Content-Type', 'application/octet-stream');
@@ -3565,7 +3411,7 @@ exports.getClass3dMrc = async (req, res) => {
     fs.createReadStream(mrcPath).pipe(res);
   } catch (error) {
     logger.error(`[Dashboard] Class3D MRC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get MRC file' });
+    return response.serverError(res, 'Failed to get MRC file');
   }
 };
 
@@ -3577,21 +3423,21 @@ exports.getClass3dLiveStats = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const outputDir = job.output_file_path;
 
     // Match both run_it*_model.star and _it*_model.star patterns
-    const modelFiles = fs.existsSync(outputDir)
-      ? fs.readdirSync(outputDir).filter(f => f.match(/_it\d+_model\.star$/)).sort()
-      : [];
+    let dirFiles = [];
+    try { dirFiles = await fs.promises.readdir(outputDir); } catch { /* dir may not exist yet */ }
+    const modelFiles = dirFiles.filter(f => f.match(/_it\d+_model\.star$/)).sort();
 
     // Extract iteration number from latest model file
     let currentIteration = 0;
@@ -3606,24 +3452,20 @@ exports.getClass3dLiveStats = async (req, res) => {
       : (parseInt(job.parameters?.numberOfIterations) || parseInt(job.parameters?.numberEMIterations) || 25);
 
     // Update pipeline_stats.iteration_count in DB so stats cards stay current
-    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {
+    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count ?? 0)) {
       Job.updateOne({ id: job.id }, { 'pipeline_stats.iteration_count': currentIteration }).catch(() => {});
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         id: job.id,
-        job_status: job.status,
-        current_iteration: currentIteration,
-        total_iterations: totalIterations,
-        progress_percent: Math.round((currentIteration / totalIterations) * 100)
-      }
-    });
+        jobStatus: job.status,
+        currentIteration: currentIteration,
+        totalIterations: totalIterations,
+        progressPercent: Math.round((currentIteration / totalIterations) * 100)
+      });
   } catch (error) {
     logger.error(`[Dashboard] Class3D live stats error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get Class3D live stats' });
+    return response.serverError(res, 'Failed to get Class3D live stats');
   }
 };
 
@@ -3639,12 +3481,12 @@ exports.getAutoRefineResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -3673,7 +3515,7 @@ exports.getAutoRefineResults = async (req, res) => {
           half: halfMatch ? parseInt(halfMatch[1]) : 0,
           filename: f,
           file: path.join(outputDir, f),  // Full path for MolstarViewer
-          is_half: !!halfMatch
+          isHalf: !!halfMatch
         };
       }
       return null;
@@ -3703,27 +3545,27 @@ exports.getAutoRefineResults = async (req, res) => {
       }
     }
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      output_dir: outputDir,
-      total_iterations: uniqueIterations.length,
-      latest_iteration: latestIteration,
+      outputDir: outputDir,
+      totalIterations: uniqueIterations.length,
+      latestIteration: latestIteration,
       symmetry: job.parameters?.symmetry || job.parameters?.Symmetry || 'C1',
-      mask_diameter: job.parameters?.maskDiameter || job.parameters?.particleDiameter || 200,
-      final_resolution: finalResolution,
+      maskDiameter: job.parameters?.maskDiameter || job.parameters?.particleDiameter || 200,
+      finalResolution: finalResolution,
       // Only provide iteration numbers for dropdown, not full file list
-      unique_iterations: uniqueIterations,
-      has_half_maps: allIterations.some(it => it.is_half),
-      has_output: modelFiles.length > 0
+      uniqueIterations: uniqueIterations,
+      hasHalfMaps: allIterations.some(it => it.is_half),
+      hasOutput: modelFiles.length > 0
     };
 
-    res.json({ success: true, status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] AutoRefine results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get AutoRefine results' });
+    return response.serverError(res, 'Failed to get AutoRefine results');
   }
 };
 
@@ -3738,10 +3580,10 @@ exports.getAutoRefineMrc = async (req, res) => {
     const filePath = req.query.file_path;
     if (filePath) {
       if (!filePath.endsWith('.mrc')) {
-        return res.status(400).json({ status: 'error', message: 'Invalid file type' });
+        return response.badRequest(res, 'Invalid file type');
       }
       if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ status: 'error', message: 'MRC file not found' });
+        return response.notFound(res, 'MRC file not found');
       }
       const filename = path.basename(filePath);
       res.setHeader('Content-Type', 'application/octet-stream');
@@ -3755,12 +3597,12 @@ exports.getAutoRefineMrc = async (req, res) => {
     const mapType = req.query.type || 'full';
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -3780,14 +3622,14 @@ exports.getAutoRefineMrc = async (req, res) => {
           iteration: parseInt(iterMatch[1]),
           half: halfMatch ? parseInt(halfMatch[1]) : 0,
           filename: f,
-          is_half: !!halfMatch
+          isHalf: !!halfMatch
         };
       }
       return null;
     }).filter(Boolean);
 
     if (iterations.length === 0) {
-      return res.status(404).json({ status: 'error', message: 'No MRC files found' });
+      return response.notFound(res, 'No MRC files found');
     }
 
     // Select target iteration
@@ -3815,12 +3657,12 @@ exports.getAutoRefineMrc = async (req, res) => {
     }
 
     if (!selected) {
-      return res.status(404).json({ status: 'error', message: `Iteration ${targetIter} not found` });
+      return response.notFound(res, `Iteration ${targetIter} not found`);
     }
 
     const mrcPath = path.join(outputDir, selected.filename);
     if (!fs.existsSync(mrcPath)) {
-      return res.status(404).json({ status: 'error', message: 'MRC file not found' });
+      return response.notFound(res, 'MRC file not found');
     }
 
     res.setHeader('Content-Type', 'application/octet-stream');
@@ -3829,7 +3671,7 @@ exports.getAutoRefineMrc = async (req, res) => {
     fs.createReadStream(mrcPath).pipe(res);
   } catch (error) {
     logger.error(`[Dashboard] AutoRefine MRC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get MRC file' });
+    return response.serverError(res, 'Failed to get MRC file');
   }
 };
 
@@ -3841,21 +3683,21 @@ exports.getAutoRefineLiveStats = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const outputDir = job.output_file_path;
 
     // Support both run_it* and _it* patterns
-    const modelFiles = fs.existsSync(outputDir)
-      ? fs.readdirSync(outputDir).filter(f => f.match(/_it\d+_model\.star$/)).sort()
-      : [];
+    let dirFiles = [];
+    try { dirFiles = await fs.promises.readdir(outputDir); } catch { /* dir may not exist yet */ }
+    const modelFiles = dirFiles.filter(f => f.match(/_it\d+_model\.star$/)).sort();
 
     // Extract iteration numbers
     const iterNums = modelFiles.map(f => {
@@ -3880,26 +3722,22 @@ exports.getAutoRefineLiveStats = async (req, res) => {
     }
 
     // Update pipeline_stats.iteration_count in DB so stats cards stay current
-    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count || 0)) {
+    if (currentIteration > 0 && currentIteration !== (job.pipeline_stats?.iteration_count ?? 0)) {
       Job.updateOne({ id: job.id }, { 'pipeline_stats.iteration_count': currentIteration }).catch(() => {});
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         id: job.id,
-        job_status: job.status,
-        current_iteration: currentIteration,
-        total_iterations: iterNums.length,
-        has_model: modelFiles.length > 0,
-        iterations_completed: iterNums,
-        final_resolution: finalResolution
-      }
-    });
+        jobStatus: job.status,
+        currentIteration: currentIteration,
+        totalIterations: iterNums.length,
+        hasModel: modelFiles.length > 0,
+        iterationsCompleted: iterNums,
+        finalResolution: finalResolution
+      });
   } catch (error) {
     logger.error(`[Dashboard] AutoRefine live stats error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get AutoRefine live stats' });
+    return response.serverError(res, 'Failed to get AutoRefine live stats');
   }
 };
 
@@ -3913,12 +3751,12 @@ exports.getAutoRefineFsc = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -3930,7 +3768,7 @@ exports.getAutoRefineFsc = async (req, res) => {
       : [];
 
     if (modelFiles.length === 0) {
-      return res.status(404).json({ status: 'error', message: 'No model files found' });
+      return response.notFound(res, 'No model files found');
     }
 
     // Use requested iteration or latest
@@ -3952,14 +3790,14 @@ exports.getAutoRefineFsc = async (req, res) => {
     const fscRows = fscBlock.rows || (Array.isArray(fscBlock) ? fscBlock : []);
 
     if (fscRows.length === 0) {
-      return res.status(404).json({ status: 'error', message: 'No FSC data in model file' });
+      return response.notFound(res, 'No FSC data in model file');
     }
 
     const fscCurve = fscRows
       .filter(row => row.rlnResolution && parseFloat(row.rlnResolution) > 0)
       .map(row => ({
         resolution: parseFloat(row.rlnResolution) || 0,
-        fsc_corrected: parseFloat(row.rlnGoldStandardFsc) || 0,
+        fscCorrected: parseFloat(row.rlnGoldStandardFsc) || 0,
       }));
 
     // Get resolution from model_general block
@@ -3971,18 +3809,14 @@ exports.getAutoRefineFsc = async (req, res) => {
     const iterMatch = modelFile.match(/_it(\d+)_/);
     const iteration = iterMatch ? parseInt(iterMatch[1]) : 0;
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        fsc_curve: fscCurve,
+    return response.successData(res, {
+        fscCurve: fscCurve,
         iteration,
-        gold_standard_resolution: goldStdResolution
-      }
-    });
+        goldStandardResolution: goldStdResolution
+      });
   } catch (error) {
     logger.error(`[Dashboard] AutoRefine FSC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get FSC data' });
+    return response.serverError(res, 'Failed to get FSC data');
   }
 };
 
@@ -3998,12 +3832,12 @@ exports.getMaskCreateResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4012,24 +3846,23 @@ exports.getMaskCreateResults = async (req, res) => {
     const maskFile = path.join(outputDir, 'mask.mrc');
     const hasMask = fs.existsSync(maskFile);
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      has_mask: hasMask,
-      initial_threshold: job.parameters?.initialThreshold || 0.02,
-      extend_binary_mask: job.parameters?.extendBinaryMask || 3,
-      soft_edge_width: job.parameters?.softEdgeWidth || 6,
-      lowpass_filter: job.parameters?.lowpassFilter || 15,
-      input_map: job.parameters?.inputMap || null
+      hasMask: hasMask,
+      initialThreshold: job.parameters?.initialThreshold || 0.02,
+      extendBinaryMask: job.parameters?.extendBinaryMask || 3,
+      softEdgeWidth: job.parameters?.softEdgeWidth || 6,
+      lowpassFilter: job.parameters?.lowpassFilter || 15,
+      inputMap: job.parameters?.inputMap || null
     };
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] MaskCreate results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get MaskCreate results' });
+    return response.serverError(res, 'Failed to get MaskCreate results');
   }
 };
 
@@ -4042,12 +3875,12 @@ exports.getMaskCreateMrc = async (req, res) => {
     const jobId = req.query.job_id;
     const filePath = req.query.file_path;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4068,7 +3901,7 @@ exports.getMaskCreateMrc = async (req, res) => {
       const projectRoot = path.resolve(job.output_file_path, '..', '..');
       const resolvedMrc = path.resolve(mrcPath);
       if (!resolvedMrc.startsWith(projectRoot)) {
-        return res.status(403).json({ status: 'error', message: 'Access denied' });
+        return response.forbidden(res, 'Access denied');
       }
       filename = path.basename(mrcPath);
     } else {
@@ -4077,7 +3910,7 @@ exports.getMaskCreateMrc = async (req, res) => {
     }
 
     if (!fs.existsSync(mrcPath)) {
-      return res.status(404).json({ status: 'error', message: `MRC file not found: ${filename}` });
+      return response.notFound(res, `MRC file not found: ${filename}`);
     }
 
     res.setHeader('Content-Type', 'application/octet-stream');
@@ -4085,7 +3918,7 @@ exports.getMaskCreateMrc = async (req, res) => {
     fs.createReadStream(mrcPath).pipe(res);
   } catch (error) {
     logger.error(`[Dashboard] MaskCreate MRC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get mask file' });
+    return response.serverError(res, 'Failed to get mask file');
   }
 };
 
@@ -4101,12 +3934,12 @@ exports.getCtfRefineResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4114,47 +3947,47 @@ exports.getCtfRefineResults = async (req, res) => {
     const starPath = path.join(outputDir, 'particles_ctf_refine.star');
     const params = job.parameters || {};
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      particle_count: 0,
-      beam_tilt_x: null,
-      beam_tilt_y: null,
-      defocus_mean: null,
-      defocus_min: null,
-      defocus_max: null,
-      defocus_std: null,
-      astigmatism_mean: null,
-      odd_zernike: [],
-      even_zernike: [],
-      defocus_histogram: null,
-      astigmatism_histogram: null,
-      has_output: fs.existsSync(starPath),
-      has_pdf: fs.existsSync(path.join(outputDir, 'logfile.pdf')),
-      has_aberration_plots: false,
+      particleCount: 0,
+      beamTiltX: null,
+      beamTiltY: null,
+      defocusMean: null,
+      defocusMin: null,
+      defocusMax: null,
+      defocusStd: null,
+      astigmatismMean: null,
+      oddZernike: [],
+      evenZernike: [],
+      defocusHistogram: null,
+      astigmatismHistogram: null,
+      hasOutput: fs.existsSync(starPath),
+      hasPdf: fs.existsSync(path.join(outputDir, 'logfile.pdf')),
+      hasAberrationPlots: false,
       // Refinement settings from job parameters
-      do_defocus_refine: params.ctfParameter === 'Yes' || params.doDefocusRefine === 'Yes' || params.ctfParameter === true,
-      do_beam_tilt: params.estimateBeamtilt === 'Yes' || params.doBeamTilt === 'Yes' || params.estimateBeamtilt === true,
-      do_trefoil: params.estimateTreFoil === 'Yes' || params.treFoil === 'Yes' || params.doTrefoil === 'Yes',
-      do_4th_order: params.aberrations === 'Yes' || params.do4thOrder === 'Yes' || params.aberrations === true,
-      min_res_defocus: parseFloat(params.minResolutionFits) || parseFloat(params.minResDefocus) || 30,
-      fit_defocus: params.fitDefocus || 'No',
-      fit_astigmatism: params.fitAstigmatism || 'No',
-      fit_bfactor: params.fitBFactor || 'No',
-      fit_phase_shift: params.fitPhaseShift || params.phaseShift || 'No',
+      doDefocusRefine: params.ctfParameter === 'Yes' || params.doDefocusRefine === 'Yes' || params.ctfParameter === true,
+      doBeamTilt: params.estimateBeamtilt === 'Yes' || params.doBeamTilt === 'Yes' || params.estimateBeamtilt === true,
+      doTrefoil: params.estimateTreFoil === 'Yes' || params.treFoil === 'Yes' || params.doTrefoil === 'Yes',
+      do4thOrder: params.aberrations === 'Yes' || params.do4thOrder === 'Yes' || params.aberrations === true,
+      minResDefocus: parseFloat(params.minResolutionFits) || parseFloat(params.minResDefocus) || 30,
+      fitDefocus: params.fitDefocus || 'No',
+      fitAstigmatism: params.fitAstigmatism || 'No',
+      fitBfactor: params.fitBFactor || 'No',
+      fitPhaseShift: params.fitPhaseShift || params.phaseShift || 'No',
       // Microscope parameters (from upstream Import)
       voltage: null,
-      spherical_aberration: null,
-      pixel_size: job.pipeline_stats?.pixel_size || null
+      sphericalAberration: null,
+      pixelSize: job.pipeline_stats?.pixel_size ?? null
     };
 
     if (fs.existsSync(starPath)) {
       const starData = await parseStarWithCache(job, starPath);
       const particlesBlock = starData.particles || starData.data_particles || {};
       const particles = particlesBlock.rows || particlesBlock || [];
-      response.particle_count = particles.length;
+      responseData.particleCount = particles.length;
 
       // Extract Zernike polynomials from data_optics block
       const opticsBlock = starData.optics || starData.data_optics || {};
@@ -4162,13 +3995,13 @@ exports.getCtfRefineResults = async (req, res) => {
       if (opticsRows.length > 0) {
         const optics = opticsRows[0];
         if (optics.rlnOddZernike) {
-          response.odd_zernike = optics.rlnOddZernike.split(',').map(Number).filter(n => !isNaN(n));
+          responseData.oddZernike = optics.rlnOddZernike.split(',').map(Number).filter(n => !isNaN(n));
         }
         if (optics.rlnEvenZernike) {
-          response.even_zernike = optics.rlnEvenZernike.split(',').map(Number).filter(n => !isNaN(n));
+          responseData.evenZernike = optics.rlnEvenZernike.split(',').map(Number).filter(n => !isNaN(n));
         }
       }
-      response.has_aberration_plots = response.odd_zernike.length > 0 || response.even_zernike.length > 0;
+      responseData.hasAberrationPlots = responseData.oddZernike.length > 0 || responseData.evenZernike.length > 0;
 
       // Calculate defocus/astigmatism statistics and beam tilt
       if (particles.length > 0) {
@@ -4196,23 +4029,24 @@ exports.getCtfRefineResults = async (req, res) => {
           beamTiltYSum += parseFloat(p.rlnBeamTiltY) || 0;
         }
 
-        response.defocus_mean = defocusSum / particles.length;
-        response.defocus_min = defocusMin;
-        response.defocus_max = defocusMax;
-        response.astigmatism_mean = astigSum / particles.length;
-        response.beam_tilt_x = beamTiltXSum / particles.length;
-        response.beam_tilt_y = beamTiltYSum / particles.length;
+        responseData.defocusMean = defocusSum / particles.length;
+        responseData.defocusMin = defocusMin;
+        responseData.defocusMax = defocusMax;
+        responseData.astigmatismMean = astigSum / particles.length;
+        responseData.beamTiltX = beamTiltXSum / particles.length;
+        responseData.beamTiltY = beamTiltYSum / particles.length;
 
         // Standard deviation
-        const mean = response.defocus_mean;
+        const mean = responseData.defocusMean;
         const sqDiffSum = defocusValues.reduce((sum, val) => sum + (val - mean) ** 2, 0);
-        response.defocus_std = Math.sqrt(sqDiffSum / particles.length);
+        responseData.defocusStd = Math.sqrt(sqDiffSum / particles.length);
 
         // Build histograms (20 bins) for defocus and astigmatism distributions
         const buildHistogram = (values, numBins = 20) => {
           if (values.length === 0) return null;
-          const vMin = Math.min(...values);
-          const vMax = Math.max(...values);
+          const s = arrayStats(values);
+          const vMin = s.min;
+          const vMax = s.max;
           const binWidth = (vMax - vMin) / numBins || 1;
           const counts = Array(numBins).fill(0);
           const labels = [];
@@ -4226,8 +4060,8 @@ exports.getCtfRefineResults = async (req, res) => {
           return { labels, counts, min: vMin, max: vMax };
         };
 
-        response.defocus_histogram = buildHistogram(defocusValues);
-        response.astigmatism_histogram = buildHistogram(astigValues);
+        responseData.defocusHistogram = buildHistogram(defocusValues);
+        responseData.astigmatismHistogram = buildHistogram(astigValues);
       }
     }
 
@@ -4240,8 +4074,8 @@ exports.getCtfRefineResults = async (req, res) => {
         visited.add(currentJob.id);
         if (currentJob.job_type === 'Import') {
           const importParams = currentJob.parameters || {};
-          response.voltage = parseFloat(importParams.kV) || null;
-          response.spherical_aberration = parseFloat(importParams.spherical) || null;
+          responseData.voltage = parseFloat(importParams.kV) || null;
+          responseData.sphericalAberration = parseFloat(importParams.spherical) || null;
           break;
         }
         if (currentJob.input_job_ids && currentJob.input_job_ids.length > 0) {
@@ -4254,11 +4088,10 @@ exports.getCtfRefineResults = async (req, res) => {
       logger.warn(`[CTFRefine] Could not get Import parameters: ${e.message}`);
     }
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] CTFRefine results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get CTFRefine results' });
+    return response.serverError(res, 'Failed to get CTFRefine results');
   }
 };
 
@@ -4274,12 +4107,12 @@ exports.getPolishResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4289,32 +4122,32 @@ exports.getPolishResults = async (req, res) => {
 
     const trainOptimal = params.trainOptimalBfactors === 'Yes' || params.trainOptimalBfactors === true;
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      particle_count: 0,
-      has_output: fs.existsSync(starPath),
+      particleCount: 0,
+      hasOutput: fs.existsSync(starPath),
       // Motion sigma parameters from job settings
-      sigma_velocity: parseFloat(params.sigmaVelocity) || 0.2,
-      sigma_divergence: parseFloat(params.sigmaDivergence) || 5000,
-      sigma_acceleration: parseFloat(params.sigmaAcceleration) || 2,
-      train_optimal: trainOptimal,
+      sigmaVelocity: parseFloat(params.sigmaVelocity) || 0.2,
+      sigmaDivergence: parseFloat(params.sigmaDivergence) || 5000,
+      sigmaAcceleration: parseFloat(params.sigmaAcceleration) || 2,
+      trainOptimal: trainOptimal,
       // Frame range
-      first_frame: parseInt(params.firstMovieFrame) || parseInt(params.firstFrame) || 1,
-      last_frame: parseInt(params.lastMovieFrame) || parseInt(params.lastFrame) || -1,
+      firstFrame: parseInt(params.firstMovieFrame) || parseInt(params.firstFrame) || 1,
+      lastFrame: parseInt(params.lastMovieFrame) || parseInt(params.lastFrame) || -1,
       // B-factor weighting
-      perform_bfac_weighting: params.performBfactorWeighting !== 'No' && params.performBfactorWeighting !== false,
-      min_res_bfac: parseFloat(params.minResolutionBfac) || 20,
+      performBfacWeighting: params.performBfactorWeighting !== 'No' && params.performBfactorWeighting !== false,
+      minResBfac: parseFloat(params.minResolutionBfac) || 20,
       // Upstream data
-      micrographs_processed: 0
+      micrographsProcessed: 0
     };
 
     if (fs.existsSync(starPath)) {
       const starData = await parseStarWithCache(job, starPath);
       const particles = starData.particles || starData.data_particles || [];
-      response.particle_count = particles.length;
+      responseData.particleCount = particles.length;
     }
 
     // Get micrograph count from upstream job
@@ -4322,18 +4155,17 @@ exports.getPolishResults = async (req, res) => {
       try {
         const sourceJob = await Job.findOne({ id: job.input_job_ids[0] }).lean();
         if (sourceJob) {
-          response.micrographs_processed = sourceJob.pipeline_stats?.micrograph_count || sourceJob.micrograph_count || 0;
+          responseData.micrographsProcessed = sourceJob.pipeline_stats?.micrograph_count ?? sourceJob.micrograph_count ?? 0;
         }
       } catch (e) {
         logger.warn(`[Polish] Could not get upstream micrograph count: ${e.message}`);
       }
     }
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] Polish results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get Polish results' });
+    return response.serverError(res, 'Failed to get Polish results');
   }
 };
 
@@ -4349,12 +4181,12 @@ exports.getSubtractResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4362,27 +4194,27 @@ exports.getSubtractResults = async (req, res) => {
     const starPath = path.join(outputDir, 'particles_subtracted.star');
     const params = job.parameters || {};
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      particle_count: 0,
-      particles_before: 0,
-      has_output: fs.existsSync(starPath),
+      particleCount: 0,
+      particlesBefore: 0,
+      hasOutput: fs.existsSync(starPath),
       // Operation details from parameters
-      is_revert: params.revertToOriginal === 'Yes' || params.revertToOriginal === true,
-      new_box_size: parseInt(params.newBoxSize) > 0 ? parseInt(params.newBoxSize) : null,
-      output_float16: params.outputInFloat16 === 'Yes' || params.outputInFloat16 === true,
-      recenter_on_mask: params.subtracted_images === 'Yes' || params.subtracted_images === true,
-      center_coordinates: params.centerCoordinates === 'Yes' || params.centerCoordinates === true
+      isRevert: params.revertToOriginal === 'Yes' || params.revertToOriginal === true,
+      newBoxSize: parseInt(params.newBoxSize) > 0 ? parseInt(params.newBoxSize) : null,
+      outputFloat16: params.outputInFloat16 === 'Yes' || params.outputInFloat16 === true,
+      recenterOnMask: params.subtractedImages === 'Yes' || params.subtractedImages === true || params.subtracted_images === 'Yes' || params.subtracted_images === true,
+      centerCoordinates: params.centerCoordinates === 'Yes' || params.centerCoordinates === true
     };
 
     if (fs.existsSync(starPath)) {
       try {
         const starData = await parseStarWithCache(job, starPath);
         const particles = starData.particles || starData.data_particles || [];
-        response.particle_count = particles.length;
+        responseData.particleCount = particles.length;
       } catch (e) {
         logger.warn(`[Subtract] Could not read particle count from ${starPath}: ${e.message}`);
       }
@@ -4393,18 +4225,17 @@ exports.getSubtractResults = async (req, res) => {
       try {
         const sourceJob = await Job.findOne({ id: job.input_job_ids[0] }).lean();
         if (sourceJob) {
-          response.particles_before = sourceJob.pipeline_stats?.particle_count || sourceJob.particle_count || 0;
+          responseData.particlesBefore = sourceJob.pipeline_stats?.particle_count ?? sourceJob.particle_count ?? 0;
         }
       } catch (e) {
         logger.warn(`[Subtract] Could not get source job particle count: ${e.message}`);
       }
     }
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] Subtract results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get Subtract results' });
+    return response.serverError(res, 'Failed to get Subtract results');
   }
 };
 
@@ -4420,12 +4251,12 @@ exports.getJoinStarResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4436,22 +4267,22 @@ exports.getJoinStarResults = async (req, res) => {
     const micrographsStarPath = path.join(outputDir, 'join_micrographs.star');
     const moviesStarPath = path.join(outputDir, 'join_movies.star');
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
       // Combining types
-      combine_particles: params.combineParticles === 'Yes' || params.combineParticles === true,
-      combine_micrographs: params.combineMicrographs === 'Yes' || params.combineMicrographs === true,
-      combine_movies: params.combineMovies === 'Yes' || params.combineMovies === true,
+      combineParticles: params.combineParticles === 'Yes' || params.combineParticles === true,
+      combineMicrographs: params.combineMicrographs === 'Yes' || params.combineMicrographs === true,
+      combineMovies: params.combineMovies === 'Yes' || params.combineMovies === true,
       // Output counts
-      particle_count: 0,
-      micrograph_count: 0,
-      movie_count: 0,
-      has_particles_output: fs.existsSync(particlesStarPath),
-      has_micrographs_output: fs.existsSync(micrographsStarPath),
-      has_movies_output: fs.existsSync(moviesStarPath)
+      particleCount: 0,
+      micrographCount: 0,
+      movieCount: 0,
+      hasParticlesOutput: fs.existsSync(particlesStarPath),
+      hasMicrographsOutput: fs.existsSync(micrographsStarPath),
+      hasMoviesOutput: fs.existsSync(moviesStarPath)
     };
 
     // Count particles from join_particles.star
@@ -4459,7 +4290,7 @@ exports.getJoinStarResults = async (req, res) => {
       try {
         const starData = await parseStarWithCache(job, particlesStarPath);
         const particles = starData.particles || starData.data_particles || [];
-        response.particle_count = particles.length;
+        responseData.particleCount = particles.length;
       } catch (e) {
         logger.warn(`[JoinStar] Could not read particle count: ${e.message}`);
       }
@@ -4469,7 +4300,7 @@ exports.getJoinStarResults = async (req, res) => {
     if (fs.existsSync(micrographsStarPath)) {
       try {
         const { countStarFileEntries } = require('../utils/pipelineMetadata');
-        response.micrograph_count = await countStarFileEntries(micrographsStarPath);
+        responseData.micrographCount = await countStarFileEntries(micrographsStarPath);
       } catch (e) {
         logger.warn(`[JoinStar] Could not read micrograph count: ${e.message}`);
       }
@@ -4479,17 +4310,27 @@ exports.getJoinStarResults = async (req, res) => {
     if (fs.existsSync(moviesStarPath)) {
       try {
         const { countStarFileEntries } = require('../utils/pipelineMetadata');
-        response.movie_count = await countStarFileEntries(moviesStarPath);
+        responseData.movieCount = await countStarFileEntries(moviesStarPath);
       } catch (e) {
         logger.warn(`[JoinStar] Could not read movie count: ${e.message}`);
       }
     }
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    // Write counts to DB (fire-and-forget, matching other live-stats endpoints)
+    if (responseData.particleCount > 0 && responseData.particleCount !== (job.pipeline_stats?.particle_count ?? 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.particle_count': responseData.particleCount }).catch(() => {});
+    }
+    if (responseData.micrographCount > 0 && responseData.micrographCount !== (job.pipeline_stats?.micrograph_count ?? 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.micrograph_count': responseData.micrographCount }).catch(() => {});
+    }
+    if (responseData.movieCount > 0 && responseData.movieCount !== (job.pipeline_stats?.movie_count ?? 0)) {
+      Job.updateOne({ id: job.id }, { 'pipeline_stats.movie_count': responseData.movieCount }).catch(() => {});
+    }
+
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] JoinStar results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get JoinStar results' });
+    return response.serverError(res, 'Failed to get JoinStar results');
   }
 };
 
@@ -4505,12 +4346,12 @@ exports.getPostProcessResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4541,26 +4382,25 @@ exports.getPostProcessResults = async (req, res) => {
     // Get job parameters for display
     const params = job.parameters || {};
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      final_resolution: finalResolution,
+      finalResolution: finalResolution,
       bfactor: bfactor,
-      has_masked_map: fs.existsSync(maskedMap),
-      has_unmasked_map: fs.existsSync(unmaskedMap),
-      has_fsc: fs.existsSync(fscData),
+      hasMaskedMap: fs.existsSync(maskedMap),
+      hasUnmaskedMap: fs.existsSync(unmaskedMap),
+      hasFsc: fs.existsSync(fscData),
       angpix: params.calibratedPixelSize || params.angpix || params.pixelSize || 1.0,
-      auto_mask: params.autoMask ? 'Yes' : 'No',
-      auto_bfactor: params.autoB !== false ? 'Yes' : 'No'
+      autoMask: params.autoMask ? 'Yes' : 'No',
+      autoBfactor: params.autoB !== false ? 'Yes' : 'No'
     };
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] PostProcess results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get PostProcess results' });
+    return response.serverError(res, 'Failed to get PostProcess results');
   }
 };
 
@@ -4574,12 +4414,12 @@ exports.getPostProcessMrc = async (req, res) => {
     const mapType = req.query.type || 'masked';
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4588,7 +4428,7 @@ exports.getPostProcessMrc = async (req, res) => {
       : path.join(job.output_file_path, 'postprocess.mrc');
 
     if (!fs.existsSync(mrcPath)) {
-      return res.status(404).json({ status: 'error', message: 'Map file not found' });
+      return response.notFound(res, 'Map file not found');
     }
 
     res.setHeader('Content-Type', 'application/octet-stream');
@@ -4596,7 +4436,7 @@ exports.getPostProcessMrc = async (req, res) => {
     fs.createReadStream(mrcPath).pipe(res);
   } catch (error) {
     logger.error(`[Dashboard] PostProcess MRC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get map file' });
+    return response.serverError(res, 'Failed to get map file');
   }
 };
 
@@ -4608,19 +4448,19 @@ exports.getPostProcessFsc = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const fscPath = path.join(job.output_file_path, 'postprocess_fsc.star');
 
     if (!fs.existsSync(fscPath)) {
-      return res.status(404).json({ status: 'error', message: 'FSC data not found' });
+      return response.notFound(res, 'FSC data not found');
     }
 
     const starData = await parseStarFile(fscPath);
@@ -4628,21 +4468,17 @@ exports.getPostProcessFsc = async (req, res) => {
 
     const fscCurve = fscData.map(row => ({
       resolution: parseFloat(row.rlnAngstromResolution) || 0,
-      fsc_unmasked: parseFloat(row.rlnFourierShellCorrelationUnmaskedMaps) || 0,
-      fsc_masked: parseFloat(row.rlnFourierShellCorrelationMaskedMaps) || 0,
-      fsc_corrected: parseFloat(row.rlnFourierShellCorrelationCorrected) || 0
+      fscUnmasked: parseFloat(row.rlnFourierShellCorrelationUnmaskedMaps) || 0,
+      fscMasked: parseFloat(row.rlnFourierShellCorrelationMaskedMaps) || 0,
+      fscCorrected: parseFloat(row.rlnFourierShellCorrelationCorrected) || 0
     }));
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        fsc_curve: fscCurve
-      }
-    });
+    return response.successData(res, {
+        fscCurve: fscCurve
+      });
   } catch (error) {
     logger.error(`[Dashboard] PostProcess FSC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get FSC data' });
+    return response.serverError(res, 'Failed to get FSC data');
   }
 };
 
@@ -4658,12 +4494,12 @@ exports.getLocalResResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4672,13 +4508,13 @@ exports.getLocalResResults = async (req, res) => {
     const localResMap = path.join(outputDir, 'relion_locres.mrc');
     const filteredMap = path.join(outputDir, 'relion_locres_filtered.mrc');
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      has_locres_map: fs.existsSync(localResMap),
-      has_locres_filtered: fs.existsSync(filteredMap)
+      hasLocresMap: fs.existsSync(localResMap),
+      hasLocresFiltered: fs.existsSync(filteredMap)
     };
 
     // Parse resolution statistics from run.out
@@ -4689,13 +4525,13 @@ exports.getLocalResResults = async (req, res) => {
         // Parse: "Min: 3.30115 Q1: 3.79917 Median: 4.02245 Q3: 4.28752 Max: 5.59916"
         const statsMatch = runOut.match(/Min:\s+([\d.]+)\s+Q1:\s+[\d.]+\s+Median:\s+[\d.]+\s+Q3:\s+[\d.]+\s+Max:\s+([\d.]+)/);
         if (statsMatch) {
-          response.min_resolution = parseFloat(statsMatch[1]);
-          response.max_resolution = parseFloat(statsMatch[2]);
+          responseData.minResolution = parseFloat(statsMatch[1]);
+          responseData.maxResolution = parseFloat(statsMatch[2]);
         }
         // Parse: "Mean: 4.05659 Std: 0.348411"
         const meanMatch = runOut.match(/Mean:\s+([\d.]+)/);
         if (meanMatch) {
-          response.mean_resolution = parseFloat(meanMatch[1]);
+          responseData.meanResolution = parseFloat(meanMatch[1]);
         }
       } catch (parseErr) {
         logger.debug(`[Dashboard] Could not parse LocalRes run.out: ${parseErr.message}`);
@@ -4704,27 +4540,26 @@ exports.getLocalResResults = async (req, res) => {
 
     // Extract b-factor and pixel size from job parameters (user-supplied values)
     const params = job.parameters || {};
-    response.b_factor = params.bFactor || params.b_factor || null;
-    response.pixel_size = params.calibratedPixelSize || params.angpix || null;
+    responseData.bFactor = params.bFactor || params.b_factor || null;
+    responseData.pixelSize = params.calibratedPixelSize || params.angpix || null;
 
     // Fall back to parsing from command if not in parameters
-    if (response.b_factor == null || response.pixel_size == null) {
+    if (responseData.bFactor == null || responseData.pixelSize == null) {
       const cmd = job.command || '';
-      if (response.b_factor == null) {
+      if (responseData.bFactor == null) {
         const bfacMatch = cmd.match(/--adhoc_bfac\s+(-?[\d.]+)/);
-        if (bfacMatch) response.b_factor = parseFloat(bfacMatch[1]);
+        if (bfacMatch) responseData.bFactor = parseFloat(bfacMatch[1]);
       }
-      if (response.pixel_size == null) {
+      if (responseData.pixelSize == null) {
         const angpixMatch = cmd.match(/--angpix\s+([\d.]+)/);
-        if (angpixMatch) response.pixel_size = parseFloat(angpixMatch[1]);
+        if (angpixMatch) responseData.pixelSize = parseFloat(angpixMatch[1]);
       }
     }
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] LocalRes results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get LocalRes results' });
+    return response.serverError(res, 'Failed to get LocalRes results');
   }
 };
 
@@ -4738,12 +4573,12 @@ exports.getLocalResMrc = async (req, res) => {
     const mapType = req.query.type || 'localres';
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4752,7 +4587,7 @@ exports.getLocalResMrc = async (req, res) => {
       : path.join(job.output_file_path, 'relion_locres.mrc');
 
     if (!fs.existsSync(mrcPath)) {
-      return res.status(404).json({ status: 'error', message: 'Map file not found' });
+      return response.notFound(res, 'Map file not found');
     }
 
     res.setHeader('Content-Type', 'application/octet-stream');
@@ -4760,7 +4595,7 @@ exports.getLocalResMrc = async (req, res) => {
     fs.createReadStream(mrcPath).pipe(res);
   } catch (error) {
     logger.error(`[Dashboard] LocalRes MRC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get map file' });
+    return response.serverError(res, 'Failed to get map file');
   }
 };
 
@@ -4776,12 +4611,12 @@ exports.getModelAngeloResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4795,27 +4630,26 @@ exports.getModelAngeloResults = async (req, res) => {
       ? fs.readdirSync(outputDir).filter(f => f.endsWith('.cif'))
       : [];
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      has_pdb: pdbFiles.length > 0,
-      has_cif: cifFiles.length > 0,
-      num_chains: 0,
-      num_residues: 0,
-      has_protein_fasta: !!job.parameters?.proteinFasta,
-      has_dna_fasta: !!job.parameters?.dnaFasta,
-      has_rna_fasta: !!job.parameters?.rnaFasta,
-      perform_hmmer: job.parameters?.performHmmer || 'No',
-      has_hmmer_results: false
+      hasPdb: pdbFiles.length > 0,
+      hasCif: cifFiles.length > 0,
+      numChains: 0,
+      numResidues: 0,
+      hasProteinFasta: !!job.parameters?.proteinFasta,
+      hasDnaFasta: !!job.parameters?.dnaFasta,
+      hasRnaFasta: !!job.parameters?.rnaFasta,
+      performHmmer: job.parameters?.performHmmer || 'No',
+      hasHmmerResults: false
     };
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] ModelAngelo results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get ModelAngelo results' });
+    return response.serverError(res, 'Failed to get ModelAngelo results');
   }
 };
 
@@ -4827,12 +4661,12 @@ exports.getModelAngeloPdb = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4843,7 +4677,7 @@ exports.getModelAngeloPdb = async (req, res) => {
       : [];
 
     if (pdbFiles.length === 0) {
-      return res.status(404).json({ status: 'error', message: 'PDB file not found' });
+      return response.notFound(res, 'PDB file not found');
     }
 
     const pdbPath = path.join(outputDir, pdbFiles[0]);
@@ -4852,7 +4686,7 @@ exports.getModelAngeloPdb = async (req, res) => {
     fs.createReadStream(pdbPath).pipe(res);
   } catch (error) {
     logger.error(`[Dashboard] ModelAngelo PDB error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get PDB file' });
+    return response.serverError(res, 'Failed to get PDB file');
   }
 };
 
@@ -4868,12 +4702,12 @@ exports.getDynamightResults = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4887,24 +4721,23 @@ exports.getDynamightResults = async (req, res) => {
       ? fs.readdirSync(outputDir).filter(f => f.endsWith('.mp4') || f.endsWith('.gif'))
       : [];
 
-    const response = {
+    const responseData = {
       id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobStatus: job.status,
       command: job.command,
-      latest_iteration: 0,
-      num_iterations: job.parameters?.numberOfIterations || 0,
-      num_particles: 0,
-      has_output: mrcFiles.length > 0,
-      has_movies: movieFiles.length > 0,
-      mrc_files: mrcFiles
+      latestIteration: 0,
+      numIterations: job.parameters?.numberOfIterations || 0,
+      numParticles: 0,
+      hasOutput: mrcFiles.length > 0,
+      hasMovies: movieFiles.length > 0,
+      mrcFiles: mrcFiles
     };
 
-    res.json({ success: true,
-      status: 'success', data: response });
+    return response.successData(res, responseData);
   } catch (error) {
     logger.error(`[Dashboard] DynaMight results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get DynaMight results' });
+    return response.serverError(res, 'Failed to get DynaMight results');
   }
 };
 
@@ -4916,12 +4749,12 @@ exports.getDynamightMrc = async (req, res) => {
   try {
     const jobId = req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -4932,7 +4765,7 @@ exports.getDynamightMrc = async (req, res) => {
       : [];
 
     if (mrcFiles.length === 0) {
-      return res.status(404).json({ status: 'error', message: 'MRC file not found' });
+      return response.notFound(res, 'MRC file not found');
     }
 
     const mrcPath = path.join(outputDir, mrcFiles[mrcFiles.length - 1]);
@@ -4941,7 +4774,7 @@ exports.getDynamightMrc = async (req, res) => {
     fs.createReadStream(mrcPath).pipe(res);
   } catch (error) {
     logger.error(`[Dashboard] DynaMight MRC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get MRC file' });
+    return response.serverError(res, 'Failed to get MRC file');
   }
 };
 
@@ -4959,32 +4792,24 @@ exports.getImportResults = async (req, res) => {
   try {
     const jobId = req.params.jobId || req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const outputDir = job.output_file_path;
-    const projectPath = path.dirname(path.dirname(outputDir));
 
-    // Node type info for "other" imports
-    const nodeTypeInfo = {
-      ref3d: { label: '3D Reference', output_file: 'ref3d.mrc' },
-      mask: { label: '3D Mask', output_file: 'mask.mrc' },
-      halfmap: { label: 'Unfiltered Half-map', output_file: 'halfmap.mrc' },
-      refs2d: { label: '2D References', output_file: 'class_averages.star' },
-      coords: { label: 'Particle Coordinates', output_file: 'coords_suffix_autopick.star' }
-    };
+    const nodeTypeInfo = IMPORT_NODE_TYPES;
 
     // Detect import mode from command
     const command = job.command || '';
     let importMode = 'movies';
 
-    if (command.includes('--do_other')) {
+    if (command.includes('--do_other') || command.includes('--do_coordinates') || command.includes('--do_halfmaps')) {
       importMode = 'other';
     } else {
       // Check for other node type output files
@@ -5003,15 +4828,26 @@ exports.getImportResults = async (req, res) => {
       let nodeLabel = 'Unknown';
       let importedFile = null;
 
-      // Parse node type from command
-      const nodeTypeMatch = command.match(/--node_type\s+(\w+)/);
-      if (nodeTypeMatch) {
-        nodeType = nodeTypeMatch[1];
-        if (nodeTypeInfo[nodeType]) {
-          nodeLabel = nodeTypeInfo[nodeType].label;
-          const outputFile = path.join(outputDir, nodeTypeInfo[nodeType].output_file);
-          if (fs.existsSync(outputFile)) {
-            importedFile = outputFile;
+      // Detect node type from command flags
+      if (command.includes('--do_coordinates')) {
+        nodeType = 'coords';
+        nodeLabel = nodeTypeInfo.coords.label;
+        const outputFile = path.join(outputDir, nodeTypeInfo.coords.output_file);
+        if (fs.existsSync(outputFile)) importedFile = outputFile;
+      } else if (command.includes('--do_halfmaps')) {
+        nodeType = 'halfmap';
+        nodeLabel = nodeTypeInfo.halfmap.label;
+        const outputFile = path.join(outputDir, nodeTypeInfo.halfmap.output_file);
+        if (fs.existsSync(outputFile)) importedFile = outputFile;
+      } else {
+        // --do_other: parse --node_type flag
+        const nodeTypeMatch = command.match(/--node_type\s+(\w+)/);
+        if (nodeTypeMatch) {
+          nodeType = nodeTypeMatch[1];
+          if (nodeTypeInfo[nodeType]) {
+            nodeLabel = nodeTypeInfo[nodeType].label;
+            const outputFile = path.join(outputDir, nodeTypeInfo[nodeType].output_file);
+            if (fs.existsSync(outputFile)) importedFile = outputFile;
           }
         }
       }
@@ -5044,58 +4880,15 @@ exports.getImportResults = async (req, res) => {
         }
       }
 
-      // Get file info
-      let fileInfo = {};
-      if (importedFile && fs.existsSync(importedFile)) {
-        const stats = fs.statSync(importedFile);
-        fileInfo = {
-          name: path.basename(importedFile),
-          path: importedFile,
-          relative_path: path.relative(projectPath, importedFile),
-          size: stats.size,
-          exists: true
-        };
+      // Frontend only needs: exists (for MolstarViewer gate) and name (fallback)
+      const fileInfo = importedFile && fs.existsSync(importedFile)
+        ? { name: path.basename(importedFile), exists: true }
+        : {};
 
-        // For MRC files, try to get volume dimensions
-        if (importedFile.endsWith('.mrc')) {
-          try {
-            const { getMrcInfo } = require('../utils/mrcParser');
-            const mrcInfo = getMrcInfo(importedFile);
-            if (mrcInfo) {
-              fileInfo.dimensions = {
-                nx: mrcInfo.width,
-                ny: mrcInfo.height,
-                nz: mrcInfo.num_frames
-              };
-              fileInfo.voxel_size = mrcInfo.pixelSize;
-            }
-          } catch (e) {
-            logger.warn(`[Import] Could not read MRC header: ${e.message}`);
-          }
-        }
-      }
-
-      return res.json({
-        success: true,
-      status: 'success',
-        data: {
-          job_id: job.id,
-          job_name: job.job_name,
-          job_status: job.status,
-          command: command,
-          output_dir: outputDir,
-          import_mode: 'other',
-          node_type: nodeType,
-          node_label: nodeLabel,
-          imported_file: fileInfo,
-          summary: {
-            total_imported: importedFile ? 1 : 0,
-            displayed: importedFile ? 1 : 0,
-            type: nodeType || 'unknown',
-            label: nodeLabel
-          }
-        }
-      });
+      return response.successData(res, {
+          importMode: 'other',
+          importedFile: fileInfo
+        });
     }
 
     // Handle movies/micrographs import
@@ -5121,57 +4914,29 @@ exports.getImportResults = async (req, res) => {
 
       totalFiles = movies.length;
       importedFiles = movies.slice(0, 10).map(m => ({
-        movie_name: m.rlnMicrographMovieName || m._rlnMicrographMovieName,
-        micrograph_name: m.rlnMicrographName || m._rlnMicrographName,
+        movieName: m.rlnMicrographMovieName || m._rlnMicrographMovieName,
+        micrographName: m.rlnMicrographName || m._rlnMicrographName,
         name: path.basename(m.rlnMicrographMovieName || m.rlnMicrographName || m._rlnMicrographMovieName || m._rlnMicrographName || ''),
-        optics_group: m.rlnOpticsGroup || m._rlnOpticsGroup
+        opticsGroup: m.rlnOpticsGroup || m._rlnOpticsGroup
       }));
     }
 
     // Detect import type
     const importType = starFile && starFile.includes('movies') ? 'movies' : 'micrographs';
 
-    // Check for existing thumbnails
-    const thumbnailsDir = path.join(outputDir, 'thumbnails');
-    let thumbnailsCount = 0;
-    if (fs.existsSync(thumbnailsDir)) {
-      thumbnailsCount = fs.readdirSync(thumbnailsDir).filter(f => f.endsWith('.png')).length;
-    }
-
-    // Get import parameters from job parameters
-    const params = job.parameters || {};
-    const angpix = params.angpix;
-    const kV = params.kV;
-    const cs = params.spherical || params.cs;
-
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        job_id: job.id,
-        job_name: job.job_name,
-        job_status: job.status,
-        command: command,
-        import_mode: importType,
-        import_type: importType,
-        star_file: starFile,
-        imported_count: importedFiles.length,
-        imported_files: importedFiles,
-        thumbnails_count: thumbnailsCount,
-        max_display: 10,
+    // API returns only file list for rendering + routing info
+    // Stats card values come from pipeline_stats / parameters in the job document
+    return response.successData(res, {
+        importMode: importType,
+        importedFiles: importedFiles,
         summary: {
-          total_imported: totalFiles,
-          displayed: importedFiles.length,
+          totalImported: totalFiles,
           type: importType
-        },
-        angpix: angpix,
-        kV: kV,
-        cs: cs
-      }
-    });
+        }
+      });
   } catch (error) {
     logger.error(`[Dashboard] Import results error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get import results' });
+    return response.serverError(res, 'Failed to get import results');
   }
 };
 
@@ -5193,7 +4958,7 @@ exports.getClass2dIndividualImages = async (req, res) => {
     if (jobId) {
       const result = await getJobWithAccess(jobId, req.user.id);
       if (result.error) {
-        return res.status(result.status).json({ status: 'error', message: result.error });
+        return response.error(res, result.error, result.status);
       }
       job = result.job;
       outputDir = job.output_file_path;
@@ -5203,7 +4968,7 @@ exports.getClass2dIndividualImages = async (req, res) => {
       const Project = require('../models/Project');
       const project = await Project.findOne({ id: projectId });
       if (!project) {
-        return res.status(404).json({ status: 'error', message: 'Project not found' });
+        return response.notFound(res, 'Project not found');
       }
       const projectPath = path.join(process.env.ROOT_PATH || '/shared/data', project.folder_name || project.project_name);
       const pathParts = jobPath.split('/');
@@ -5215,11 +4980,11 @@ exports.getClass2dIndividualImages = async (req, res) => {
         job = await Job.findOne({ project_id: projectId, job_name: pathParts[1] });
       }
     } else {
-      return res.status(400).json({ status: 'error', message: 'Either job_id or (project_id + job_path) is required' });
+      return response.badRequest(res, 'Either job_id or (project_id + job_path) is required');
     }
 
     if (!outputDir || !fs.existsSync(outputDir)) {
-      return res.status(404).json({ status: 'error', message: 'Output directory not found' });
+      return response.notFound(res, 'Output directory not found');
     }
 
     // Find iteration files (2D: mrcs stacks)
@@ -5300,7 +5065,7 @@ exports.getClass2dIndividualImages = async (req, res) => {
     iterations.sort((a, b) => a.iteration - b.iteration);
 
     if (iterations.length === 0) {
-      return res.status(404).json({ status: 'error', message: 'No class files found' });
+      return response.notFound(res, 'No class files found');
     }
 
     // Select iteration
@@ -5311,7 +5076,7 @@ exports.getClass2dIndividualImages = async (req, res) => {
       const iterNum = parseInt(iteration, 10);
       selected = iterations.find(it => it.iteration === iterNum);
       if (!selected) {
-        return res.status(404).json({ status: 'error', message: `Iteration ${iterNum} not found` });
+        return response.notFound(res, `Iteration ${iterNum} not found`);
       }
     }
 
@@ -5423,13 +5188,13 @@ exports.getClass2dIndividualImages = async (req, res) => {
 
           const info2 = classInfo.find(c => c.classNumber === classFile.classNum);
           classesData.push({
-            class_number: classFile.classNum,
+            classNumber: classFile.classNum,
             image: imageXY,
-            image_xz: imageXZ,
-            image_yz: imageYZ,
-            mrc_path: classFile.filePath,
-            particle_fraction: info2?.particleFraction || 0,
-            estimated_resolution: info2?.estimatedResolution || 999,
+            imageXz: imageXZ,
+            imageYz: imageYZ,
+            mrcPath: classFile.filePath,
+            particleFraction: info2?.particleFraction || 0,
+            estimatedResolution: info2?.estimatedResolution || 999,
             distribution: info2?.distribution || 0,
           });
         } catch (e) {
@@ -5442,7 +5207,7 @@ exports.getClass2dIndividualImages = async (req, res) => {
       const { getMrcInfo } = require('../utils/mrcParser');
       const info = getMrcInfo(mrcsPath);
       if (!info) {
-        return res.status(500).json({ status: 'error', message: 'Could not read class file' });
+        return response.serverError(res, 'Could not read class file');
       }
 
       const numClasses = info.num_frames;
@@ -5465,10 +5230,10 @@ exports.getClass2dIndividualImages = async (req, res) => {
 
           const info2 = classInfo.find(c => c.classNumber === i + 1);
           classesData.push({
-            class_number: i + 1,
+            classNumber: i + 1,
             image: `data:image/png;base64,${base64}`,
-            particle_fraction: info2?.particleFraction || 0,
-            estimated_resolution: info2?.estimatedResolution || 999,
+            particleFraction: info2?.particleFraction || 0,
+            estimatedResolution: info2?.estimatedResolution || 999,
             distribution: info2?.distribution || 0,
           });
         } catch (e) {
@@ -5477,23 +5242,19 @@ exports.getClass2dIndividualImages = async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        job_id: job ? job.id : null,
-        job_name: job ? job.job_name : jobPath,
+    return response.successData(res, {
+        jobId: job ? job.id : null,
+        jobName: job ? job.job_name : jobPath,
         iteration: selected.iteration,
-        data_star_path: selected.dataFile,
-        num_classes: classesData.length,
-        is_3d: selected.is3d,
+        dataStarPath: selected.dataFile,
+        numClasses: classesData.length,
+        is3d: selected.is3d,
         classes: classesData,
-        available_iterations: iterations.map(it => it.iteration),
-      }
-    });
+        availableIterations: iterations.map(it => it.iteration),
+      });
   } catch (error) {
     logger.error(`[Dashboard] Class2D individual images error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get class images' });
+    return response.serverError(res, 'Failed to get class images');
   }
 };
 
@@ -5506,19 +5267,19 @@ exports.saveSelectedClasses = async (req, res) => {
     const { project_id, data_star_path, selected_classes, output_job_name } = req.body;
 
     if (!project_id) {
-      return res.status(400).json({ status: 'error', message: 'project_id is required' });
+      return response.badRequest(res, 'project_id is required');
     }
     if (!data_star_path) {
-      return res.status(400).json({ status: 'error', message: 'data_star_path is required' });
+      return response.badRequest(res, 'data_star_path is required');
     }
     if (!selected_classes || selected_classes.length === 0) {
-      return res.status(400).json({ status: 'error', message: 'No classes selected' });
+      return response.badRequest(res, 'No classes selected');
     }
 
     const Project = require('../models/Project');
     const project = await Project.findOne({ id: project_id });
     if (!project) {
-      return res.status(404).json({ status: 'error', message: 'Project not found' });
+      return response.notFound(res, 'Project not found');
     }
 
     const projectPath = path.join(process.env.ROOT_PATH || '/shared/data', project.folder_name || project.project_name);
@@ -5527,7 +5288,7 @@ exports.saveSelectedClasses = async (req, res) => {
     const fullDataPath = path.isAbsolute(data_star_path) ? data_star_path : path.join(projectPath, data_star_path);
 
     if (!fs.existsSync(fullDataPath)) {
-      return res.status(404).json({ status: 'error', message: `Data file not found: ${data_star_path}` });
+      return response.notFound(res, `Data file not found: ${data_star_path}`);
     }
 
     // Parse input star file
@@ -5537,13 +5298,13 @@ exports.saveSelectedClasses = async (req, res) => {
     // Get particles block
     const particles = starData.particles || starData.data_particles;
     if (!particles || !particles.rows || particles.rows.length === 0) {
-      return res.status(400).json({ status: 'error', message: 'No particles table found in star file' });
+      return response.badRequest(res, 'No particles table found in star file');
     }
 
     // Find rlnClassNumber column
     const classCol = particles.columns?.find(c => c.includes('rlnClassNumber'));
     if (!classCol) {
-      return res.status(400).json({ status: 'error', message: 'No rlnClassNumber column found' });
+      return response.badRequest(res, 'No rlnClassNumber column found');
     }
 
     // Filter particles by selected classes
@@ -5554,7 +5315,7 @@ exports.saveSelectedClasses = async (req, res) => {
     });
 
     if (filteredRows.length === 0) {
-      return res.status(400).json({ status: 'error', message: 'No particles found in selected classes' });
+      return response.badRequest(res, 'No particles found in selected classes');
     }
 
     // Create output directory
@@ -5626,10 +5387,10 @@ exports.saveSelectedClasses = async (req, res) => {
       sourceJob = await Job.findOne({ project_id, job_name: sourceJobName }).lean();
       if (sourceJob) {
         const ss = sourceJob.pipeline_stats || {};
-        inheritedPixelSize = ss.pixel_size || sourceJob.pixel_size || null;
-        inheritedBoxSize = ss.box_size || sourceJob.box_size ||
-          sourceJob.parameters?.particleBoxSize || null;
-        inheritedMicrographCount = ss.micrograph_count || sourceJob.micrograph_count || 0;
+        inheritedPixelSize = ss.pixel_size ?? sourceJob.pixel_size ?? null;
+        inheritedBoxSize = ss.box_size ?? sourceJob.box_size ??
+          sourceJob.parameters?.particleBoxSize ?? null;
+        inheritedMicrographCount = ss.micrograph_count ?? sourceJob.micrograph_count ?? 0;
 
         // If box_size not found, look at upstream jobs (Extract job has it)
         if (!inheritedBoxSize && sourceJob.input_job_ids?.length > 0) {
@@ -5637,13 +5398,13 @@ exports.saveSelectedClasses = async (req, res) => {
             const upstreamJob = await Job.findOne({ id: upstreamId }).lean();
             if (upstreamJob) {
               const us = upstreamJob.pipeline_stats || {};
-              inheritedBoxSize = us.box_size || upstreamJob.box_size ||
-                upstreamJob.parameters?.particleBoxSize || null;
+              inheritedBoxSize = us.box_size ?? upstreamJob.box_size ??
+                upstreamJob.parameters?.particleBoxSize ?? null;
               if (!inheritedPixelSize) {
-                inheritedPixelSize = us.pixel_size || upstreamJob.pixel_size || null;
+                inheritedPixelSize = us.pixel_size ?? upstreamJob.pixel_size ?? null;
               }
               if (!inheritedMicrographCount) {
-                inheritedMicrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+                inheritedMicrographCount = us.micrograph_count ?? upstreamJob.micrograph_count ?? 0;
               }
               if (inheritedBoxSize) break;
             }
@@ -5662,10 +5423,10 @@ exports.saveSelectedClasses = async (req, res) => {
       output_file_path: path.join('Select', outputDirName),
       input_job_ids: sourceJob ? [sourceJob.id] : [],
       parameters: {
-        source_star_file: data_star_path,
-        selected_classes: Array.from(selected_classes),
-        num_classes_selected: selected_classes.length,
-        source_job_name: sourceJobName,
+        sourceStarFile: data_star_path,
+        selectedClasses: Array.from(selected_classes),
+        numClassesSelected: selected_classes.length,
+        sourceJobName: sourceJobName,
       },
       output_files: [{
         role: 'particlesStar',
@@ -5680,8 +5441,9 @@ exports.saveSelectedClasses = async (req, res) => {
         particle_count: filteredRows.length,
         box_size: inheritedBoxSize,
         resolution: null,
-        class_count: 0,
-        iteration_count: 0
+        class_count: selected_classes.length,
+        iteration_count: 0,
+        total_classes: sourceJob?.pipeline_stats?.class_count || 0
       },
       start_time: now,
       end_time: now,
@@ -5691,22 +5453,20 @@ exports.saveSelectedClasses = async (req, res) => {
 
     await newJob.save();
 
-    res.json({
-      success: true,
-      status: 'success',
+    return response.success(res, {
       message: `Saved ${filteredRows.length} particles from ${selected_classes.length} classes`,
       data: {
-        job_id: newJob.id,
-        job_name: outputDirName,
-        output_file: relOutputPath,
-        num_particles: filteredRows.length,
-        selected_classes: Array.from(selected_classes),
-        source_job: sourceJobName,
+        jobId: newJob.id,
+        jobName: outputDirName,
+        outputFile: relOutputPath,
+        numParticles: filteredRows.length,
+        selectedClasses: Array.from(selected_classes),
+        sourceJob: sourceJobName,
       }
     });
   } catch (error) {
     logger.error(`[Dashboard] Save selection error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to save selection' });
+    return response.serverError(res, 'Failed to save selection');
   }
 };
 
@@ -5721,12 +5481,12 @@ exports.getInitialModelSlices = async (req, res) => {
     const axis = req.query.axis || 'z';
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -5763,8 +5523,7 @@ exports.getInitialModelSlices = async (req, res) => {
     }
 
     if (iterations.length === 0) {
-      return res.json({ success: true,
-      status: 'success', data: { image: null, message: 'No MRC files found yet' } });
+      return response.successData(res, { image: null, message: 'No MRC files found yet' });
     }
 
     iterations.sort((a, b) => a.iteration - b.iteration || a.classNum - b.classNum);
@@ -5782,8 +5541,7 @@ exports.getInitialModelSlices = async (req, res) => {
 
     const selected = iterations.find(it => it.iteration === targetIter);
     if (!selected) {
-      return res.json({ success: true,
-      status: 'success', data: { image: null, message: `Iteration ${targetIter} not found` } });
+      return response.successData(res, { image: null, message: `Iteration ${targetIter} not found` });
     }
 
     // Read MRC volume and extract slice
@@ -5792,12 +5550,12 @@ exports.getInitialModelSlices = async (req, res) => {
 
     const info = getMrcInfo(selected.file);
     if (!info) {
-      return res.status(500).json({ status: 'error', message: 'Could not read MRC file' });
+      return response.serverError(res, 'Could not read MRC file');
     }
 
     const volume = readMrcVolume(selected.file);
     if (!volume) {
-      return res.status(500).json({ status: 'error', message: 'Could not read MRC volume' });
+      return response.serverError(res, 'Could not read MRC volume');
     }
 
     const { data, width, height, depth } = volume;
@@ -5864,10 +5622,7 @@ exports.getInitialModelSlices = async (req, res) => {
     const pngBuffer = await image.png().toBuffer();
     const base64 = pngBuffer.toString('base64');
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         image: `data:image/png;base64,${base64}`,
         iteration: selected.iteration,
         class: selected.classNum,
@@ -5875,11 +5630,10 @@ exports.getInitialModelSlices = async (req, res) => {
         shape: [depth, height, width],
         width: finalWidth,
         height: finalHeight,
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Initial model slices error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get slice image' });
+    return response.serverError(res, 'Failed to get slice image');
   }
 };
 
@@ -5891,12 +5645,12 @@ exports.getCtfRefinePdf = async (req, res) => {
   try {
     const jobId = req.params.jobId || req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -5904,7 +5658,7 @@ exports.getCtfRefinePdf = async (req, res) => {
     const pdfPath = path.join(outputDir, 'logfile.pdf');
 
     if (!fs.existsSync(pdfPath)) {
-      return res.status(404).json({ status: 'error', message: 'Logfile PDF not found' });
+      return response.notFound(res, 'Logfile PDF not found');
     }
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -5913,7 +5667,7 @@ exports.getCtfRefinePdf = async (req, res) => {
     res.sendFile(pdfPath);
   } catch (error) {
     logger.error(`[Dashboard] CTF refine PDF error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get PDF' });
+    return response.serverError(res, 'Failed to get PDF');
   }
 };
 
@@ -5925,12 +5679,12 @@ exports.getPolishOutput = async (req, res) => {
   try {
     const jobId = req.params.jobId || req.query.job_id;
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -5956,17 +5710,13 @@ exports.getPolishOutput = async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        job_id: jobId,
-        output_files: outputFiles,
-      }
-    });
+    return response.successData(res, {
+        jobId: jobId,
+        outputFiles: outputFiles,
+      });
   } catch (error) {
     logger.error(`[Dashboard] Polish output error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get output files' });
+    return response.serverError(res, 'Failed to get output files');
   }
 };
 
@@ -5980,19 +5730,19 @@ exports.getImportLogs = async (req, res) => {
     const projectId = req.query.project_id;
 
     if (!jobId) {
-      return res.status(400).json({ error: 'Job ID is required' });
+      return response.badRequest(res, 'Job ID is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ error: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const outputDir = job.output_file_path;
 
     if (!fs.existsSync(outputDir)) {
-      return res.status(404).json({ error: 'Folder not found' });
+      return response.notFound(res, 'Folder not found');
     }
 
     // Check for log files
@@ -6007,14 +5757,10 @@ exports.getImportLogs = async (req, res) => {
     const logFilePath = path.join(outputDir, outputFile);
 
     // Return log file info
-    res.json({
-      status: 'monitoring',
-      log_path: logFilePath,
-      message: 'Log file location provided'
-    });
+    return response.success(res, { status: 'monitoring', logPath: logFilePath, message: 'Log file location provided' });
   } catch (error) {
     logger.error(`[Dashboard] Import logs error: ${error.message}`);
-    res.status(500).json({ error: 'Failed to get logs' });
+    return response.serverError(res, 'Failed to get logs');
   }
 };
 
@@ -6027,31 +5773,27 @@ exports.getMotionLogs = async (req, res) => {
     const jobId = req.query.job_id;
 
     if (!jobId) {
-      return res.status(400).json({ error: 'Job ID is required' });
+      return response.badRequest(res, 'Job ID is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ error: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
     const outputDir = job.output_file_path;
 
     if (!fs.existsSync(outputDir)) {
-      return res.status(404).json({ error: 'Folder not found' });
+      return response.notFound(res, 'Folder not found');
     }
 
     const logFilePath = path.join(outputDir, 'run.out');
 
-    res.json({
-      status: 'monitoring',
-      log_path: logFilePath,
-      message: 'Log file location provided'
-    });
+    return response.success(res, { status: 'monitoring', logPath: logFilePath, message: 'Log file location provided' });
   } catch (error) {
     logger.error(`[Dashboard] Motion logs error: ${error.message}`);
-    res.status(500).json({ error: 'Failed to get logs' });
+    return response.serverError(res, 'Failed to get logs');
   }
 };
 
@@ -6066,15 +5808,15 @@ exports.getMovieFrame = async (req, res) => {
     const frameIndex = parseInt(req.query.frame || '0', 10);
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
     if (!moviePath) {
-      return res.status(400).json({ status: 'error', message: 'movie path is required' });
+      return response.badRequest(res, 'movie path is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -6088,7 +5830,7 @@ exports.getMovieFrame = async (req, res) => {
     }
 
     if (!fs.existsSync(fullMoviePath)) {
-      return res.status(404).json({ status: 'error', message: 'Movie file not found' });
+      return response.notFound(res, 'Movie file not found');
     }
 
     // Read frame
@@ -6097,7 +5839,7 @@ exports.getMovieFrame = async (req, res) => {
 
     const frame = readMrcFrame(fullMoviePath, frameIndex);
     if (!frame) {
-      return res.status(500).json({ status: 'error', message: 'Could not read frame' });
+      return response.serverError(res, 'Could not read frame');
     }
 
     const uint8Data = normalizeWithPercentile(frame.data, 1, 99);
@@ -6112,19 +5854,15 @@ exports.getMovieFrame = async (req, res) => {
     const pngBuffer = await image.png().toBuffer();
     const base64 = pngBuffer.toString('base64');
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         image: `data:image/png;base64,${base64}`,
-        frame_index: frameIndex,
+        frameIndex: frameIndex,
         width: frame.width,
         height: frame.height,
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Movie frame error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get movie frame' });
+    return response.serverError(res, 'Failed to get movie frame');
   }
 };
 
@@ -6138,15 +5876,15 @@ exports.getImportMrc = async (req, res) => {
     const filePath = req.query.file || req.query.file_path;
 
     if (!jobId) {
-      return res.status(400).json({ status: 'error', message: 'job_id is required' });
+      return response.badRequest(res, 'job_id is required');
     }
     if (!filePath) {
-      return res.status(400).json({ status: 'error', message: 'file path is required' });
+      return response.badRequest(res, 'file path is required');
     }
 
     const result = await getJobWithAccess(jobId, req.user.id);
     if (result.error) {
-      return res.status(result.status).json({ status: 'error', message: result.error });
+      return response.error(res, result.error, result.status);
     }
 
     const { job } = result;
@@ -6163,11 +5901,11 @@ exports.getImportMrc = async (req, res) => {
     const resolvedPath = path.resolve(fullPath);
     const resolvedProject = path.resolve(projectPath);
     if (!resolvedPath.startsWith(resolvedProject)) {
-      return res.status(403).json({ status: 'error', message: 'Access denied' });
+      return response.forbidden(res, 'Access denied');
     }
 
     if (!fs.existsSync(fullPath)) {
-      return res.status(404).json({ status: 'error', message: 'File not found' });
+      return response.notFound(res, 'File not found');
     }
 
     res.setHeader('Content-Type', 'application/octet-stream');
@@ -6176,7 +5914,7 @@ exports.getImportMrc = async (req, res) => {
     res.sendFile(fullPath);
   } catch (error) {
     logger.error(`[Dashboard] Import MRC error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to serve MRC file' });
+    return response.serverError(res, 'Failed to serve MRC file');
   }
 };
 
@@ -6191,7 +5929,7 @@ exports.getParticleMetadata = async (req, res) => {
   try {
     const { project_id, star_file } = req.query;
     if (!project_id || !star_file) {
-      return res.status(400).json({ status: 'error', message: 'project_id and star_file are required' });
+      return response.badRequest(res, 'project_id and star_file are required');
     }
 
     // Find the job that produced this star file by matching output_files or job_name
@@ -6212,32 +5950,24 @@ exports.getParticleMetadata = async (req, res) => {
     }
 
     if (!sourceJob) {
-      return res.json({
-        success: true,
-        status: 'success',
-        data: { metadata: null, hint: 'Could not find source job for this file' }
-      });
+      return response.successData(res, { metadata: null, hint: 'Could not find source job for this file' });
     }
 
     const ps = sourceJob.pipeline_stats || {};
-    const particleCount = ps.particle_count || 0;
-    const pixelSize = ps.pixel_size || null;
-    const boxSize = ps.box_size || null;
+    const particleCount = ps.particle_count ?? 0;
+    const pixelSize = ps.pixel_size ?? null;
+    const boxSize = ps.box_size ?? null;
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         metadata: {
-          particle_count: particleCount,
-          pixel_size: pixelSize,
-          box_size: boxSize,
+          particleCount: particleCount,
+          pixelSize: pixelSize,
+          boxSize: boxSize,
         },
         hint: ''
-      }
-    });
+      });
   } catch (error) {
     logger.error(`[Dashboard] Particle metadata error: ${error.message}`);
-    res.status(500).json({ status: 'error', message: 'Failed to get particle metadata' });
+    return response.serverError(res, 'Failed to get particle metadata');
   }
 };

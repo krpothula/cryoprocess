@@ -24,7 +24,7 @@ describe('ProjectWebhooks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getProjectApi.mockResolvedValue({
-      data: { data: { webhook_urls: [] } },
+      data: { data: { webhookUrls: [] } },
     });
   });
 
@@ -45,7 +45,7 @@ describe('ProjectWebhooks', () => {
 
   test('displays existing webhook URLs', async () => {
     getProjectApi.mockResolvedValue({
-      data: { data: { webhook_urls: ['https://hooks.slack.com/services/123'] } },
+      data: { data: { webhookUrls: ['https://hooks.slack.com/services/123'] } },
     });
 
     render(<ProjectWebhooks {...defaultProps} />);
@@ -56,7 +56,7 @@ describe('ProjectWebhooks', () => {
 
   test('detects Teams webhook provider', async () => {
     getProjectApi.mockResolvedValue({
-      data: { data: { webhook_urls: ['https://webhook.office.com/xxx'] } },
+      data: { data: { webhookUrls: ['https://webhook.office.com/xxx'] } },
     });
 
     render(<ProjectWebhooks {...defaultProps} />);

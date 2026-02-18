@@ -78,7 +78,7 @@ const FolderBrowserPopup = ({
 
   useEffect(() => {
     if (!isSingleFileMode && selectedFolder) {
-      const firstFile = items.find(item => !item.is_dir);
+      const firstFile = items.find(item => !item.isDir);
       if (firstFile && firstFile.extension) {
         setEditablePattern(`${selectedFolder}/*${firstFile.extension}`);
       } else {
@@ -110,11 +110,11 @@ const FolderBrowserPopup = ({
       if (response?.data?.success) {
         const data = response.data.data;
         setItems(data.items || []);
-        setCurrentPath(data.current_path || "");
-        setTotalFolderCount(data.total_folders || 0);
-        setTotalFileCount(data.total_files || 0);
-        setHasMore(data.has_more || false);
-        if (data.project_root) setProjectFolderName(data.project_root);
+        setCurrentPath(data.currentPath || "");
+        setTotalFolderCount(data.totalFolders || 0);
+        setTotalFileCount(data.totalFiles || 0);
+        setHasMore(data.hasMore || false);
+        if (data.projectRoot) setProjectFolderName(data.projectRoot);
       } else {
         setError(response?.data?.message || "Failed to load folder");
         setItems([]);
@@ -140,7 +140,7 @@ const FolderBrowserPopup = ({
       if (response?.data?.success) {
         const data = response.data.data;
         setItems(prev => [...prev, ...(data.items || [])]);
-        setHasMore(data.has_more || false);
+        setHasMore(data.hasMore || false);
       }
     } catch (err) { /* ignore */ }
     finally { setLoadingMore(false); }
@@ -172,7 +172,7 @@ const FolderBrowserPopup = ({
         const pattern = extensions ? `*${extensions.split(",")[0]}` : "*";
         const response = await selectFilesApi(projectId, selectedFolder, pattern, debouncedPrefix, debouncedSuffix);
         if (response?.data?.success) {
-          setMatchCount(response.data.data.matching_count || 0);
+          setMatchCount(response.data.data.matchingCount || 0);
         }
       } catch (err) { /* ignore */ }
     };
@@ -192,7 +192,7 @@ const FolderBrowserPopup = ({
   const clearSelection = () => { setEditablePattern(""); setSelectedFolder(""); setSelectedFile(null); setPrefix(""); setSuffix(""); };
 
   const handleFileClick = (item) => {
-    if (item.is_dir) { navigateToFolder(item.path); }
+    if (item.isDir) { navigateToFolder(item.path); }
     else if (isSingleFileMode) { setSelectedFile(item); setEditablePattern(item.path); }
   };
 
@@ -321,28 +321,28 @@ const FolderBrowserPopup = ({
                 {/* Top spacer for virtualization */}
                 <div style={{ height: topSpacer, flexShrink: 0 }} />
                 {visibleItems.map((item, index) => {
-                  const isSelFile = isSingleFileMode && !item.is_dir && selectedFile?.path === item.path;
+                  const isSelFile = isSingleFileMode && !item.isDir && selectedFile?.path === item.path;
                   return (
                     <div
                       key={startIndex + index}
                       style={{ ...S.row, height: ROW_HEIGHT, boxSizing: "border-box", ...(isSelFile ? S.rowSelectedFile : {}) }}
                       onClick={() => handleFileClick(item)}
                       onDoubleClick={() => {
-                        if (item.is_dir) navigateToFolder(item.path);
+                        if (item.isDir) navigateToFolder(item.path);
                         else if (isSingleFileMode) { setSelectedFile(item); if (onFileSelect) onFileSelect({ path: item.path }); }
                       }}
                       onMouseEnter={(e) => { if (!isSelFile) e.currentTarget.style.background = "var(--color-bg)"; }}
                       onMouseLeave={(e) => { if (!isSelFile) e.currentTarget.style.background = "transparent"; }}
                     >
                       <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                        {item.is_dir
+                        {item.isDir
                           ? <FaFolderOpen size={14} style={{ color: "var(--color-warning)", flexShrink: 0 }} />
                           : <FaRegFile size={13} style={{ color: isSelFile ? "var(--color-primary)" : "var(--color-text-muted)", flexShrink: 0 }} />
                         }
                         <span style={{
                           fontSize: 13,
-                          fontWeight: item.is_dir ? 500 : 400,
-                          color: isSelFile ? "var(--color-primary-hover)" : item.is_dir ? "var(--color-text-heading)" : "var(--color-text)",
+                          fontWeight: item.isDir ? 500 : 400,
+                          color: isSelFile ? "var(--color-primary-hover)" : item.isDir ? "var(--color-text-heading)" : "var(--color-text)",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
@@ -351,10 +351,10 @@ const FolderBrowserPopup = ({
                         </span>
                       </div>
                       <span style={{ width: 90, textAlign: "right", fontSize: 12, color: "var(--color-text-muted)" }}>
-                        {item.is_dir ? "--" : formatSize(item.size)}
+                        {item.isDir ? "--" : formatSize(item.size)}
                       </span>
                       <span style={{ width: 80, textAlign: "right", fontSize: 11, color: "var(--color-text-muted)", textTransform: "uppercase", fontWeight: 500, letterSpacing: 0.3 }}>
-                        {item.is_dir ? "Folder" : (item.extension || "File").replace(".", "")}
+                        {item.isDir ? "Folder" : (item.extension || "File").replace(".", "")}
                       </span>
                     </div>
                   );

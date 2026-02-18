@@ -31,16 +31,10 @@ const CtfEstimation = () => {
     minDefocus: 5000,
     maxDefocus: 50000,
     defocusStepSize: 500,
-    runningmpi: 1,
-    executable: 0,
+    mpiProcs: 1,
     coresPerNode: 1,
-    Cs: 0,
-    Q0: 0,
-    beamtilt_x: 0,
-    beamtilt_y: 0,
     submitToQueue: "Yes",
     queueName: "",
-    queueSubmitCommand: "",
     //  submissionScript: '',
     additionalArguments: "",
   };
@@ -76,7 +70,7 @@ const CtfEstimation = () => {
   useEffect(() => {
     getSoftwareConfig()
       .then((response) => {
-        const ctffindPath = response?.data?.data?.ctffind_exe || "";
+        const ctffindPath = response?.data?.ctffindExe || "";
         if (ctffindPath) {
           setFormData((prev) => ({
             ...prev,

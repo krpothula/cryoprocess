@@ -37,15 +37,15 @@ const MaskCreateDashboard = () => {
     const url = `${API_BASE_URL}/maskcreate/mrc/?job_id=${selectedJob?.id}`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedJob?.job_name || 'mask'}_mask.mrc`;
+    a.download = `${selectedJob?.jobName || 'mask'}_mask.mrc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
 
   const copyCommand = () => {
-    if (selectedJob?.command) {
-      navigator.clipboard.writeText(selectedJob.command);
+    if (command) {
+      navigator.clipboard.writeText(command);
       setCommandCopied(true);
       setTimeout(() => setCommandCopied(false), 2000);
     }
@@ -110,18 +110,23 @@ const MaskCreateDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading mask creation results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -129,41 +134,39 @@ const MaskCreateDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                MaskCreate/{selectedJob?.job_name || "Job"}
+                MaskCreate/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -177,7 +180,7 @@ const MaskCreateDashboard = () => {
                 <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
-            {showCommand && selectedJob?.command && (
+            {showCommand && command && (
               <button
                 onClick={copyCommand}
                 className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
@@ -201,58 +204,58 @@ const MaskCreateDashboard = () => {
                 lineHeight: '1.4'
               }}
             >
-              {selectedJob?.command || "Command not available for this job"}
+              {command || "Command not available for this job"}
             </div>
           )}
         </div>
       </div>
 
       {/* Stats Card - Merged */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FiSettings className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Threshold:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {selectedJob?.parameters?.initialThreshold ?? 0.004}
+              {params.initialThreshold ?? 0.004}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiCircle className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Extension:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {selectedJob?.parameters?.extendBinaryMask ?? 3} px
+              {params.extendBinaryMask ?? 3} px
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiBox className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Soft Edge:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {selectedJob?.parameters?.softEdgeWidth ?? 6} px
+              {params.softEdgeWidth ?? 6} px
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiCircle className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Lowpass:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {selectedJob?.parameters?.lowpassFilter ?? 15} Å
+              {params.lowpassFilter ?? 15} Å
             </span>
           </div>
         </div>
       </div>
 
       {/* 3D Visualization */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiBox className="text-blue-500" size={13} />
             Volume Viewer
           </h3>
 
-          {results?.has_mask && (
+          {results?.hasMask && (
             <button
               onClick={handleDownload}
-              className="flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
+              className="flex items-center gap-1 px-3 py-1 bg-[var(--color-info-bg)] hover:bg-[var(--color-info-bg)] text-[var(--color-info-text)] rounded-lg transition-colors"
               style={{ fontSize: "12px" }}
               title="Download mask (.mrc)"
             >
@@ -262,11 +265,11 @@ const MaskCreateDashboard = () => {
           )}
         </div>
 
-        {results?.has_mask ? (
+        {results?.hasMask ? (
           <MolstarMaskViewer
             jobId={selectedJob?.id}
             maskApiEndpoint="/maskcreate/mrc/"
-            sourceMapPath={results?.input_map || null}
+            sourceMapPath={results?.inputMap || null}
             initialOpacity={0.7}
             initialThreshold={0.5}
           />
@@ -276,7 +279,7 @@ const MaskCreateDashboard = () => {
             <p className="text-lg font-medium">No Mask Yet</p>
             <p className="text-sm text-center mt-2">
               The 3D mask will appear here once creation completes.
-              {selectedJob?.status === "running" && (
+              {status === "running" && (
                 <span className="block mt-2 text-amber-500">Job is currently running...</span>
               )}
             </p>

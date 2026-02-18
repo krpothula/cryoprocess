@@ -460,23 +460,23 @@ const MolstarMaskViewer = ({
   };
 
   return (
-    <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700">
+    <div className="relative rounded-lg overflow-hidden border border-[var(--color-border)]">
       {/* Control Panel - Light theme matching MolstarViewer */}
       {!loading && !error && (
-        <div style={{ backgroundColor: "var(--color-bg)" }} className="border-b border-gray-200 dark:border-slate-700">
+        <div style={{ backgroundColor: "var(--color-bg)" }} className="border-b border-[var(--color-border)]">
           {/* Row 1: Toggle buttons side by side + action buttons */}
           <div className="px-3 py-1.5 flex items-center gap-2">
             <button
               onClick={() => setShowMask(!showMask)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                 showMask
-                  ? "bg-gray-200 text-gray-700"
-                  : "bg-gray-100 text-gray-400"
+                  ? "bg-[var(--color-bg-active)] text-[var(--color-text)]"
+                  : "bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]"
               }`}
               style={{ fontSize: "11px", fontWeight: 500 }}
             >
               {showMask ? <FiEye size={12} /> : <FiEyeOff size={12} />}
-              <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+              <span className="w-2 h-2 rounded-full bg-[var(--color-text-muted)]"></span>
               Mask
             </button>
 
@@ -485,8 +485,8 @@ const MolstarMaskViewer = ({
                 onClick={() => setShowMap(!showMap)}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all ${
                   showMap
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-gray-100 text-gray-400"
+                    ? "bg-[var(--color-primary-light)] text-[var(--color-primary)]"
+                    : "bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]"
                 }`}
                 style={{ fontSize: "11px", fontWeight: 500 }}
               >
@@ -499,14 +499,14 @@ const MolstarMaskViewer = ({
             <div className="flex items-center gap-1 ml-auto">
               <button
                 onClick={resetCamera}
-                className="p-1.5 rounded-md text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-all"
+                className="p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-active)] transition-all"
                 title="Reset camera"
               >
                 <FiRotateCcw size={13} />
               </button>
               <button
                 onClick={toggleFullscreen}
-                className="p-1.5 rounded-md text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-all"
+                className="p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-active)] transition-all"
                 title="Fullscreen"
               >
                 <FiMaximize2 size={13} />
@@ -516,9 +516,9 @@ const MolstarMaskViewer = ({
 
           {/* Row 2: Mask isosurface + opacity (full width) */}
           {showMask && (
-            <div className="px-3 py-1 flex items-center gap-2 border-t border-gray-100">
+            <div className="px-3 py-1 flex items-center gap-2 border-t border-[var(--color-border)]">
               <span className="flex items-center gap-1.5 whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500, color: "var(--color-text-secondary)", minWidth: "70px" }}>
-                <span className="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>
+                <span className="w-2 h-2 rounded-full bg-[var(--color-text-muted)] inline-block"></span>
                 Mask Iso
               </span>
               <input
@@ -531,13 +531,13 @@ const MolstarMaskViewer = ({
                 className="mask-slider flex-1 h-1 rounded-lg appearance-none cursor-pointer"
                 style={{ background: sliderBg(isoThreshold, 0.01, 1, "#9ca3af") }}
               />
-              <span className="text-gray-500 font-mono" style={{ fontSize: "10px", minWidth: "32px", textAlign: "right" }}>
+              <span className="text-[var(--color-text-secondary)] font-mono" style={{ fontSize: "10px", minWidth: "32px", textAlign: "right" }}>
                 {isoThreshold.toFixed(2)}
               </span>
 
-              <div className="w-px h-3 bg-gray-200 mx-1"></div>
+              <div className="w-px h-3 bg-[var(--color-border)] mx-1"></div>
 
-              <span className="text-gray-500 whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500 }}>
+              <span className="text-[var(--color-text-secondary)] whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500 }}>
                 Opacity
               </span>
               <input
@@ -550,7 +550,7 @@ const MolstarMaskViewer = ({
                 className="mask-slider h-1 rounded-lg appearance-none cursor-pointer"
                 style={{ width: "80px", background: sliderBg(maskOpacity, 0.1, 1, "#9ca3af") }}
               />
-              <span className="text-gray-500 font-mono" style={{ fontSize: "10px", minWidth: "28px", textAlign: "right" }}>
+              <span className="text-[var(--color-text-secondary)] font-mono" style={{ fontSize: "10px", minWidth: "28px", textAlign: "right" }}>
                 {Math.round(maskOpacity * 100)}%
               </span>
             </div>
@@ -558,7 +558,7 @@ const MolstarMaskViewer = ({
 
           {/* Row 3: Map isosurface + opacity (full width) */}
           {sourceMapPath && showMap && (
-            <div className="px-3 py-1 flex items-center gap-2 border-t border-gray-100">
+            <div className="px-3 py-1 flex items-center gap-2 border-t border-[var(--color-border)]">
               <span className="flex items-center gap-1.5 whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500, color: "#3b82f6", minWidth: "70px" }}>
                 <span className="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
                 Map Iso
@@ -577,9 +577,9 @@ const MolstarMaskViewer = ({
                 {mapThreshold.toFixed(1)}σ
               </span>
 
-              <div className="w-px h-3 bg-gray-200 mx-1"></div>
+              <div className="w-px h-3 bg-[var(--color-border)] mx-1"></div>
 
-              <span className="text-gray-500 whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500 }}>
+              <span className="text-[var(--color-text-secondary)] whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500 }}>
                 Opacity
               </span>
               <input
@@ -622,10 +622,10 @@ const MolstarMaskViewer = ({
         {error && !loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/95">
             <FiAlertCircle className="text-red-500 text-4xl mb-3" />
-            <p className="text-gray-300 dark:text-slate-400 text-sm mb-4 max-w-md text-center px-4">{error}</p>
+            <p className="text-[var(--color-text-muted)] text-sm mb-4 max-w-md text-center px-4">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-lg text-sm font-medium transition-colors"
             >
               <FiRefreshCw size={14} />
               Retry

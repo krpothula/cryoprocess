@@ -356,7 +356,8 @@ class LiveOrchestrator extends EventEmitter {
         input_job_ids: resolvedInputJobIds,
         output_file_path: outputDir,
         command: commandStr,
-        execution_mode: 'slurm',
+        execution_method: 'slurm',
+        system_type: 'local',
         parameters: jobParams,
         pipeline_stats: {
           pixel_size: this._computePixelSize(session, stageKey),
@@ -396,7 +397,7 @@ class LiveOrchestrator extends EventEmitter {
       stageName: stage.type,
       projectPath,
       outputDir,
-      executionMode: 'slurm',
+      executionMethod: 'slurm',
       slurmParams,
       postCommand: builder.postCommand
     });
@@ -510,8 +511,8 @@ class LiveOrchestrator extends EventEmitter {
       context: {
         slurm_job_id: job.slurm_job_id,
         duration_ms: durationMs,
-        micrograph_count: job.pipeline_stats?.micrograph_count || job.micrograph_count || null,
-        particle_count: job.pipeline_stats?.particle_count || job.particle_count || null
+        micrographCount: job.pipeline_stats?.micrograph_count ?? job.micrograph_count ?? null,
+        particleCount: job.pipeline_stats?.particle_count ?? job.particle_count ?? null
       }
     });
     this._broadcast(session.project_id, sessionId, 'stage_complete', {
@@ -1396,19 +1397,19 @@ class LiveOrchestrator extends EventEmitter {
     switch (stageKey) {
       case 'import':
         // Track import count separately - movies_found is owned by the watcher
-        update['state.movies_imported'] = ps.micrograph_count || job.micrograph_count || 0;
+        update['state.movies_imported'] = ps.micrograph_count ?? job.micrograph_count ?? 0;
         break;
       case 'motion':
-        update['state.movies_motion'] = ps.micrograph_count || job.micrograph_count || 0;
+        update['state.movies_motion'] = ps.micrograph_count ?? job.micrograph_count ?? 0;
         break;
       case 'ctf':
-        update['state.movies_ctf'] = ps.micrograph_count || job.micrograph_count || 0;
+        update['state.movies_ctf'] = ps.micrograph_count ?? job.micrograph_count ?? 0;
         break;
       case 'pick':
-        update['state.movies_picked'] = ps.micrograph_count || job.micrograph_count || 0;
+        update['state.movies_picked'] = ps.micrograph_count ?? job.micrograph_count ?? 0;
         break;
       case 'extract':
-        update['state.particles_extracted'] = ps.particle_count || job.particle_count || 0;
+        update['state.particles_extracted'] = ps.particle_count ?? job.particle_count ?? 0;
         break;
     }
 
@@ -1507,7 +1508,8 @@ class LiveOrchestrator extends EventEmitter {
       input_job_ids: [session.jobs.extract_id],
       output_file_path: outputDir,
       command: Array.isArray(cmd) ? cmd.join(' ') : cmd,
-      execution_mode: 'slurm',
+      execution_method: 'slurm',
+      system_type: 'local',
       parameters: jobParams,
       pipeline_stats: {
         pixel_size: this._computePixelSize(session, 'class2d'),
@@ -1542,7 +1544,7 @@ class LiveOrchestrator extends EventEmitter {
       stageName: 'Class2D',
       projectPath,
       outputDir,
-      executionMode: 'slurm',
+      executionMethod: 'slurm',
       slurmParams
     });
 
@@ -1552,7 +1554,7 @@ class LiveOrchestrator extends EventEmitter {
       job_name: jobName,
       pass_number: session.state?.pass_count || null,
       context: {
-        particle_count: session.state.particles_extracted,
+        particleCount: session.state.particles_extracted,
         num_classes: session.class2d_config?.num_classes || 50,
         batch_interval_ms: session.class2d_config?.batch_interval_ms || 3600000
       }
@@ -1624,7 +1626,7 @@ class LiveOrchestrator extends EventEmitter {
       const wsServer = getWebSocketServer();
       wsServer.broadcast(`project:${projectId}`, {
         type: 'live_session_update',
-        session_id: sessionId,
+        sessionId: sessionId,
         event,
         level,
         data,

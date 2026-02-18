@@ -1,5 +1,5 @@
 import React from "react";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import CustomInput from "../../common/Input";
 import SimpleInput from "../../common/SimpleInput";
 import CustomDropdown from "../../common/Dropdown";
@@ -107,7 +107,7 @@ const Motion = ({
         label="MOTIONCOR2 executable:"
         placeholder="Configured in .env file"
         tooltipText="Path to MotionCor2 executable. This is configured on the server in the .env file. Only used when RELION's implementation is disabled."
-        value={softwareConfig?.motioncor2_exe || "Not configured"}
+        value={softwareConfig?.motioncor2Exe || "Not configured"}
         disabled={true}
         readOnly={true}
       />
@@ -123,11 +123,11 @@ const Motion = ({
       />
       <SimpleInput
         onChange={handleInputChange}
-        name="othermotion"
+        name="otherMotion"
         label="Other MOTIONCOR2 arguments:"
         placeholder=""
         tooltipText="Additional command-line arguments for MotionCor2. For advanced users only. Refer to MotionCor2 documentation for available options."
-        value={formData?.["othermotion"] || ""}
+        value={formData?.["otherMotion"] || ""}
         disabled={isUseRelionImplementationYes}
         disabledHint="Switch to MotionCor2 to use extra arguments"
       />

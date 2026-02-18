@@ -11,7 +11,7 @@ const getUsers = () => {
 
 /**
  * Create a new user (admin only)
- * @param {Object} userData - { email, username, first_name, last_name, is_staff, is_superuser }
+ * @param {Object} userData - { email, username, firstName, lastName, isStaff, isSuperuser }
  */
 const createUser = (userData) => {
   return axiosInstance.post('/api/admin/users', userData);
@@ -20,7 +20,7 @@ const createUser = (userData) => {
 /**
  * Update user details (admin only)
  * @param {number} userId
- * @param {Object} userData - { first_name, last_name, is_active, is_staff, is_superuser }
+ * @param {Object} userData - { firstName, lastName, isActive, isStaff, isSuperuser }
  */
 const updateUser = (userId, userData) => {
   return axiosInstance.patch(`/api/admin/users/${userId}`, userData);
@@ -62,7 +62,7 @@ const revokeApiKey = (userId) => {
 
 /**
  * Change current user's password
- * @param {Object} passwords - { current_password, new_password, confirm_password }
+ * @param {Object} passwords - { currentPassword, newPassword, confirmPassword }
  */
 const changePassword = (passwords) => {
   return axiosInstance.post('/api/auth/change-password', passwords);

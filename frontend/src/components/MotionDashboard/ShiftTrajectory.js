@@ -9,8 +9,8 @@ const ShiftTrajectory = ({ data }) => {
     }
     return shifts.frames.map((f) => ({
       frame: f.frame,
-      x: f.shift_x,
-      y: f.shift_y,
+      x: f.shiftX,
+      y: f.shiftY,
     }));
   }, [shifts]);
 
@@ -44,7 +44,7 @@ const ShiftTrajectory = ({ data }) => {
       maxFrameDrift = Math.max(maxFrameDrift, Math.sqrt(dx * dx + dy * dy));
     }
 
-    const pixelSize = shifts?.pixel_size || null;
+    const pixelSize = shifts?.pixelSize || null;
 
     return {
       rmsd,
@@ -54,11 +54,11 @@ const ShiftTrajectory = ({ data }) => {
       numFrames: trajectoryData.length,
       pixelSize,
     };
-  }, [trajectoryData, shifts?.pixel_size]);
+  }, [trajectoryData, shifts?.pixelSize]);
 
   if (!trajectoryData.length) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+      <div className="h-full flex flex-col items-center justify-center text-[var(--color-text-muted)]">
         <p>No shift data available</p>
       </div>
     );
@@ -129,7 +129,7 @@ const ShiftTrajectory = ({ data }) => {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Stats Grid - 2x2 */}
       {stats && (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 px-3 py-2 border-b border-gray-100 dark:border-slate-700 flex-shrink-0">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 px-3 py-2 border-b border-[var(--color-border)] flex-shrink-0">
           <div className="flex items-center justify-between">
             <span style={{ fontSize: "10px", color: "var(--color-text-muted)" }}>RMSD</span>
             <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text)" }}>
@@ -333,7 +333,7 @@ const ShiftTrajectory = ({ data }) => {
       </div>
 
       {/* Legend */}
-      <div className="flex justify-center gap-4 text-xs text-gray-500 dark:text-slate-400 py-1.5 flex-shrink-0 border-t border-gray-100 dark:border-slate-700">
+      <div className="flex justify-center gap-4 text-xs text-[var(--color-text-secondary)] py-1.5 flex-shrink-0 border-t border-[var(--color-border)]">
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full" style={{ background: "#3b82f6" }} />
           <span style={{ fontSize: "10px" }}>Frame 1</span>

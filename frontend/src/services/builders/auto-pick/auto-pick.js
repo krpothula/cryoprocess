@@ -16,13 +16,8 @@ const getAutoPickImageApi = (jobId = "", micrograph = "", showPicks = true, radi
   );
 };
 
-const getAutoPickLiveStatsApi = (jobId = "") => {
-  return axiosInstance.get(`/autopick/live-stats/?job_id=${jobId}`);
-};
-
 export {
   autoPickerAPI,
   getAutoPickResultsApi,
   getAutoPickImageApi,
-  getAutoPickLiveStatsApi,
 };

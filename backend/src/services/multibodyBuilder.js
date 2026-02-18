@@ -49,7 +49,7 @@ class MultibodyBuilder extends BaseJobBuilder {
     // Get MPI and thread settings using paramHelper
     const mpiProcs = getMpiProcs(data);
     const threads = getThreads(data);
-    const pooled = getIntParam(data, ['numberOfPooledParticle'], 3);
+    const pooled = getIntParam(data, ['pooledParticles', 'numberOfPooledParticle'], 3);
 
     // Determine if GPU is used
     const gpuEnabled = isGpuEnabled(data);
@@ -100,12 +100,54 @@ class MultibodyBuilder extends BaseJobBuilder {
     }
 
     // I/O options
-    if (!getBoolParam(data, ['Useparalleldisc'], true)) {
+    if (!getBoolParam(data, ['useParallelIO', 'Useparalleldisc'], true)) {
       cmd.push('--no_parallel_disc_io');
+    }
+
+    // Pre-read images into RAM
+    if (getBoolParam(data, ['preReadAllParticles'], false)) {
+      cmd.push('--preread_images');
+    }
+
+    // Scratch directory
+    const scratchDir = getParam(data, ['copyParticle'], null);
+    if (scratchDir) {
+      cmd.push('--scratch_dir', scratchDir);
+    }
+
+    // Skip gridding
+    if (getBoolParam(data, ['skipPadding'], false)) {
+      cmd.push('--skip_gridding');
     }
 
     // Additional arguments
     this.addAdditionalArguments(cmd);
+
+    // Flexibility analysis (chained after refinement)
+    if (getBoolParam(data, ['runFlexibility'], false)) {
+      cmd.push('&&');
+      cmd.push('relion_flex_analyse');
+      cmd.push('--PCA_orient', relOutputDir + path.sep);
+      cmd.push('--o', relOutputDir + path.sep);
+
+      const nrMovies = getIntParam(data, ['numberOfEigenvectorMovies'], 3);
+      if (nrMovies > 0) {
+        cmd.push('--do_movies', String(nrMovies));
+      }
+
+      // Eigenvalue-based particle selection
+      if (getBoolParam(data, ['selectParticlesEigenValue'], false)) {
+        const eigenVal = getIntParam(data, ['eigenValue'], 1);
+        cmd.push('--select_eigenvalue', String(eigenVal));
+
+        const minEigen = getFloatParam(data, ['minEigenValue'], -999);
+        const maxEigen = getFloatParam(data, ['maxEigenValue'], 999);
+        cmd.push('--select_eigenvalue_min', String(minEigen));
+        cmd.push('--select_eigenvalue_max', String(maxEigen));
+      }
+
+      cmd.push('--pipeline_control', relOutputDir + path.sep);
+    }
 
     logger.info(`[MultiBody] Command built | ${cmd.join(' ')}`);
     return cmd;

@@ -103,7 +103,7 @@ export const BuilderContextProvider = ({ children, projectId, onJobSuccess }) =>
   useEffect(() => {
     getSoftwareConfig()
       .then((res) => {
-        if (res?.data?.email_notifications_enabled) {
+        if (res?.data?.emailNotificationsEnabled) {
           setEmailNotificationsEnabled(true);
         }
       })

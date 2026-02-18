@@ -25,11 +25,11 @@ const MovieViewer = ({ selectedFile, importType, zoom = 1, onToggleFullscreen })
     }
 
     // Check if file has pre-generated thumbnail
-    if (selectedFile.thumbnail_url) {
+    if (selectedFile.thumbnailUrl) {
       setLoading(true);
       setError(null);
 
-      const url = selectedFile.thumbnail_url;
+      const url = selectedFile.thumbnailUrl;
       axiosInstance.get(url, { responseType: 'blob' })
         .then(response => {
           const imageUrl = URL.createObjectURL(response.data);
@@ -64,7 +64,7 @@ const MovieViewer = ({ selectedFile, importType, zoom = 1, onToggleFullscreen })
   // Empty state - no file selected
   if (!selectedFile) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)]">
         <FiImage className="text-4xl mb-3" />
         <p className="text-center text-sm">Select a file to view</p>
       </div>
@@ -74,9 +74,9 @@ const MovieViewer = ({ selectedFile, importType, zoom = 1, onToggleFullscreen })
   // Loading state
   if (loading) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--color-bg)]">
         <BiLoader className="animate-spin text-blue-500 text-3xl" />
-        <p className="text-gray-600 mt-2 text-sm">Loading image...</p>
+        <p className="text-[var(--color-text-secondary)] mt-2 text-sm">Loading image...</p>
       </div>
     );
   }
@@ -100,7 +100,7 @@ const MovieViewer = ({ selectedFile, importType, zoom = 1, onToggleFullscreen })
           </span>
           <button
             onClick={toggleFullscreen}
-            className="p-1 hover:bg-gray-700 dark:hover:bg-slate-600 rounded ml-1"
+            className="p-1 hover:bg-gray-700 rounded ml-1"
             title="Exit Fullscreen"
           >
             <FiMaximize2 className="text-white" size={14} />
@@ -122,7 +122,7 @@ const MovieViewer = ({ selectedFile, importType, zoom = 1, onToggleFullscreen })
         />
         <button
           onClick={toggleFullscreen}
-          className="absolute top-4 left-4 text-white bg-gray-800 dark:bg-slate-900 hover:bg-gray-700 dark:hover:bg-slate-600 px-3 py-1 rounded"
+          className="absolute top-4 left-4 text-white bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded"
         >
           Close
         </button>
@@ -131,7 +131,7 @@ const MovieViewer = ({ selectedFile, importType, zoom = 1, onToggleFullscreen })
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-white dark:bg-slate-800">
+    <div className="absolute inset-0 overflow-hidden bg-[var(--color-bg-card)]">
       <img
         ref={imageRef}
         src={thumbnailUrl}

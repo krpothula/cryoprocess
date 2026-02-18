@@ -38,12 +38,10 @@ const sanitizeSlurmParam = (value, paramName, allowedPattern = /^[\w\-.,:/]+$/, 
   }
 
   // Reject values with dangerous characters instead of silently stripping them
-  const dangerousPatterns = ['\n', '\r', ';', '`', '$', '|', '&&', '||', '>', '<', '(', ')'];
-  for (const pattern of dangerousPatterns) {
-    if (value.includes(pattern)) {
-      logger.warn(`[SLURM] Rejected ${paramName}: contains dangerous pattern "${pattern}"`);
-      return null;
-    }
+  const dangerous = /[;|&`$()<>{}!\\\n\r]/;
+  if (dangerous.test(value)) {
+    logger.warn(`[SLURM] Rejected ${paramName}: contains dangerous characters`);
+    return null;
   }
 
   if (!allowedPattern.test(value)) {
@@ -190,12 +188,12 @@ const submitJobDirect = async (options) => {
     projectId,
     projectPath,
     outputDir,
-    executionMode = 'slurm',
+    executionMethod = 'slurm',
     slurmParams = {},
     postCommand = null
   } = options;
 
-  logger.info(`[JobSubmit] Starting | job_id: ${jobId} | mode: ${executionMode}`);
+  logger.info(`[JobSubmit] Starting | job_id: ${jobId} | method: ${executionMethod}`);
 
   // Update job status to running
   await Job.findOneAndUpdate(
@@ -207,7 +205,7 @@ const submitJobDirect = async (options) => {
     }
   );
 
-  if (executionMode === 'slurm') {
+  if (executionMethod === 'slurm') {
     return submitToSlurm(options);
   } else {
     return submitLocal(options);
@@ -419,6 +417,14 @@ const submitLocal = async (options) => {
       finalCmd = cmdArray;
     }
 
+    // Handle command chaining (&&) for local execution.
+    // spawn() without shell doesn't interpret &&, so use sh -c for chained commands.
+    // The && tokens come from builder code (not user input), so shell mode is safe.
+    if (finalCmd.some(a => a === '&&')) {
+      const cmdStr = finalCmd.join(' ');
+      finalCmd = ['sh', '-c', cmdStr];
+    }
+
     const executable = finalCmd[0];
     const args = finalCmd.slice(1);
 
@@ -442,19 +448,37 @@ const submitLocal = async (options) => {
 
     child.unref();
 
+    // Store PID so direct jobs can be cancelled and orphans detected on restart
+    await Job.findOneAndUpdate(
+      { id: jobId },
+      { local_pid: child.pid }
+    );
+    logger.info(`[JobSubmit] Local process spawned | job_id: ${jobId} | pid: ${child.pid}`);
+
     // Handle process completion
     child.on('close', async (code) => {
       fs.closeSync(stdout);
       fs.closeSync(stderr);
 
-      const status = code === 0 ? JOB_STATUS.SUCCESS : JOB_STATUS.FAILED;
       logger.info(`[JobSubmit] Local job completed | job_id: ${jobId} | exit_code: ${code}`);
+
+      // Guard: don't overwrite terminal states (e.g. user cancelled while process was dying)
+      const currentJob = await Job.findOne({ id: jobId }).select('status').lean();
+      if (currentJob && [JOB_STATUS.SUCCESS, JOB_STATUS.FAILED, JOB_STATUS.CANCELLED].includes(currentJob.status)) {
+        // Already terminal — just clear the PID
+        await Job.findOneAndUpdate({ id: jobId }, { local_pid: null });
+        logger.info(`[JobSubmit] Job ${jobId} already ${currentJob.status}, skipping status update`);
+        return;
+      }
+
+      const status = code === 0 ? JOB_STATUS.SUCCESS : JOB_STATUS.FAILED;
 
       await Job.findOneAndUpdate(
         { id: jobId },
         {
           status,
           end_time: new Date(),
+          local_pid: null,
           error_message: code !== 0 ? `Process exited with code ${code}` : null
         }
       );
@@ -537,7 +561,8 @@ const submitLocal = async (options) => {
         {
           status: JOB_STATUS.FAILED,
           error_message: error.message,
-          end_time: new Date()
+          end_time: new Date(),
+          local_pid: null
         }
       );
 

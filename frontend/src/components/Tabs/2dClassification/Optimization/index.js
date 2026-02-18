@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import CustomDropdown from "../../common/Dropdown";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import FieldWarning from "../../common/FieldWarning";
 
 const Optimization = ({

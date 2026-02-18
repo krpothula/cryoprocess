@@ -24,6 +24,11 @@ class ManualPickBuilder extends BaseJobBuilder {
     return false;
   }
 
+  // relion_manualpick is NOT an MPI command
+  get supportsMpi() {
+    return false;
+  }
+
   validate() {
     const inputMicrographs = getParam(this.data, ['inputMicrographs'], null);
     if (!inputMicrographs) {
@@ -88,6 +93,9 @@ class ManualPickBuilder extends BaseJobBuilder {
       cmd.push('--blue', String(getFloatParam(data, ['blueValue'], 0)));
       cmd.push('--red', String(getFloatParam(data, ['redValue'], 2)));
     }
+
+    // Additional arguments
+    this.addAdditionalArguments(cmd);
 
     logger.info(`[ManualPick] Command built | ${cmd.join(' ')}`);
     return cmd;

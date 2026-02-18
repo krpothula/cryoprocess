@@ -15,7 +15,7 @@ const Import = () => {
   const initialFormData = {
     rawMovies: "Yes",
     //   input_files: '',
-    multiframemovies: "Yes",
+    multiFrameMovies: "Yes",
     // mtf: "",
 
     angpix: 1.4,
@@ -24,18 +24,15 @@ const Import = () => {
     amplitudeContrast: 0.1,
     beamtilt_x: 0,
     beamtilt_y: 0,
-    coresPerNode: 1,
 
-    nodetype: "No",
+    nodeType: "No",
     // otherInputFile: "",
     otherNodeType: "3D reference",
-    renameopticsgroup: "",
-    opticsgroupname: "",
+    renameOpticsGroup: "",
+    opticsGroupName: "opticsGroup1",
     submitToQueue: "Yes",
     queueName: "",
-    queueSubmitCommand: "",
-
-    argument: "",
+    additionalArguments: "",
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -94,17 +91,17 @@ const Import = () => {
     } else {
       const { name, value } = e.target;
 
-      // Mutual exclusivity: rawMovies and nodetype cannot both be "Yes"
+      // Mutual exclusivity: rawMovies and nodeType cannot both be "Yes"
       if (name === "rawMovies" && value === "Yes") {
         setFormData({
           ...formData,
           rawMovies: "Yes",
-          nodetype: "No",
+          nodeType: "No",
         });
-      } else if (name === "nodetype" && value === "Yes") {
+      } else if (name === "nodeType" && value === "Yes") {
         setFormData({
           ...formData,
-          nodetype: "Yes",
+          nodeType: "Yes",
           rawMovies: "No",
         });
       } else {
@@ -190,7 +187,7 @@ const Import = () => {
       value: "Unfiltered half-map",
     },
   ];
-  // const isNodeTypeYes = formData.nodetype === "Yes";
+  // const isNodeTypeYes = formData.nodeType === "Yes";
   return (
     <div className="container">
       {/* Tabs */}
@@ -266,13 +263,13 @@ const Import = () => {
         </p>
       )}
 
-      {/* Folder browser popup for raw input files (input_files) */}
-      {filePopupField === "input_files" && (
+      {/* Folder browser popup for raw input files */}
+      {filePopupField === "inputFiles" && (
         <FolderBrowserPopup
           onClose={() => setFilePopup("")}
           onSelect={({ pattern }) => {
             handleFormDataChange({
-              input_files: pattern || "",
+              inputFiles: pattern || "",
             });
             setFilePopup("");
           }}

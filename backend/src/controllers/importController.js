@@ -11,20 +11,13 @@ const logger = require('../utils/logger');
 const Job = require('../models/Job');
 const Project = require('../models/Project');
 const settings = require('../config/settings');
-const { DEFAULTS } = require('../config/constants');
+const { DEFAULTS, IMPORT_NODE_TYPES } = require('../config/constants');
 const { parseStarFile, parseOpticsTable } = require('../utils/starParser');
 const { validatePathSecurity, validateResolvedPath, resolveMoviePath, sanitizeFilename, getProjectPath } = require('../utils/pathUtils');
 const { getMrcInfo, frameToPng, averagedFrameToPng } = require('../utils/mrcParser');
 const response = require('../utils/responseHelper');
 
-// Node type info mapping
-const NODE_TYPE_INFO = {
-  'ref3d': { label: '3D Reference', extension: '.mrc', output_file: 'ref3d.mrc' },
-  'mask': { label: '3D Mask', extension: '.mrc', output_file: 'mask.mrc' },
-  'halfmap': { label: 'Unfiltered Half-map', extension: '.mrc', output_file: 'halfmap.mrc' },
-  'refs2d': { label: '2D References', extension: '.star', output_file: 'class_averages.star' },
-  'coords': { label: 'Particle Coordinates', extension: '.star', output_file: 'coords_suffix_autopick.star' }
-};
+const NODE_TYPE_INFO = IMPORT_NODE_TYPES;
 
 /**
  * Verify job ownership
@@ -45,7 +38,7 @@ const verifyJobOwnership = async (jobId, userId) => {
  * Detect import mode from command
  */
 const detectImportMode = (command, outputDir) => {
-  if (command && command.includes('--do_other')) {
+  if (command && (command.includes('--do_other') || command.includes('--do_coordinates') || command.includes('--do_halfmaps'))) {
     return 'other';
   }
 
@@ -173,7 +166,7 @@ const getOtherNodeResults = async (job, outputDir, projectPath, res) => {
     const stats = fs.statSync(importedFile);
     fileInfo.name = path.basename(importedFile);
     fileInfo.path = importedFile;
-    fileInfo.relative_path = projectPath ? path.relative(projectPath, importedFile) : importedFile;
+    fileInfo.relativePath = projectPath ? path.relative(projectPath, importedFile) : importedFile;
     fileInfo.size = stats.size;
     fileInfo.exists = true;
 
@@ -186,11 +179,11 @@ const getOtherNodeResults = async (job, outputDir, projectPath, res) => {
           ny: mrcInfo.height,
           nz: mrcInfo.num_frames
         };
-        fileInfo.voxel_size = mrcInfo.pixelSize;
+        fileInfo.voxelSize = mrcInfo.pixelSize;
         // For .mrcs stacks (2D references), nz = number of class images
         if (importedFile.endsWith('.mrcs') && mrcInfo.num_frames > 1) {
           entryCount = mrcInfo.num_frames;
-          fileInfo.entry_count = entryCount;
+          fileInfo.entryCount = entryCount;
         }
       } else {
         fileInfo.dimensions = { nx: 0, ny: 0, nz: 0 };
@@ -209,7 +202,7 @@ const getOtherNodeResults = async (job, outputDir, projectPath, res) => {
         } else if (parsed?.total) {
           entryCount = parsed.total;
         }
-        fileInfo.entry_count = entryCount;
+        fileInfo.entryCount = entryCount;
       } catch (e) {
         logger.warn(`[Import] Could not count STAR entries: ${e.message}`);
       }
@@ -218,26 +211,22 @@ const getOtherNodeResults = async (job, outputDir, projectPath, res) => {
 
   logger.info(`[Import] Results: job_id=${job.id} | mode=other | node_type=${nodeType} | entries=${entryCount}`);
 
-  res.json({
-    success: true,
-    status: 'success',
-    data: {
-      id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
-      command,
-      output_dir: outputDir,
-      import_mode: 'other',
-      node_type: nodeType,
-      node_label: nodeLabel,
-      imported_file: fileInfo,
-      entry_count: entryCount,
-      summary: {
-        total_imported: entryCount || (importedFile ? 1 : 0),
-        displayed: entryCount || (importedFile ? 1 : 0),
-        type: nodeType || 'unknown',
-        label: nodeLabel
-      }
+  return response.successData(res, {
+    id: job.id,
+    jobName: job.job_name,
+    jobStatus: job.status,
+    command,
+    outputDir: outputDir,
+    importMode: 'other',
+    nodeType: nodeType,
+    nodeLabel: nodeLabel,
+    importedFile: fileInfo,
+    entryCount: entryCount,
+    summary: {
+      totalImported: entryCount || (importedFile ? 1 : 0),
+      displayed: entryCount || (importedFile ? 1 : 0),
+      type: nodeType || 'unknown',
+      label: nodeLabel
     }
   });
 };
@@ -254,7 +243,7 @@ const getMoviesResults = async (job, outputDir, projectPath, req, res) => {
 
   // Get authoritative total from job metadata (set by pipelineMetadata.js on completion)
   // This is more reliable than star_cache which may be stale
-  const authoritativeTotal = job.pipeline_stats?.micrograph_count || job.micrograph_count || 0;
+  const authoritativeTotal = job.pipeline_stats?.micrograph_count ?? job.micrograph_count ?? 0;
 
   // Find STAR file
   let starFile = null;
@@ -332,7 +321,7 @@ const getMoviesResults = async (job, outputDir, projectPath, req, res) => {
       const thumbnailPath = path.join(thumbnailsDir, thumbnailName);
 
       if (fs.existsSync(thumbnailPath)) {
-        fileInfo.thumbnail_url = `/api/import/thumbnail/${job.id}/${thumbnailName}`;
+        fileInfo.thumbnailUrl = `/api/import/thumbnail/${job.id}/${thumbnailName}`;
       }
     }
   }
@@ -354,30 +343,26 @@ const getMoviesResults = async (job, outputDir, projectPath, req, res) => {
 
   logger.info(`[Import] Results: job_id=${job.id} | import_type=${importType} | files=${totalFiles}`);
 
-  res.json({
-    success: true,
-      status: 'success',
-    data: {
-      id: job.id,
-      job_name: job.job_name,
-      job_status: job.status,
-      command: job.command,
-      import_mode: importType,
-      import_type: importType,
-      star_file: starFile,
-      imported_count: importedFiles.length,
-      imported_files: importedFiles,
-      thumbnails_count: existingThumbnails.length,
-      max_display: DEFAULTS.FILE_LIST_DISPLAY_LIMIT,
-      summary: {
-        total_imported: totalFiles,
-        displayed: importedFiles.length,
-        type: importType
-      },
-      angpix,
-      kV: kv,
-      cs
-    }
+  return response.successData(res, {
+    id: job.id,
+    jobName: job.job_name,
+    jobStatus: job.status,
+    command: job.command,
+    importMode: importType,
+    importType: importType,
+    starFile: starFile,
+    importedCount: importedFiles.length,
+    importedFiles: importedFiles,
+    thumbnailsCount: existingThumbnails.length,
+    maxDisplay: DEFAULTS.FILE_LIST_DISPLAY_LIMIT,
+    summary: {
+      totalImported: totalFiles,
+      displayed: importedFiles.length,
+      type: importType
+    },
+    angpix,
+    kV: kv,
+    cs
   });
 };
 
@@ -423,29 +408,21 @@ exports.getMovieFrame = async (req, res) => {
       if (ext === '.mrc' || ext === '.mrcs') {
         const mrcInfo = getMrcInfo(resolvedPath);
         if (mrcInfo) {
-          return res.json({
-            success: true,
-      status: 'success',
-            data: {
-              name: path.basename(resolvedPath),
-              num_frames: mrcInfo.num_frames,
-              width: mrcInfo.width,
-              height: mrcInfo.height,
-              pixelSize: mrcInfo.pixelSize
-            }
+          return response.successData(res, {
+            name: path.basename(resolvedPath),
+            numFrames: mrcInfo.num_frames,
+            width: mrcInfo.width,
+            height: mrcInfo.height,
+            pixelSize: mrcInfo.pixelSize
           });
         }
       }
       // Fallback for non-MRC or read error
-      return res.json({
-        success: true,
-      status: 'success',
-        data: {
-          name: path.basename(resolvedPath),
-          num_frames: 1,
-          width: 0,
-          height: 0
-        }
+      return response.successData(res, {
+        name: path.basename(resolvedPath),
+        numFrames: 1,
+        width: 0,
+        height: 0
       });
     }
 
@@ -539,15 +516,11 @@ exports.getAllMovieFrames = async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        name: path.basename(resolvedPath),
-        total_frames: numFrames,
-        returned_frames: framesBase64.length,
-        frames: framesBase64
-      }
+    return response.successData(res, {
+      name: path.basename(resolvedPath),
+      totalFrames: numFrames,
+      returnedFrames: framesBase64.length,
+      frames: framesBase64
     });
   } catch (error) {
     logger.error('[Import] getAllMovieFrames error:', error);
@@ -726,10 +699,8 @@ exports.getLogs = async (req, res) => {
         job.error_message ? `Error: ${job.error_message}` : ''
       ].filter(Boolean).join('\n');
 
-      return res.json({
-        success: true,
-      status: 'success',
-        log_path: 'N/A (direct execution)',
+      return response.success(res, {
+        logPath: 'N/A (direct execution)',
         content
       });
     }
@@ -745,10 +716,8 @@ exports.getLogs = async (req, res) => {
         'No log files available yet.'
       ].join('\n');
 
-      return res.json({
-        success: true,
-      status: 'success',
-        log_path: 'N/A',
+      return response.success(res, {
+        logPath: 'N/A',
         content
       });
     }
@@ -778,10 +747,8 @@ exports.getLogs = async (req, res) => {
       ].join('\n');
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      log_path: logFilePath,
+    return response.success(res, {
+      logPath: logFilePath,
       content: content.substring(0, 50000) // Limit to 50KB
     });
   } catch (error) {
@@ -817,15 +784,11 @@ exports.parseStar = async (req, res) => {
     // Also parse optics table
     const optics = await parseOpticsTable(starFile);
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        files: result.files,
-        columns: result.columns,
-        total: result.total,
-        optics: optics
-      }
+    return response.successData(res, {
+      files: result.files,
+      columns: result.columns,
+      total: result.total,
+      optics: optics
     });
   } catch (error) {
     logger.error('[Import] parseStar error:', error);
@@ -860,11 +823,7 @@ exports.getMrcFileInfo = async (req, res) => {
       return response.badRequest(res, 'Unable to read MRC file');
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: info
-    });
+    return response.successData(res, info);
   } catch (error) {
     logger.error('[Import] getMrcFileInfo error:', error);
     return response.serverError(res, 'Error reading MRC file');

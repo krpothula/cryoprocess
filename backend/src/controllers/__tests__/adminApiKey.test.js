@@ -113,15 +113,15 @@ describe('generateApiKey', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.api_key).toBeDefined();
-    expect(res.body.data.api_key).toHaveLength(64); // 32 bytes = 64 hex chars
+    expect(res.body.data.apiKey).toBeDefined();
+    expect(res.body.data.apiKey).toHaveLength(64); // 32 bytes = 64 hex chars
   });
 
   it('stores a SHA-256 hash (not the raw key)', async () => {
     const res = mockRes();
     await generateApiKey(makeReq(10), res);
 
-    const rawKey = res.body.data.api_key;
+    const rawKey = res.body.data.apiKey;
     // Hash should have been set on the user
     expect(mockUserSaved).toBe(true);
     expect(mockUser.api_key_hash).toBeDefined();
@@ -135,7 +135,7 @@ describe('generateApiKey', () => {
     const res = mockRes();
     await generateApiKey(makeReq(10), res);
 
-    const rawKey = res.body.data.api_key;
+    const rawKey = res.body.data.apiKey;
     const expectedHash = crypto.createHash('sha256').update(rawKey).digest('hex');
     expect(mockUser.api_key_hash).toBe(expectedHash);
   });
@@ -154,7 +154,7 @@ describe('generateApiKey', () => {
     await generateApiKey(makeReq(10, superUser), res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body.data.api_key).toBeDefined();
+    expect(res.body.data.apiKey).toBeDefined();
   });
 
   it('forbids staff from generating key for staff accounts', async () => {
@@ -178,7 +178,7 @@ describe('generateApiKey', () => {
     await generateApiKey(makeReq(10, staffUser), res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body.data.api_key).toBeDefined();
+    expect(res.body.data.apiKey).toBeDefined();
   });
 
   it('overwrites existing key on regeneration', async () => {

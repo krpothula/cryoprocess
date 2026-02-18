@@ -219,8 +219,8 @@ class ExtractBuilder extends BaseJobBuilder {
 
     // FOM threshold for autopick filtering
     // Note: RELION 4+ uses --minimum_pick_fom instead of deprecated --minimum_fom_threshold
-    if (getBoolParam(data, ['useAutopickFomThreshold'], false)) {
-      const minFom = getFloatParam(data, ['minimumAutopickFom'], 0);
+    if (getBoolParam(data, ['useAutopickFOMThreshold', 'useAutopickFomThreshold'], false)) {
+      const minFom = getFloatParam(data, ['minimumAutopickFOM', 'minimumAutopickFom'], 0);
       cmd.push('--minimum_pick_fom', String(minFom));
     }
 

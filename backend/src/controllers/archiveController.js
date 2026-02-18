@@ -73,11 +73,10 @@ exports.archiveProject = async (req, res) => {
     logger.info(`[Archive] Moving project ${projectId}: ${sourcePath} -> ${destPath}`);
 
     // Return 202 immediately — move may take time for large projects over blobfuse
-    res.status(202).json({
-      success: true,
+    response.success(res, {
       status: 'archiving',
       message: 'Archive started. Project will be marked as archived when complete.'
-    });
+    }, 202);
 
     // Perform the move asynchronously (shell mv handles cross-device transparently)
     try {
@@ -139,11 +138,10 @@ exports.restoreProject = async (req, res) => {
 
     logger.info(`[Archive] Restoring project ${projectId}: ${sourcePath} -> ${destPath}`);
 
-    res.status(202).json({
-      success: true,
+    response.success(res, {
       status: 'restoring',
       message: 'Restore started. Project will be marked as active when complete.'
-    });
+    }, 202);
 
     try {
       execFileSync('mv', [sourcePath, destPath], { timeout: MOVE_TIMEOUT });
@@ -216,7 +214,7 @@ exports.relocateProject = async (req, res) => {
 
     return response.success(res, {
       message: `Project relocated. ${jobsUpdated} job paths updated.`,
-      data: { folder_name: newFolderName, is_archived: newIsArchived }
+      data: { folderName: newFolderName, isArchived: newIsArchived }
     });
   } catch (error) {
     logger.error('[Relocate] Error:', error);

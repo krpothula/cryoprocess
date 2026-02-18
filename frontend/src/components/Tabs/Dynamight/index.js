@@ -10,22 +10,20 @@ import { dynamightFlexibilityAPI } from "../../../services/builders/dynamight-fl
 import { JobTypes } from "../common/Data/jobs";
 
 const initialFormData = {
-  coresPerNode: 1,
   threads: 1,
   submitToQueue: "Yes",
   queueName: "",
-  queueSubmitCommand: "",
   additionalArguments: "",
   preloadImages: "No",
   // I/O tab
-  numGaussians: 10,
+  numGaussians: 10000,
   initialMapThreshold: "",
   regularizationFactor: 1,
   dynamightExecutable: "",
   gpuToUse: "",
   // Tasks tab
   checkpointFile: "",
-  doVisulization: "No",
+  doVisualization: "No",
   halfSetToVisualize: 1,
   inverseDeformation: "No",
   numEpochs: 50,
@@ -220,7 +218,7 @@ const Dynamight = () => {
     corespernode: 0,
     threads: 1,
     submitToQueue: "Yes",
-    queuename: "",
+    queueName: "",
     queueSubmitCommand: "",
     //StandardSubmissionScript: "",
     arguments: "",

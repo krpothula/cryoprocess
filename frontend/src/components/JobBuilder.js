@@ -10,7 +10,7 @@ const ParticleExtraction = React.lazy(() => import("./Tabs/particleExtraction"))
 const DClassification = React.lazy(() => import("./Tabs/2dClassification"));
 const AutoRefine = React.lazy(() => import("./Tabs/AutoRefine"));
 const Classification = React.lazy(() => import("./Tabs/3dClassification"));
-const InitialModal = React.lazy(() => import("./Tabs/3dInitialModal"));
+const InitialModel = React.lazy(() => import("./Tabs/3dInitialModel"));
 const MultiBody = React.lazy(() => import("./Tabs/3dMultiBody"));
 const Subset = React.lazy(() => import("./Tabs/subset/Subset"));
 const CtfRefine = React.lazy(() => import("./Tabs/CtfRefine"));
@@ -18,7 +18,7 @@ const Bayesian = React.lazy(() => import("./Tabs/Bayesian"));
 const Mask = React.lazy(() => import("./Tabs/Mask"));
 const PostProcessing = React.lazy(() => import("./Tabs/PostProcessing"));
 const JoinStarFiles = React.lazy(() => import("./Tabs/joinStarFiles"));
-const ParticleSubstraction = React.lazy(() => import("./Tabs/particaleSubstraction"));
+const ParticleSubtraction = React.lazy(() => import("./Tabs/particleSubtraction"));
 const LocalResolution = React.lazy(() => import("./Tabs/LocalResolution"));
 const Dynamight = React.lazy(() => import("./Tabs/Dynamight"));
 const ModelAngelo = React.lazy(() => import("./Tabs/ModelAngelo"));
@@ -54,7 +54,7 @@ const JobBuilder = ({ selectedJob }) => {
       case "3D classification":
         return <Classification />;
       case "3D initial model":
-        return <InitialModal />;
+        return <InitialModel />;
       case "3D multi-body":
         return <MultiBody />;
       case "Subset selection":
@@ -69,8 +69,8 @@ const JobBuilder = ({ selectedJob }) => {
         return <PostProcessing />;
       case "Join star files":
         return <JoinStarFiles />;
-      case "Particle substraction":
-        return <ParticleSubstraction />;
+      case "Particle subtraction":
+        return <ParticleSubtraction />;
       case "DynaMight flexibility":
         return <Dynamight />;
       case "ModelAngelo building":

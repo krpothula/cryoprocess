@@ -170,7 +170,7 @@ const JobActions = ({
     try {
       const result = await toggleJobNotifyEmail(jobId);
       if (result?.success) {
-        setNotifyEmail(result.notify_email);
+        setNotifyEmail(result.notifyEmail);
       }
     } catch (err) {
       console.error("Failed to toggle notification:", err);
@@ -241,7 +241,7 @@ const JobActions = ({
 
       if (response?.data?.status === "success") {
         const params = response.data.data.parameters || {};
-        const type = response.data.data.job_type || jobType;
+        const type = response.data.data.jobType || jobType;
         const uiJobName = stageToUiJobName[type] || type;
 
 

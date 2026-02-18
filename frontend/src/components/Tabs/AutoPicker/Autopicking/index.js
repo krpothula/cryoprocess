@@ -1,5 +1,5 @@
 import React from "react";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import CustomDropdown from "../../common/Dropdown";
 import SimpleInput from "../../common/SimpleInput";
 
@@ -112,16 +112,16 @@ const Autopicking = ({
               alignItems: "center",
               gap: "6px",
               padding: "6px 10px",
-              backgroundColor: "#fef2f2",
-              border: "1px solid #fecaca",
+              backgroundColor: "var(--color-danger-bg)",
+              border: "1px solid var(--color-danger-border)",
               borderRadius: "6px",
-              color: "#dc2626",
+              color: "var(--color-danger-text)",
               fontSize: "11px",
               fontWeight: 500,
               lineHeight: 1.4,
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />

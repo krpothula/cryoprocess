@@ -33,6 +33,16 @@ const IMPORT_TYPE = {
   OTHER: 'other'
 };
 
+// Import "other" node type info — single source of truth
+// Used by pipelineMetadata, dashboardController, importController
+const IMPORT_NODE_TYPES = {
+  ref3d:   { label: '3D Reference',          output_file: 'ref3d.mrc' },
+  mask:    { label: '3D Mask',               output_file: 'mask.mrc' },
+  halfmap: { label: 'Unfiltered Half-map',   output_file: 'halfmap.mrc' },
+  refs2d:  { label: '2D References',         output_file: 'class_averages.star' },
+  coords:  { label: 'Particle Coordinates',  output_file: 'coords_suffix_autopick.star' }
+};
+
 // Stage definitions - single source of truth for job types
 const STAGES = {
   import: {
@@ -402,7 +412,7 @@ const DOWNSTREAM_INPUT_MAP = {
     { downstream: '3D initial model', field: 'inputStarFile', role: 'particlesStar' },
     { downstream: '3D auto-refine', field: 'inputStarFile', role: 'particlesStar' },
     { downstream: 'Subset selection', field: 'particlesStar', role: 'particlesStar' },
-    { downstream: 'Particle substraction', field: 'inputParticlesStar', role: 'particlesStar' },
+    { downstream: 'Particle subtraction', field: 'inputParticlesStar', role: 'particlesStar' },
     { downstream: 'Join star files', field: 'particlesStarFile1', role: 'particlesStar' },
     { downstream: 'DynaMight flexibility', field: 'micrographs', role: 'particlesStar' },
   ],
@@ -443,7 +453,7 @@ const DOWNSTREAM_INPUT_MAP = {
     { downstream: 'Mask creation', field: 'inputMap', role: 'referenceMrc' },
     { downstream: 'Select Classes', field: 'classFromJob', role: 'particlesStar' },
     { downstream: '3D classification', field: 'referenceMap', role: 'referenceMrc' },
-    { downstream: 'Particle substraction', field: 'inputParticlesStar', role: 'particlesStar' },
+    { downstream: 'Particle subtraction', field: 'inputParticlesStar', role: 'particlesStar' },
     { downstream: 'DynaMight flexibility', field: 'consensusMap', role: 'referenceMrc' },
     { downstream: 'Subset selection', field: 'particlesStar', role: 'particlesStar' },
   ],
@@ -453,7 +463,7 @@ const DOWNSTREAM_INPUT_MAP = {
     { downstream: 'CTF refinement', field: 'particlesStar', role: 'particlesStar' },
     { downstream: 'Bayesian polishing', field: 'particlesFile', role: 'particlesStar' },
     { downstream: 'Local resolution', field: 'halfMap', role: 'halfMapMrc' },
-    { downstream: 'Particle substraction', field: 'inputParticlesStar', role: 'particlesStar' },
+    { downstream: 'Particle subtraction', field: 'inputParticlesStar', role: 'particlesStar' },
     { downstream: 'DynaMight flexibility', field: 'consensusMap', role: 'referenceMrc' },
     { downstream: 'Subset selection', field: 'particlesStar', role: 'particlesStar' },
     { downstream: 'Join star files', field: 'particlesStarFile1', role: 'particlesStar' },
@@ -463,7 +473,7 @@ const DOWNSTREAM_INPUT_MAP = {
     { downstream: 'Post-processing', field: 'solventMask', role: 'maskMrc' },
     { downstream: '3D auto-refine', field: 'referenceMask', role: 'maskMrc' },
     { downstream: 'Local resolution', field: 'solventMask', role: 'maskMrc' },
-    { downstream: 'Particle substraction', field: 'maskOfSignal', role: 'maskMrc' },
+    { downstream: 'Particle subtraction', field: 'maskOfSignal', role: 'maskMrc' },
     { downstream: '3D classification', field: 'referenceMask', role: 'maskMrc' },
   ],
   PostProcess: [
@@ -490,7 +500,7 @@ const DOWNSTREAM_INPUT_MAP = {
     { downstream: '2D classification', field: 'inputStarFile', role: 'particlesStar' },
     { downstream: '3D classification', field: 'inputStarFile', role: 'particlesStar' },
     { downstream: '3D auto-refine', field: 'inputStarFile', role: 'particlesStar' },
-    { downstream: 'Particle substraction', field: 'revertParticles', role: 'particlesStar' },
+    { downstream: 'Particle subtraction', field: 'revertParticles', role: 'particlesStar' },
     { downstream: 'Subset selection', field: 'particlesStar', role: 'particlesStar' },
     { downstream: 'Join star files', field: 'particlesStarFile1', role: 'particlesStar' },
   ],
@@ -555,6 +565,7 @@ module.exports = {
   TERMINAL_STATUSES,
   ACTIVE_STATUSES,
   IMPORT_TYPE,
+  IMPORT_NODE_TYPES,
   STAGES,
   STAGE_NAMES,
   STAGE_ALIASES,

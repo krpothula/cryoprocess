@@ -21,15 +21,11 @@ const initialFormData = {
   invertMask: "No",
   fillWithSpheres: "No",
   sphereRadius: 10,
-  // Helix
-  centralZLength: 30,
-  mask3DHelix: "No",
   // Running
   coresPerNode: 1,
   threads: 1,
   submitToQueue: "No",
   queueName: "",
-  queueSubmitCommand: "",
   additionalArguments: "",
 };
 
@@ -232,7 +228,7 @@ const Mask = () => {
     threads: 1,
     mask3DHelix: "No",
     submitToQueue: "Yes",
-    queuename: "",
+    queueName: "",
     queueSubmitCommand: "",
     //StandardSubmissionScript: "",
     arguments: "",

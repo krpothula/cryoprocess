@@ -1,5 +1,5 @@
 import React from "react";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import CustomInput from "../../common/Input";
 import CustomDropdown from "../../common/Dropdown";
 

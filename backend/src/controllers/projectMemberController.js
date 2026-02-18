@@ -9,6 +9,7 @@ const Project = require('../models/Project');
 const ProjectMember = require('../models/ProjectMember');
 const User = require('../models/User');
 const response = require('../utils/responseHelper');
+const { mapKeys } = require('../utils/mapKeys');
 
 /**
  * Check if user has access to project (owner or member)
@@ -77,13 +78,13 @@ exports.listMembers = async (req, res) => {
         const user = await User.findOne({ id: member.user_id }).lean();
         return {
           id: member.id,
-          user_id: member.user_id,
+          userId: member.user_id,
           username: user?.username || 'Unknown',
           email: user?.email || '',
-          first_name: user?.first_name || '',
-          last_name: user?.last_name || '',
+          firstName: user?.first_name || '',
+          lastName: user?.last_name || '',
           role: member.role,
-          added_at: member.added_at
+          addedAt: member.added_at
         };
       })
     );
@@ -91,22 +92,18 @@ exports.listMembers = async (req, res) => {
     // Add owner info
     const owner = await User.findOne({ id: access.project.created_by_id }).lean();
     const ownerInfo = {
-      user_id: access.project.created_by_id,
+      userId: access.project.created_by_id,
       username: owner?.username || 'Unknown',
       email: owner?.email || '',
-      first_name: owner?.first_name || '',
-      last_name: owner?.last_name || '',
+      firstName: owner?.first_name || '',
+      lastName: owner?.last_name || '',
       role: 'owner',
-      is_owner: true
+      isOwner: true
     };
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
+    return response.successData(res, {
         owner: ownerInfo,
         members: memberDetails
-      }
     });
   } catch (error) {
     logger.error('[ProjectMembers] listMembers error:', error);
@@ -180,18 +177,16 @@ exports.addMember = async (req, res) => {
 
     logger.info(`[ProjectMembers] Added member ${userToAdd.username} to project ${projectId} with role ${role}`);
 
-    res.status(201).json({
-      success: true,
-      status: 'success',
+    return response.created(res, {
       data: {
         id: member.id,
-        user_id: userToAdd.id,
+        userId: userToAdd.id,
         username: userToAdd.username,
         email: userToAdd.email,
-        first_name: userToAdd.first_name,
-        last_name: userToAdd.last_name,
+        firstName: userToAdd.first_name,
+        lastName: userToAdd.last_name,
         role: member.role,
-        added_at: member.added_at
+        addedAt: member.added_at
       }
     });
   } catch (error) {
@@ -256,7 +251,7 @@ exports.updateMember = async (req, res) => {
 
     return response.success(res, {
       id: member.id,
-      user_id: member.user_id,
+      userId: member.user_id,
       role: member.role
     });
   } catch (error) {
@@ -355,7 +350,7 @@ exports.searchUsers = async (req, res) => {
       .select('id username email first_name last_name')
       .lean();
 
-    return response.successData(res, users);
+    return response.successData(res, mapKeys(users));
   } catch (error) {
     logger.error('[ProjectMembers] searchUsers error:', error);
     return response.serverError(res, error.message);

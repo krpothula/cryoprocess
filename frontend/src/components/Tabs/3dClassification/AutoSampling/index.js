@@ -1,5 +1,5 @@
 import React from "react";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import CustomDropdown from "../../common/Dropdown";
 import SimpleInput from "../../common/SimpleInput";
 
@@ -11,16 +11,16 @@ const AutoSampling = ({
   dropdownOptions,
 }) => {
   const isEnabled = formData.localAngularSearches === "Yes";
-  const disableImageAlignment = formData.LocalSearchfromAutoSampling === "No";
+  const disableImageAlignment = formData.localSearchFromAutoSampling === "No";
 
   return (
     <div className="tab-content">
       <CustomDropdown
         label="Perform image alignment?"
         onChange={handleInputChange}
-        value={formData.LocalSearchfromAutoSampling}
+        value={formData.localSearchFromAutoSampling}
         tooltipText="Enable particle alignment during classification. Set to 'No' if particles are already well-aligned from a previous refinement step."
-        name="LocalSearchfromAutoSampling"
+        name="localSearchFromAutoSampling"
         options={dropdownOptions}
       />
       <CustomDropdown
@@ -79,8 +79,8 @@ const AutoSampling = ({
       />
       <SimpleInput
         label="Relax symmetry:"
-        name="RelaxSymmetry"
-        value={formData.RelaxSymmetry}
+        name="relaxSymmetry"
+        value={formData.relaxSymmetry}
         disabled={!isEnabled || disableImageAlignment}
         onChange={handleInputChange}
         tooltipText="Lower symmetry to explore during local searches (e.g., use C2 when refining with C4 symmetry). Leave empty to use the same symmetry throughout."

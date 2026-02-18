@@ -14,7 +14,7 @@ const Row = ({ index, style, items, onSelect, getDisplayName, getRawName, isSele
       style={style}
       onClick={() => onSelect(raw)}
       className={`px-3 cursor-pointer flex items-center ${
-        selected ? "bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-slate-700"
+        selected ? "bg-[var(--color-info-bg)]" : "hover:bg-[var(--color-bg-hover)]"
       }`}
     >
       <p
@@ -22,7 +22,7 @@ const Row = ({ index, style, items, onSelect, getDisplayName, getRawName, isSele
         style={{
           fontSize: "12px",
           fontWeight: selected ? 500 : 400,
-          color: selected ? "#1d4ed8" : "var(--color-text-label)",
+          color: selected ? "var(--color-info-strong)" : "var(--color-text-label)",
         }}
         title={raw}
       >
@@ -42,7 +42,7 @@ const MicrographList = ({
   // Full name from data
   const getRawName = (m) => {
     if (typeof m === "string") return m;
-    return m.micrograph_name || m.name || "Unknown";
+    return m.micrographName || m.name || "Unknown";
   };
 
   // Display: just the filename (no path)
@@ -62,14 +62,14 @@ const MicrographList = ({
 
   const allMicrographs = React.useMemo(() => {
     if (liveFiles && liveFiles.length > 0) {
-      return liveFiles.map((f) => ({ micrograph_name: f }));
+      return liveFiles.map((f) => ({ micrographName: f }));
     }
     return micrographs;
   }, [micrographs, liveFiles]);
 
   if (allMicrographs.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+      <div className="h-full flex flex-col items-center justify-center text-[var(--color-text-muted)]">
         <p className="text-center text-sm">
           No movies processed yet
           <br />
@@ -91,7 +91,7 @@ const MicrographList = ({
           style={{ height: "100%" }}
         />
       </div>
-      <div className="text-xs text-gray-500 dark:text-slate-400 text-center py-2 border-t border-gray-200 dark:border-slate-700 flex-shrink-0">
+      <div className="text-xs text-[var(--color-text-secondary)] text-center py-2 border-t border-[var(--color-border)] flex-shrink-0">
         {allMicrographs.length} / {total || allMicrographs.length} movies processed
       </div>
     </div>

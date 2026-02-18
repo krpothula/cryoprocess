@@ -25,28 +25,28 @@ const DownloadDropdown = ({ files }) => {
       {/* Dropdown Button */}
       <button
         onClick={toggleDropdown}
-        className="flex items-center justify-between w-fit hover:opacity-90 px-4 py-2 bg-[#2C3E50] opacity-80 font-semibold text-white border border-gray-300 rounded shadow transition-all duration-200"
+        className="flex items-center justify-between w-fit hover:opacity-90 px-4 py-2 bg-[var(--color-bg-active)] opacity-80 font-semibold text-[var(--color-text)] border border-[var(--color-border)] rounded shadow transition-all duration-200"
       >
         <span className="flex items-center">
           <span className="text-xs">Download File(s)</span>
-          <FiDownload className="text-white ml-3 text-xs" />
+          <FiDownload className="text-[var(--color-text)] ml-3 text-xs" />
         </span>
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute mt-2 w-fit bg-white dark:bg-slate-800 right-[0px] border border-gray-200 dark:border-slate-700 rounded shadow-lg z-10 max-h-[300px] overflow-y-auto">
+        <div className="absolute mt-2 w-fit bg-[var(--color-bg-card)] right-[0px] border border-[var(--color-border)] rounded shadow-lg z-10 max-h-[300px] overflow-y-auto">
           {files.map((file, index) => (
             <div className="border-b">
               <button
                 key={index}
-                className="block w-full text-left bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                className="block w-full text-left bg-[var(--color-bg-card)] px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors duration-200"
                 style={{ borderRadius: "0px", fontSize: "12px" }}
                 onClick={() => {
                   window.open(file.url, "_blank");
                 }}
               >
-                {file.file_name}
+                {file.fileName}
               </button>
             </div>
           ))}

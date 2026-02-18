@@ -36,6 +36,7 @@ class SubsetBuilder extends BaseJobBuilder {
     const inputFile = getParam(this.data, [
       'classFromJob',
       'particlesStar',
+      'micrographsStar',
       'microGraphsStar'
     ], null);
 
@@ -54,7 +55,7 @@ class SubsetBuilder extends BaseJobBuilder {
     // Input file
     const classInput = getParam(data, ['classFromJob'], null);
     const particlesInput = getParam(data, ['particlesStar'], null);
-    const micrographsInput = getParam(data, ['microGraphsStar'], null);
+    const micrographsInput = getParam(data, ['micrographsStar', 'microGraphsStar'], null);
     const inputFile = classInput || particlesInput || micrographsInput;
 
     const outputFile = path.join(relOutputDir, 'particles.star');
@@ -141,7 +142,7 @@ class SubsetBuilder extends BaseJobBuilder {
     // Select on image statistics
     if (getBoolParam(data, ['imageStatics'], false)) {
       const imageLabel = getParam(data, ['metaDataForImage'], 'rlnImageName');
-      const sigma = getFloatParam(data, ['SigmaValue'], 4);
+      const sigma = getFloatParam(data, ['sigmaValue', 'SigmaValue'], 4);
       cmd.push('--discard_on_stats');
       cmd.push('--discard_label', imageLabel);
       cmd.push('--discard_sigma', String(sigma));

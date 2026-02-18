@@ -66,7 +66,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
     try {
       await deleteProjectApi(project.id, true);
       setProjects(projects.filter(p => p.id !== project.id));
-      showToast(`Project "${project.project_name}" deleted successfully`, { type: "success" });
+      showToast(`Project "${project.projectName}" deleted successfully`, { type: "success" });
       setDeleteConfirm(null);
     } catch (error) {
       showToast(error.response?.data?.error || "Failed to delete project", { type: "error" });
@@ -87,11 +87,11 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
 
     try {
       await archiveProjectApi(project.id);
-      showToast(`Project "${project.project_name}" is being archived`, { type: "success" });
+      showToast(`Project "${project.projectName}" is being archived`, { type: "success" });
       setArchiveConfirm(null);
       // Refresh list
       setLoading(true);
-      getProjectListApi({ limit, skip, include_archived: showArchived ? 'true' : 'false' })
+      getProjectListApi({ limit, skip, includeArchived: showArchived ? 'true' : 'false' })
         .then((resp) => {
           setProjects(resp?.data?.data || []);
           setTotalRecords(resp?.data?.count || 0);
@@ -105,11 +105,11 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
   const handleRestore = async (project) => {
     try {
       await restoreProjectApi(project.id);
-      showToast(`Project "${project.project_name}" is being restored`, { type: "success" });
+      showToast(`Project "${project.projectName}" is being restored`, { type: "success" });
       setOpenDropdown(null);
       // Refresh list
       setLoading(true);
-      getProjectListApi({ limit, skip, include_archived: showArchived ? 'true' : 'false' })
+      getProjectListApi({ limit, skip, includeArchived: showArchived ? 'true' : 'false' })
         .then((resp) => {
           setProjects(resp?.data?.data || []);
           setTotalRecords(resp?.data?.count || 0);
@@ -124,7 +124,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
   const skip = (currentPage - 1) * PAGE_SIZE;
 
   const filteredProjects = projects.filter(project =>
-    project.project_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    project.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     project.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -134,7 +134,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
 
   useEffect(() => {
     setLoading(true);
-    getProjectListApi({ limit, skip, include_archived: showArchived ? 'true' : 'false' })
+    getProjectListApi({ limit, skip, includeArchived: showArchived ? 'true' : 'false' })
       .then((resp) => {
         setProjects(resp?.data?.data || []);
         setTotalRecords(resp?.data?.count || 0);
@@ -176,22 +176,22 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
           {filteredProjects.map((project, index) => (
             <tr key={project.id} style={{ animationDelay: `${index * 0.03}s`, position: openDropdown === project.id ? 'relative' : undefined, zIndex: openDropdown === project.id ? 10 : undefined }}>
               <td className="col-name">
-                <span className="project-name">{project.project_name}</span>
+                <span className="project-name">{project.projectName}</span>
               </td>
               <td className="col-type">
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {project.live_session_id ? (
+                  {project.liveSessionId ? (
                     <span className="type-badge type-live">
                       <FiZap size={11} />
                       Live
-                      {project.live_session_status && (
-                        <span className={`live-status-dot live-status-${project.live_session_status}`} />
+                      {project.liveSessionStatus && (
+                        <span className={`live-status-dot live-status-${project.liveSessionStatus}`} />
                       )}
                     </span>
                   ) : (
                     <span className="type-badge type-regular">Pipeline</span>
                   )}
-                  {project.is_archived && (
+                  {project.isArchived && (
                     <span className="type-badge type-archived">
                       <FiArchive size={10} />
                       Archived
@@ -207,35 +207,35 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
               <td className="col-user">
                 <div className="user-badge">
                   <FiUser className="user-icon" />
-                  <span className="user-name">{project.created_name || "Unknown"}</span>
+                  <span className="user-name">{project.createdName || "Unknown"}</span>
                 </div>
               </td>
               <td className="col-date">
                 <span className="project-date">
-                  {formatDateString(project.creation_date)}
+                  {formatDateString(project.creationDate)}
                 </span>
               </td>
               <td className="col-action">
                 <div className="action-buttons">
                   <Link
-                    to={project.live_session_id
-                      ? `/live/${project.live_session_id}`
+                    to={project.liveSessionId
+                      ? `/live/${project.liveSessionId}`
                       : `/project/${project.id}`}
-                    className={`open-btn ${project.live_session_id ? "open-btn-live" : ""}`}
+                    className={`open-btn ${project.liveSessionId ? "open-btn-live" : ""}`}
                   >
                     Open
                     <FiArrowUpRight />
                   </Link>
                   <div className="dropdown-container" ref={openDropdown === project.id ? dropdownRef : null}>
                     <button
-                      className={`more-btn ${!project.is_owner ? 'more-btn-disabled' : ''}`}
-                      onClick={() => project.is_owner && setOpenDropdown(openDropdown === project.id ? null : project.id)}
-                      disabled={!project.is_owner}
+                      className={`more-btn ${!project.isOwner ? 'more-btn-disabled' : ''}`}
+                      onClick={() => project.isOwner && setOpenDropdown(openDropdown === project.id ? null : project.id)}
+                      disabled={!project.isOwner}
                     >
                       <FiMoreVertical />
                       <span>Advanced Options</span>
                     </button>
-                    {project.is_owner && openDropdown === project.id && (
+                    {project.isOwner && openDropdown === project.id && (
                       <div className="dropdown-menu" style={{ bottom: index >= filteredProjects.length - 2 ? '100%' : 'auto', top: index >= filteredProjects.length - 2 ? 'auto' : '100%', marginBottom: index >= filteredProjects.length - 2 ? '4px' : '0', marginTop: index >= filteredProjects.length - 2 ? '0' : '4px' }}>
                         <button
                           className="dropdown-item"
@@ -251,7 +251,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
                           <FiLink />
                           Webhooks
                         </button>
-                        {project.is_archived ? (
+                        {project.isArchived ? (
                           <button
                             className="dropdown-item"
                             onClick={() => handleRestore(project)}
@@ -299,7 +299,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
           <div className="delete-confirm-overlay">
             <div className="delete-confirm-modal">
               <h4>Delete Project?</h4>
-              <p>This will permanently delete "{project.project_name}" including all jobs and files. This action cannot be undone.</p>
+              <p>This will permanently delete "{project.projectName}" including all jobs and files. This action cannot be undone.</p>
               <div className="delete-confirm-actions">
                 <button className="cancel-btn" onClick={() => setDeleteConfirm(null)}>Cancel</button>
                 <button className="confirm-delete-btn" onClick={() => handleDelete(project)}>Delete</button>
@@ -317,7 +317,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
           <div className="delete-confirm-overlay">
             <div className="delete-confirm-modal">
               <h4>Archive Project?</h4>
-              <p>This will move "{project.project_name}" to archive storage. You can restore it later, but no new jobs can be submitted while archived.</p>
+              <p>This will move "{project.projectName}" to archive storage. You can restore it later, but no new jobs can be submitted while archived.</p>
               <div className="delete-confirm-actions">
                 <button className="cancel-btn" onClick={() => setArchiveConfirm(null)}>Cancel</button>
                 <button className="confirm-archive-btn" onClick={() => handleArchive(project)}>Archive</button>
@@ -331,8 +331,8 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
       {sharingProject && (
         <ProjectMembers
           projectId={sharingProject.id}
-          projectName={sharingProject.project_name}
-          isOwner={sharingProject.is_owner}
+          projectName={sharingProject.projectName}
+          isOwner={sharingProject.isOwner}
           onClose={() => setSharingProject(null)}
         />
       )}
@@ -341,7 +341,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
       {webhookProject && (
         <ProjectWebhooks
           projectId={webhookProject.id}
-          projectName={webhookProject.project_name}
+          projectName={webhookProject.projectName}
           onClose={() => setWebhookProject(null)}
         />
       )}

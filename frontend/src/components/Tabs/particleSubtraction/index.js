@@ -4,7 +4,7 @@ import Centering from "./Centering";
 import Running from "./Running";
 import "../../form.css";
 import SubmitButton from "../common/SubmitButton";
-import { particleSubstractionAPI } from "../../../services/builders/particle-substraction/particle-substraction.js";
+import { particleSubtractionAPI } from "../../../services/builders/particle-subtraction/particle-subtraction.js";
 import { DefaultMessages } from "../common/Data";
 import { useBuilder } from "../../../context/BuilderContext";
 import { JobTypes } from "../common/Data/jobs";
@@ -14,19 +14,17 @@ const initialFormData = {
   differentParticles: "No",
   outputInFloat16: "Yes",
   revertToOriginal: "No",
-  imagesOnMask: "No",
-  myCoordinates: "No",
+  subtractedImages: "No",
+  centerCoordinates: "No",
   coordinateX: 0,
   coordinateY: 0,
   coordinateZ: 0,
   newBoxSize: -1,
   mpiProcs: 1,
   coresPerNode: 1,
-  pixelSize: -1,
   submitToQueue: "No",
   queueName: "",
-  queueSubmitCommand: "",
-  additionalAgrument: "",
+  additionalArguments: "",
 };
 
 const ParticleSubtraction = () => {
@@ -88,7 +86,7 @@ const ParticleSubtraction = () => {
     e.preventDefault();
     setLoading(true);
 
-    particleSubstractionAPI({ ...(formData || {}), project_id: projectId })
+    particleSubtractionAPI({ ...(formData || {}), project_id: projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -200,7 +198,7 @@ import Running from "./Running";
 import "../../form.css";
 import SubmitButton from "../common/SubmitButton";
 
-const ParticleSubstraction = () => {
+const ParticleSubtraction = () => {
   const initialFormData = {
     //  optimiserStar: "",
     //  maskOfSignal: "",
@@ -209,7 +207,7 @@ const ParticleSubstraction = () => {
     outputInFloat16: "Yes",
     revertToOriginal: "No",
     //  revertThsPArticles: "",
-    subtracted_images: "No",
+    subtractedImages: "No",
     centerCoordinates: "No",
 
     coordinateX: 0,
@@ -224,7 +222,7 @@ const ParticleSubstraction = () => {
     queueName: "",
     queueSubmitCommand: "",
 
-    additionalAgrument: "",
+    additionalArguments: "",
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -315,7 +313,7 @@ const ParticleSubstraction = () => {
   ];
   const isEnable = formData.differentParticles === "Yes";
   const isEnable1 = formData.revertToOriginal === "Yes";
-  const isEnable2 = formData.subtracted_images === "Yes";
+  const isEnable2 = formData.subtractedImages === "Yes";
   const isEnable3 = formData.submitToQueue === "Yes";
   return (
     <div className="">
@@ -378,4 +376,4 @@ const ParticleSubstraction = () => {
   );
 };
 
-export default ParticleSubstraction;*/
+export default ParticleSubtraction;*/

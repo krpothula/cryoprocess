@@ -37,22 +37,18 @@ exports.getStatus = async (req, res) => {
     const runningJobs = await Job.countDocuments({ status: JOB_STATUS.RUNNING });
     const pendingJobs = await Job.countDocuments({ status: JOB_STATUS.PENDING });
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        slurm: {
-          available: slurmAvailable,
-          enabled: clusterConfig.slurmEnabled
-        },
-        jobs: {
-          running: runningJobs,
-          pending: pendingJobs
-        },
-        config: {
-          defaultPartition: clusterConfig.defaultPartition,
-          singularityAvailable: !!clusterConfig.singularityImage
-        }
+    return response.successData(res, {
+      slurm: {
+        available: slurmAvailable,
+        enabled: clusterConfig.slurmEnabled
+      },
+      jobs: {
+        running: runningJobs,
+        pending: pendingJobs
+      },
+      config: {
+        defaultPartition: clusterConfig.defaultPartition,
+        singularityAvailable: !!clusterConfig.singularityImage
       }
     });
   } catch (error) {
@@ -144,11 +140,7 @@ exports.cancelJob = async (req, res) => {
  * Get cluster configuration (admin only)
  */
 exports.getConfig = async (req, res) => {
-  res.json({
-    success: true,
-      status: 'success',
-    data: clusterConfig
-  });
+  return response.successData(res, clusterConfig);
 };
 
 /**
@@ -176,11 +168,7 @@ exports.updateConfig = async (req, res) => {
 
     logger.info(`[Cluster] Config updated by user ${req.user.id}`);
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: clusterConfig
-    });
+    return response.successData(res, clusterConfig);
   } catch (error) {
     logger.error(`[Cluster] Update config error: ${error.message}`);
     return response.serverError(res, 'Failed to update configuration');
@@ -226,11 +214,7 @@ exports.getPartitions = async (req, res) => {
       })
       .catch(() => []);
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: partitions
-    });
+    return response.successData(res, partitions);
   } catch (error) {
     logger.error(`[Cluster] Get partitions error: ${error.message}`);
     return response.serverError(res, 'Failed to get partitions');

@@ -13,6 +13,9 @@ import {
   FiLayers,
   FiTarget,
   FiBox,
+  FiSliders,
+  FiFilm,
+  FiZap,
 } from "react-icons/fi";
 import axiosInstance from "../../services/config";
 import useJobNotification from "../../hooks/useJobNotification";
@@ -97,18 +100,23 @@ const PolishDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading polishing results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -116,39 +124,39 @@ const PolishDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                Polish/{selectedJob?.job_name || "Job"}
+                Polish/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -162,7 +170,7 @@ const PolishDashboard = () => {
                 <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
-            {showCommand && selectedJob?.command && (
+            {showCommand && command && (
               <button
                 onClick={copyCommand}
                 className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
@@ -186,47 +194,98 @@ const PolishDashboard = () => {
                 lineHeight: '1.4'
               }}
             >
-              {selectedJob?.command || "Command not available for this job"}
+              {command || "Command not available for this job"}
             </div>
           )}
         </div>
       </div>
 
-      {/* Stats Card */}
-      {(() => {
-        const stats = selectedJob?.pipeline_stats || {};
-        return (
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-        <div className="flex items-center gap-6">
+      {/* Stats Cards */}
+      {/* Row 1: Particles, Mode, Output */}
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
+        <div className="flex items-center gap-6 flex-wrap">
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Polished Particles:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {(stats.particle_count || 0).toLocaleString()}
+              {(pStats.particleCount ?? 0).toLocaleString()}
             </span>
           </div>
-          {stats.pixel_size && (
+          <div className="flex items-center gap-2">
+            <FiZap className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Mode:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {results?.trainOptimal ? "Training" : "Polishing"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiCheckCircle className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Output:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {results?.hasOutput ? "shiny.star" : "Pending"}
+            </span>
+          </div>
+          {pStats.pixelSize && (
             <div className="flex items-center gap-2">
               <FiTarget className="text-[var(--color-text-muted)]" size={14} />
               <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
               <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-                {stats.pixel_size} Å
+                {pStats.pixelSize} Å
               </span>
             </div>
           )}
-          {stats.box_size && (
+          {pStats.boxSize && (
             <div className="flex items-center gap-2">
               <FiBox className="text-[var(--color-text-muted)]" size={14} />
               <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
               <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-                {stats.box_size} px
+                {pStats.boxSize} px
               </span>
             </div>
           )}
         </div>
       </div>
-        );
-      })()}
+
+      {/* Row 2: Sigma parameters & frame range */}
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
+        <div className="flex items-center gap-6 flex-wrap">
+          <div className="flex items-center gap-2">
+            <FiSliders className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Sigma Vel:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {results?.sigmaVelocity ?? params.sigmaVelocity ?? "0.2"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiSliders className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Sigma Div:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {results?.sigmaDivergence ?? params.sigmaDivergence ?? "5000"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiSliders className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Sigma Acc:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {results?.sigmaAcceleration ?? params.sigmaAcceleration ?? "2"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiFilm className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Frames:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {results?.firstFrame ?? 1} – {results?.lastFrame === -1 ? "last" : (results?.lastFrame ?? "last")}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiTarget className="text-[var(--color-text-muted)]" size={14} />
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>B-fac Weighting:</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {results?.performBfacWeighting !== false ? "Yes" : "No"}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

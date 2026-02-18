@@ -14,7 +14,7 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
   const [availableIterations, setAvailableIterations] = useState([]);
   const [jobId, setJobId] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [sortBy, setSortBy] = useState("class_number");
+  const [sortBy, setSortBy] = useState("classNumber");
   const [sortOrder, setSortOrder] = useState("asc");
 
   // Extract job ID from classFromJob path (e.g., "Class2D/Job020/_it025_data.star")
@@ -62,8 +62,8 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
 
       if (response.data.status === "success") {
         setClasses(response.data.data.classes);
-        setDataStarPath(response.data.data.data_star_path);
-        setAvailableIterations(response.data.data.available_iterations || []);
+        setDataStarPath(response.data.data.dataStarPath);
+        setAvailableIterations(response.data.data.availableIterations || []);
       } else {
         setError(response.data.message || "Failed to load classes");
       }
@@ -94,7 +94,7 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
   };
 
   const selectAll = () => {
-    setSelectedClasses(new Set(classes.map((c) => c.class_number)));
+    setSelectedClasses(new Set(classes.map((c) => c.classNumber)));
   };
 
   const selectNone = () => {
@@ -103,8 +103,8 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
 
   const selectByThreshold = (minFraction) => {
     const selected = classes
-      .filter((c) => c.particle_fraction >= minFraction)
-      .map((c) => c.class_number);
+      .filter((c) => c.particleFraction >= minFraction)
+      .map((c) => c.classNumber);
     setSelectedClasses(new Set(selected));
   };
 
@@ -129,15 +129,15 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
         // Notify parent component of success
         if (onSelectionComplete) {
           onSelectionComplete({
-            outputFile: response.data.data.output_file,
-            numParticles: response.data.data.num_particles,
-            selectedClasses: response.data.data.selected_classes,
+            outputFile: response.data.data.outputFile,
+            numParticles: response.data.data.numParticles,
+            selectedClasses: response.data.data.selectedClasses,
             jobId: response.data.data.id,
-            jobName: response.data.data.job_name,
+            jobName: response.data.data.jobName,
           });
         }
         alert(
-          `Success! Saved ${response.data.data.num_particles} particles from ${response.data.data.selected_classes.length} classes to ${response.data.data.output_file}`
+          `Success! Saved ${response.data.data.numParticles} particles from ${response.data.data.selectedClasses.length} classes to ${response.data.data.outputFile}`
         );
       } else {
         setError(response.data.message || "Failed to save selection");
@@ -154,17 +154,17 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
     const sorted = [...classes].sort((a, b) => {
       let aVal, bVal;
       switch (sortBy) {
-        case "particle_fraction":
-          aVal = a.particle_fraction;
-          bVal = b.particle_fraction;
+        case "particleFraction":
+          aVal = a.particleFraction;
+          bVal = b.particleFraction;
           break;
-        case "estimated_resolution":
-          aVal = a.estimated_resolution;
-          bVal = b.estimated_resolution;
+        case "estimatedResolution":
+          aVal = a.estimatedResolution;
+          bVal = b.estimatedResolution;
           break;
         default:
-          aVal = a.class_number;
-          bVal = b.class_number;
+          aVal = a.classNumber;
+          bVal = b.classNumber;
       }
       return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
     });
@@ -173,7 +173,7 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
 
   const totalSelected = selectedClasses.size;
   const totalParticles = classes
-    .filter((c) => selectedClasses.has(c.class_number))
+    .filter((c) => selectedClasses.has(c.classNumber))
     .reduce((sum, c) => sum + c.distribution, 0);
 
   if (!classFromJob) {
@@ -208,9 +208,9 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
           <div className="sort-controls">
             <label>Sort by:</label>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-              <option value="class_number">Class #</option>
-              <option value="particle_fraction">Particle %</option>
-              <option value="estimated_resolution">Resolution</option>
+              <option value="classNumber">Class #</option>
+              <option value="particleFraction">Particle %</option>
+              <option value="estimatedResolution">Resolution</option>
             </select>
             <button
               className="sort-order-btn"
@@ -238,28 +238,28 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
         <div className="class-grid">
           {getSortedClasses().map((cls) => (
             <div
-              key={cls.class_number}
+              key={cls.classNumber}
               className={`class-item ${
-                selectedClasses.has(cls.class_number) ? "selected" : ""
+                selectedClasses.has(cls.classNumber) ? "selected" : ""
               }`}
-              onClick={() => toggleClass(cls.class_number)}
+              onClick={() => toggleClass(cls.classNumber)}
             >
-              <img src={cls.image} alt={`Class ${cls.class_number}`} />
+              <img src={cls.image} alt={`Class ${cls.classNumber}`} />
               <div className="class-info">
-                <span className="class-number">#{cls.class_number}</span>
+                <span className="class-number">#{cls.classNumber}</span>
                 <span className="class-fraction">
-                  {cls.particle_fraction.toFixed(1)}%
+                  {cls.particleFraction.toFixed(1)}%
                 </span>
                 <span className="class-resolution">
-                  {cls.estimated_resolution < 100
-                    ? `${cls.estimated_resolution.toFixed(1)}Å`
+                  {cls.estimatedResolution < 100
+                    ? `${cls.estimatedResolution.toFixed(1)}Å`
                     : "-"}
                 </span>
               </div>
               <div className="class-checkbox">
                 <input
                   type="checkbox"
-                  checked={selectedClasses.has(cls.class_number)}
+                  checked={selectedClasses.has(cls.classNumber)}
                   onChange={() => {}}
                 />
               </div>

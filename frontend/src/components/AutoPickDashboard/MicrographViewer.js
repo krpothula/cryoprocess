@@ -7,8 +7,8 @@ import { FiImage } from "react-icons/fi";
  *
  * Coordinate system:
  *   RELION autopick coordinates (_rlnCoordinateX/Y) are in **MRC pixels**
- *   of the motion-corrected micrograph. The backend returns original_width
- *   and original_height (MRC header nx/ny) so the SVG viewBox can map
+ *   of the motion-corrected micrograph. The backend returns originalWidth
+ *   and originalHeight (MRC header nx/ny) so the SVG viewBox can map
  *   directly from MRC-pixel space to the displayed thumbnail.
  *
  * Circle sizing:
@@ -39,7 +39,7 @@ const MicrographViewer = ({
 
   if (!selectedMicrograph) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900">
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)]">
         <FiImage className="text-4xl mb-3" />
         <p className="text-center text-sm">Select a micrograph to view</p>
       </div>
@@ -48,16 +48,16 @@ const MicrographViewer = ({
 
   if (loading) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-900">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--color-bg)]">
         <BiLoader className="animate-spin text-blue-500 text-3xl" />
-        <p className="text-gray-600 dark:text-slate-300 mt-2 text-sm">Loading image...</p>
+        <p className="text-[var(--color-text-secondary)] mt-2 text-sm">Loading image...</p>
       </div>
     );
   }
 
   if (!imageData?.image) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900">
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)]">
         <FiImage className="text-4xl mb-3" />
         <p className="text-center text-sm">Could not load micrograph image</p>
       </div>
@@ -65,11 +65,11 @@ const MicrographViewer = ({
   }
 
   // MRC dimensions (full-size micrograph that coordinates reference)
-  const mrcW = imageData.original_width || 1;
-  const mrcH = imageData.original_height || 1;
+  const mrcW = imageData.originalWidth || 1;
+  const mrcH = imageData.originalHeight || 1;
 
   // Convert Å diameter → MRC-pixel radius
-  const effectivePixelSize = pixelSize || imageData.pixel_size || 1;
+  const effectivePixelSize = pixelSize || imageData.pixelSize || 1;
   const radiusMrcPx = (circleDiameterA / 2) / effectivePixelSize;
 
   // Stroke width: ~2 screen-px equivalent in MRC-pixel space

@@ -2,7 +2,7 @@ import axiosInstance from "../../config";
 
 const bayesianPolishingAPI = (payload = {}) => {
   // Map frontend field names to backend field names expected by PolishBuilder.
-  // Also pass through SLURM fields from SlurmRunningConfig (runningmpi, threads, etc.)
+  // Also pass through SLURM fields from SlurmRunningConfig (mpiProcs, threads, etc.)
   const mappedPayload = {
     project_id: payload.project_id,
     // Input files - keep both frontend and mapped names for paramHelper fallback
@@ -31,14 +31,13 @@ const bayesianPolishingAPI = (payload = {}) => {
     minResolutionBfac: payload.minResolutionBfac ?? 20,
     maxResolutionBfac: payload.maxResolutionBfac ?? -1,
     // SLURM / Running parameters - use names from SlurmRunningConfig
-    runningmpi: payload.runningmpi ?? payload.mpiProcs ?? 1,
+    mpiProcs: payload.mpiProcs ?? 1,
     threads: payload.threads ?? 1,
     gres: payload.gres ?? 0,
-    clustername: payload.clustername || "",
-    // Queue parameters - SlurmRunningConfig uses lowercase 'queuename'
+    clusterName: payload.clusterName || "",
     submitToQueue: payload.submitToQueue || "No",
-    queuename: payload.queuename || payload.queueName || "",
-    additionalArguments: payload.addArguments || payload.additionalArguments || "",
+    queueName: payload.queueName || "",
+    additionalArguments: payload.additionalArguments || "",
   };
 
   return axiosInstance.post(`/api/jobs/polish/`, mappedPayload);

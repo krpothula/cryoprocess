@@ -45,7 +45,9 @@ class JoinStarBuilder extends BaseJobBuilder {
     const relOutputDir = this.makeRelative(outputDir);
     const data = this.data;
 
-    const cmd = ['relion_star_handler', '--combine'];
+    // Build separate commands for each combine type to avoid duplicate --i/--o flags.
+    // relion_star_handler only accepts one --i/--o pair per invocation.
+    const commands = [];
 
     // Combine particle STARs
     if (getBoolParam(data, ['combineParticles'], false)) {
@@ -54,11 +56,14 @@ class JoinStarBuilder extends BaseJobBuilder {
         getParam(data, ['particlesStarFile2'], null),
         getParam(data, ['particlesStarFile3'], null),
         getParam(data, ['particlesStarFile4'], null)
-      ].filter(Boolean).join(' ');
+      ].filter(Boolean).map(f => this.makeRelative(this.resolveInputPath(f))).join(' ');
 
       if (inputs) {
-        cmd.push('--i', inputs);
-        cmd.push('--o', path.join(relOutputDir, 'join_particles.star'));
+        commands.push([
+          'relion_star_handler', '--combine',
+          '--i', inputs,
+          '--o', path.join(relOutputDir, 'join_particles.star')
+        ]);
       }
     }
 
@@ -69,11 +74,14 @@ class JoinStarBuilder extends BaseJobBuilder {
         getParam(data, ['micrographStarFile2'], null),
         getParam(data, ['micrographStarFile3'], null),
         getParam(data, ['micrographStarFile4'], null)
-      ].filter(Boolean).join(' ');
+      ].filter(Boolean).map(f => this.makeRelative(this.resolveInputPath(f))).join(' ');
 
       if (inputs) {
-        cmd.push('--i', inputs);
-        cmd.push('--o', path.join(relOutputDir, 'join_micrographs.star'));
+        commands.push([
+          'relion_star_handler', '--combine',
+          '--i', inputs,
+          '--o', path.join(relOutputDir, 'join_micrographs.star')
+        ]);
       }
     }
 
@@ -84,15 +92,29 @@ class JoinStarBuilder extends BaseJobBuilder {
         getParam(data, ['movieStarFile2'], null),
         getParam(data, ['movieStarFile3'], null),
         getParam(data, ['movieStarFile4'], null)
-      ].filter(Boolean).join(' ');
+      ].filter(Boolean).map(f => this.makeRelative(this.resolveInputPath(f))).join(' ');
 
       if (inputs) {
-        cmd.push('--i', inputs);
-        cmd.push('--o', path.join(relOutputDir, 'join_movies.star'));
+        commands.push([
+          'relion_star_handler', '--combine',
+          '--i', inputs,
+          '--o', path.join(relOutputDir, 'join_movies.star')
+        ]);
       }
     }
 
+    // Chain multiple commands with && for sequential execution
+    const cmd = [];
+    for (let i = 0; i < commands.length; i++) {
+      if (i > 0) cmd.push('&&');
+      cmd.push(...commands[i]);
+    }
+
+    // Add pipeline_control to final command
     cmd.push('--pipeline_control', relOutputDir + path.sep);
+
+    // Additional arguments
+    this.addAdditionalArguments(cmd);
 
     logger.info(`[JoinStar] Command built | ${cmd.join(' ')}`);
     return cmd;

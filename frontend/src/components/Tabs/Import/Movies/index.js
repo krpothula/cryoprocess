@@ -1,6 +1,6 @@
 import React from "react";
 import CustomInput from "../../common/Input";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import CustomDropdown from "../../common/Dropdown";
 import SimpleInput from "../../common/SimpleInput";
 
@@ -25,30 +25,30 @@ const Movies = ({
       <CustomInput
         isCustomUpload={true}
         onChange={() => {
-          setFilePopup("input_files");
+          setFilePopup("inputFiles");
         }}
-        name="input_files"
+        name="inputFiles"
         label="Raw input files:"
         placeholder="Micrographs/*.tif"
         tooltipText="Path to your raw data files. Use wildcards (e.g., Movies/*.tif, *.mrc, *.eer) to select multiple files. Supports TIFF, MRC, and EER formats."
-        value={formData?.["input_files"]}
+        value={formData?.inputFiles}
         disabled={!enable}
       />
       <CustomDropdown
         label="Are these multi-frame movies?"
         onChange={handleInputChange}
-        value={formData.multiframemovies}
+        value={formData.multiFrameMovies}
         options={dropdownOptions}
-        name="multiframemovies"
+        name="multiFrameMovies"
         tooltipText="Select 'Yes' if importing dose-fractionated movies (multiple frames per exposure). Select 'No' for single-frame micrographs."
         disabled={!enable}
       />
       <SimpleInput
         tooltipText="Name for this optics group. Use different names when combining data from multiple microscope sessions or with different imaging conditions."
         label="Optics group"
-        name="opticsgroupname"
+        name="opticsGroupName"
         placeholder="Opticsgroup1"
-        value={formData.opticsgroupname}
+        value={formData.opticsGroupName}
         onChange={handleInputChange}
         disabled={!enable}
       />

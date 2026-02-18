@@ -11,15 +11,15 @@ const Other = ({
   nodeOptions,
   setFilePopup,
 }) => {
-  const isNodeTypeYes = formData.nodetype === "Yes";
+  const isNodeTypeYes = formData.nodeType === "Yes";
   return (
     <div className="tab-content">
       <CustomDropdown
         label="Import other node types?"
         onChange={handleInputChange}
         options={dropdownOptions}
-        name="nodetype"
-        value={formData.nodetype}
+        name="nodeType"
+        value={formData.nodeType}
         tooltipText="Import existing reference maps, masks, or particle stacks from previous RELION projects or external sources."
         // disabled={true}
       />
@@ -57,9 +57,9 @@ const Other = ({
       />
       <SimpleInput
         label="Rename optics group for particles:"
-        name="renameopticsgroup"
+        name="renameOpticsGroup"
         onChange={handleInputChange}
-        value={formData.renameopticsgroup}
+        value={formData.renameOpticsGroup}
         tooltipText="Optionally rename the optics group when importing particles. Useful when merging datasets from different microscope sessions."
         placeholder=""
         disabled={!isNodeTypeYes}

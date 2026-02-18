@@ -77,12 +77,12 @@ export const transformApiResponseToTree = (apiResponse) => {
       ? node.children.map(buildNode).filter(Boolean)
       : [];
 
-    const color = getJobColor(node.job_type);
+    const color = getJobColor(node.jobType);
 
     return {
       id: node.id,
-      label: node.job_name || "Unnamed",
-      jobType: node.job_type || "",
+      label: node.jobName || "Unnamed",
+      jobType: node.jobType || "",
       status: node.status || "",
       children,
       style: {
@@ -95,7 +95,7 @@ export const transformApiResponseToTree = (apiResponse) => {
 
   // Each item in data is already a ROOT JOB (parent_id === "")
   const trees = apiResponse.data
-    .filter((item) => item.parent_id === "")
+    .filter((item) => item.parentId === "")
     .map(buildNode)
     .filter(Boolean);
 

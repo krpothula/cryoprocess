@@ -3,13 +3,13 @@ import React from "react";
 const Table = ({ columns, rows, isDataLoading }) => {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full border-collapse rounded border border-gray-300">
-        <thead className="rounded bg-black">
+      <table className="min-w-full border-collapse rounded border border-[var(--color-border)]">
+        <thead className="rounded bg-[var(--color-bg-active)]">
           <tr>
             {columns.map((col, index) => (
               <th
                 key={index}
-                className="border rounded border-stroke font-medium px-4 py-2 text-left text-base text-white"
+                className="border rounded border-stroke font-medium px-4 py-2 text-left text-base text-[var(--color-text)]"
               >
                 {col.name}
               </th>
@@ -23,7 +23,7 @@ const Table = ({ columns, rows, isDataLoading }) => {
                 colSpan={4}
                 className="border border-stroke px-4 py-3 text-center"
               >
-                <p className="flex justify-center items-center text-black my-3">
+                <p className="flex justify-center items-center text-[var(--color-text)] my-3">
                   <span className="block w-5 h-5 border-2 border-t-[2px] border-[#c4c4c4] mr-2 border-solid rounded-full animate-spin border-t-primary"></span>
                   Loading data, please wait...
                 </p>
@@ -33,12 +33,12 @@ const Table = ({ columns, rows, isDataLoading }) => {
             rows.map((row, rowIndex) => (
               <tr
                 key={rowIndex}
-                className={rowIndex % 2 === 0 ? "bg-white dark:bg-slate-800" : "bg-white dark:bg-slate-800"}
+                className={rowIndex % 2 === 0 ? "bg-[var(--color-bg-card)]" : "bg-[var(--color-bg-card)]"}
               >
                 {columns.map((col, colIndex) => (
                   <td
                     key={colIndex}
-                    className="border border-stroke px-4 py-3 text-sm text-gray-700"
+                    className="border border-stroke px-4 py-3 text-sm text-[var(--color-text)]"
                   >
                     {row[col.accessor] || "-"}
                   </td>

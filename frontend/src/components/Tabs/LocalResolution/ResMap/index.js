@@ -1,7 +1,7 @@
 import React from 'react'
 import CustomDropdown from '../../common/Dropdown'
 import CustomInput from '../../common/Input'
-import PixelSizeInput from '../../common/PixelSixeInput'
+import PixelSizeInput from '../../common/PixelSizeInput'
 
 const ResMap = ({formData,handleInputChange,dropdownOptions,handleRangeChange}) => {
   return (

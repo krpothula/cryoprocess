@@ -25,6 +25,11 @@ class SubtractBuilder extends BaseJobBuilder {
     return false;
   }
 
+  // relion_particle_subtract is NOT an MPI command
+  get supportsMpi() {
+    return false;
+  }
+
   validate() {
     const optimiserStar = getParam(this.data, ['optimiserStar'], null);
     if (!optimiserStar) {
@@ -67,7 +72,7 @@ class SubtractBuilder extends BaseJobBuilder {
       }
     }
 
-    if (getBoolParam(data, ['subtracted_images'], false)) {
+    if (getBoolParam(data, ['subtractedImages', 'subtracted_images'], false)) {
       cmd.push('--recenter_on_mask');
     }
 

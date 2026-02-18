@@ -13,7 +13,7 @@ const useToast = () => {
       draggable: true,
       theme: document.documentElement.classList.contains("dark") ? "dark" : "light",
       closeButton: false,
-      className: "text-black dark:text-slate-100",
+      className: "text-[var(--color-text)]",
     };
 
     // Merge default options with user-provided options

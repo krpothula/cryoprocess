@@ -1,6 +1,6 @@
 import React from "react";
 
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 
 import CustomDropdown from "../../common/Dropdown";
 import SimpleInput from "../../common/SimpleInput";
@@ -39,8 +39,8 @@ const Reference = ({ formData, handleInputChange, handleRangeChange ,dropdownOpt
       <SimpleInput
         label="Symmetry:"
         placeholder="C1"
-        name="Symmetry"
-        value={formData.Symmetry}
+        name="symmetry"
+        value={formData.symmetry}
         onChange={handleInputChange}
         tooltipText="Point group symmetry (C1, C2, D2, etc.). Correct symmetry dramatically speeds up refinement and improves resolution. Use C1 if symmetry is unknown."
       />

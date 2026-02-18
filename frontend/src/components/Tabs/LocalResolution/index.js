@@ -10,18 +10,14 @@ import { useBuilder } from "../../../context/BuilderContext";
 
 const initialFormData = {
   calibratedPixelSize: 1,
-  numberOfMpiProcs: 1,
   bFactor: -100,
-  useRelion: "Yes",
   submitToQueue: "No",
-  queuename: "",
-  queueSubmitCommand: "",
+  queueName: "",
   additionalArguments: "",
-  runningmpi: 1,
+  mpiProcs: 1,
   threads: 1,
   gres: 0,
-  clustername: "",
-  arguments: "",
+  clusterName: "",
 };
 
 const LocalResolution = () => {

@@ -12,7 +12,7 @@ const MicrographViewer = ({
 }) => {
   if (!selectedMicrograph) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900">
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)]">
         <FiImage className="text-4xl mb-3" />
         <p className="text-center text-sm">Select a micrograph to view</p>
       </div>
@@ -24,15 +24,15 @@ const MicrographViewer = ({
 
   if (isLoading) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-900">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--color-bg)]">
         <BiLoader className="animate-spin text-blue-500 text-3xl" />
-        <p className="text-gray-600 dark:text-slate-300 mt-2 text-sm">Loading image...</p>
+        <p className="text-[var(--color-text-secondary)] mt-2 text-sm">Loading image...</p>
       </div>
     );
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-white dark:bg-slate-800">
+    <div className="absolute inset-0 overflow-hidden bg-[var(--color-bg-card)]">
       {currentImage?.image ? (
         <img
           src={currentImage.image}
@@ -50,7 +50,7 @@ const MicrographViewer = ({
           }}
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-gray-500 dark:text-slate-400">
+        <div className="absolute inset-0 flex items-center justify-center text-[var(--color-text-secondary)]">
           <p>
             {activeTab === "micrograph"
               ? "Micrograph image not available"

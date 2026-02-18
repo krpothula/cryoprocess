@@ -1,6 +1,6 @@
 import React from "react";
 import CustomInput from "../../common/Input";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 
 const Io = ({ handleInputChange, formData, handleRangeChange, jobType }) => {
   return (

@@ -34,7 +34,7 @@ const JobDashboard = () => {
   const { selectedJob, projectId } = useBuilder();
 
   // Job type checks - all use PascalCase (standardized format from backend)
-  const jobType = selectedJob?.job_type;
+  const jobType = selectedJob?.jobType;
 
   const isMotionJob = jobType === "MotionCorr";
   const isImportJob = jobType === "Import";
@@ -132,7 +132,7 @@ const JobDashboard = () => {
                             setShowDownloads(false);
                           }}
                         >
-                          {file.file_name}
+                          {file.fileName}
                         </button>
                       ))}
                     </div>

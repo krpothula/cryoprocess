@@ -113,8 +113,8 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
     const inputMovies = getParam(data, ['inputMovies'], null);
     const relInput = this.makeRelative(this.resolveInputPath(inputMovies));
 
-    // Determine EER grouping value (two UI fields map to same RELION flag)
-    const eerGrouping = getIntParam(data, ['eerFractionation', 'groupFrames'], 32);
+    // Determine EER grouping value
+    const eerGrouping = getIntParam(data, ['eerFractionation'], 32);
 
     // Check if MPI should be used (more than 1 process)
     const mpiProcs = getMpiProcs(data);
@@ -217,7 +217,7 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
     }
 
     if (getBoolParam(data, ['savePowerSpectra'], false)) {
-      cmd.push('--grouping_for_ps', String(getIntParam(data, ['sumPowerSpectra'], 4)));
+      cmd.push('--grouping_for_ps', String(getIntParam(data, ['sumPowerSpectra', 'powerSpectraEvery'], 4)));
     }
 
     // Add threads parameter
@@ -250,12 +250,24 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
         cmd.push('--gpu', gpuIds);
       }
 
-      // Add other MotionCor2 arguments if provided
-      const otherArgs = getParam(data, ['othermotion'], null);
-      if (otherArgs && otherArgs.trim()) {
-        // Split and add each argument
-        for (const arg of otherArgs.trim().split(/\s+/)) {
-          cmd.push(arg);
+      // Add other MotionCor2 arguments if provided (with sanitization)
+      const otherArgs = getParam(data, ['otherMotion', 'othermotion'], null);
+      if (otherArgs && String(otherArgs).trim()) {
+        const raw = String(otherArgs).trim();
+        // Block shell injection patterns (same as addAdditionalArguments)
+        const dangerous = /[;|&`$()<>{}!\\\n\r]/;
+        if (dangerous.test(raw)) {
+          logger.warn(`[Motion] Blocked dangerous characters in MotionCor2 arguments: ${raw.substring(0, 80)}`);
+        } else {
+          const args = raw.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+          for (const arg of args) {
+            const clean = arg.replace(/"/g, '');
+            if (clean.startsWith('-') && !/^--?[\w][\w-]*$/.test(clean)) {
+              logger.warn(`[Motion] Skipping invalid MotionCor2 flag: ${clean}`);
+              continue;
+            }
+            cmd.push(clean);
+          }
         }
       }
     }

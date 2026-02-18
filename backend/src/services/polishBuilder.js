@@ -104,12 +104,19 @@ class PolishBuilder extends BaseJobBuilder {
       if (minParticles > 0) {
         cmd.push('--min_p', String(minParticles));
       }
-    } else {
+    } else if (getBoolParam(data, ['particlePolishing'], true)) {
+      // Polish mode — only when particle polishing is enabled
+      // Use trained parameter file if provided
+      const paramsFile = getParam(data, ['optimisedParameterFile'], null);
+      if (paramsFile) {
+        cmd.push('--params_file', this.makeRelative(this.resolveInputPath(paramsFile)));
+      }
+
       cmd.push('--s_vel', String(getFloatParam(data, ['sigmaVelocity'], 0.2)));
       cmd.push('--s_div', String(getFloatParam(data, ['sigmaDivergence'], 5000)));
       cmd.push('--s_acc', String(getFloatParam(data, ['sigmaAcceleration'], 2)));
 
-      // Combine frames for polished particles (only in polish mode, not training)
+      // Combine frames for polished particles
       if (getBoolParam(data, ['performBfactorWeighting'], true)) {
         cmd.push('--combine_frames');
         cmd.push('--bfac_minfreq', String(getFloatParam(data, ['minResolutionBfac'], 20)));

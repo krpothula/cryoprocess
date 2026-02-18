@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import CustomDropdown from "../../common/Dropdown";
 import CustomInput from "../../common/Input";
 import SimpleInput from "../../common/SimpleInput";
@@ -47,11 +47,11 @@ const Topaz = ({
         onChange={() => {
           setShowModelBrowser(true);
         }}
-        name="trainedTopazparticles"
+        name="trainedTopazParticles"
         label="Trained topaz model:"
         placeholder="Browse project folder to select model file"
         tooltipText="Select a trained Topaz model file (.sav) from the project folder"
-        value={formData?.["trainedTopazparticles"]}
+        value={formData?.["trainedTopazParticles"]}
         disabled={!isEnable1}
       />
       <CustomDropdown
@@ -170,10 +170,10 @@ const Topaz = ({
           onClose={() => setShowModelBrowser(false)}
           onFileSelect={(file) => {
             if (onFormDataChange) {
-              onFormDataChange({ trainedTopazparticles: file.path });
+              onFormDataChange({ trainedTopazParticles: file.path });
             } else {
               handleInputChange({
-                target: { name: "trainedTopazparticles", value: file.path },
+                target: { name: "trainedTopazParticles", value: file.path },
               });
             }
             setShowModelBrowser(false);

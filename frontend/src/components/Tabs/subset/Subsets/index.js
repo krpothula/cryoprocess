@@ -1,6 +1,6 @@
 import React from 'react'
 import CustomDropdown from '../../common/Dropdown'
-import PixelSizeInput from '../../common/PixelSixeInput'
+import PixelSizeInput from '../../common/PixelSizeInput'
 import SimpleInput from '../../common/SimpleInput'
 
 const Subsets = ({handleInputChange, dropdownOptions,formData,handleRangeChange}) => {
@@ -65,8 +65,8 @@ const Subsets = ({handleInputChange, dropdownOptions,formData,handleRangeChange}
               placeholder=""
               min={1}
               max={10}
-              value={formData.SigmaValue}
-              name='SigmaValue'
+              value={formData.sigmaValue}
+              name='sigmaValue'
               onChange={handleRangeChange}
               handleInputChange={handleInputChange}
               tooltipText="Number of standard deviations from the mean for outlier removal. Particles outside this range are excluded. Default 4 keeps most particles."

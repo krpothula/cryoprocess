@@ -9,6 +9,7 @@
  */
 
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 const logger = require('./logger');
 
@@ -72,6 +73,11 @@ const PROGRESS_CONFIG = {
     pattern: /shiny_(\d+)\.mrcs$/,
     description: 'particles polished'
   },
+  InitialModel: {
+    pattern: /(?:run_)?_?it(\d+)_class\d+\.mrc$/,
+    type: 'iteration',
+    description: 'iterations'
+  },
   CtfRefine: {
     pattern: /particles_ctf_refine\.star$/,
     type: 'boolean',
@@ -80,16 +86,15 @@ const PROGRESS_CONFIG = {
 };
 
 /**
- * Get job progress by counting output files
+ * Get job progress by counting output files (async — does not block event loop)
  * @param {string} outputDir - Job output directory
  * @param {string} jobType - Job type (MotionCorr, CtfFind, etc.)
  * @param {number|null} totalExpected - Expected total count (from input)
- * @returns {Object|null} Progress object or null if not supported
+ * @returns {Promise<Object|null>} Progress object or null if not supported
  */
-function getJobProgress(outputDir, jobType, totalExpected = null) {
-  if (!outputDir || !fs.existsSync(outputDir)) {
-    return null;
-  }
+async function getJobProgress(outputDir, jobType, totalExpected = null) {
+  if (!outputDir) return null;
+  try { await fsp.access(outputDir); } catch { return null; }
 
   const config = PROGRESS_CONFIG[jobType];
   if (!config) {
@@ -113,7 +118,7 @@ function getJobProgress(outputDir, jobType, totalExpected = null) {
     // Some job types output to subdirectories (e.g., MotionCorr -> Movies/)
     const searchDir = config.subdir ? path.join(outputDir, config.subdir) : outputDir;
 
-    if (!fs.existsSync(searchDir)) {
+    try { await fsp.access(searchDir); } catch {
       // Subdir doesn't exist yet - job hasn't started outputting
       return {
         processed: 0,
@@ -124,7 +129,7 @@ function getJobProgress(outputDir, jobType, totalExpected = null) {
       };
     }
 
-    const files = fs.readdirSync(searchDir);
+    const files = await fsp.readdir(searchDir);
 
     let result;
 

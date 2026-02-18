@@ -24,6 +24,11 @@ class LocalResolutionBuilder extends BaseJobBuilder {
     return false;
   }
 
+  // relion_postprocess is NOT an MPI command
+  get supportsMpi() {
+    return false;
+  }
+
   validate() {
     const halfMap = getParam(this.data, ['halfMap'], null);
     let result = this.validateFileExists(halfMap, 'Half map');

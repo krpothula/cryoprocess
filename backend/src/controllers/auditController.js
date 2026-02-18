@@ -7,6 +7,7 @@
 const AuditLog = require('../models/AuditLog');
 const response = require('../utils/responseHelper');
 const logger = require('../utils/logger');
+const { mapKeys } = require('../utils/mapKeys');
 
 /**
  * List audit logs with filters and pagination
@@ -42,7 +43,7 @@ exports.listAuditLogs = async (req, res) => {
       AuditLog.countDocuments(filter)
     ]);
 
-    return response.paginated(res, logs, { page, limit, total });
+    return response.paginated(res, mapKeys(logs), { page, limit, total });
   } catch (error) {
     logger.error('[Audit] listAuditLogs error:', error);
     return response.serverError(res, error.message);

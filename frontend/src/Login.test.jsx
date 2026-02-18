@@ -71,9 +71,9 @@ describe('Login', () => {
             id: 1,
             username: 'admin',
             email: 'admin@test.com',
-            first_name: 'Admin',
-            is_superuser: true,
-            is_staff: true,
+            firstName: 'Admin',
+            isSuperuser: true,
+            isStaff: true,
           },
         },
       },
@@ -95,7 +95,7 @@ describe('Login', () => {
 
     const userInfo = JSON.parse(localStorage.getItem('userInfo'));
     expect(userInfo.username).toBe('admin');
-    expect(userInfo.is_superuser).toBe(true);
+    expect(userInfo.isSuperuser).toBe(true);
     expect(mockSetUser).toHaveBeenCalledWith(true);
     expect(mockNavigate).toHaveBeenCalledWith('/projects');
   });

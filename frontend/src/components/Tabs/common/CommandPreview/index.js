@@ -91,37 +91,37 @@ const CommandPreview = ({ formData, jobType, projectId }) => {
         <div className="mt-4 border-t pt-4">
           <button
             onClick={handlePreviewClick}
-            className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-[var(--color-text)] hover:text-[var(--color-text-heading)] transition-colors"
           >
             <FiTerminal className="text-blue-500" />
             <span>RELION Command</span>
             {showCommand ? (
-              <FiChevronUp className="text-gray-400" />
+              <FiChevronUp className="text-[var(--color-text-muted)]" />
             ) : (
-              <FiChevronDown className="text-gray-400" />
+              <FiChevronDown className="text-[var(--color-text-muted)]" />
             )}
           </button>
 
           {error && (
-            <div className="mt-3 bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm">
+            <div className="mt-3 bg-[var(--color-danger-bg)] border border-[var(--color-danger-border)] text-[var(--color-danger-text)] p-3 rounded-lg text-sm">
               Error: {error}
             </div>
           )}
 
           {command && (
             <div className="mt-3 relative">
-              <pre className="bg-gray-900 dark:bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto font-mono leading-relaxed">
+              <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto font-mono leading-relaxed">
                 {command}
               </pre>
               <button
                 onClick={copyCommand}
-                className="absolute top-2 right-2 p-2 bg-gray-700 dark:bg-slate-600 hover:bg-gray-600 dark:hover:bg-slate-500 rounded text-gray-300 dark:text-slate-400 hover:text-white transition-colors"
+                className="absolute top-2 right-2 p-2 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 hover:text-white transition-colors"
                 title="Copy command"
               >
                 <FiCopy className="text-sm" />
               </button>
               {commandCopied && (
-                <span className="absolute top-2 right-12 text-xs text-green-400 bg-gray-800 dark:bg-slate-900 px-2 py-1 rounded">
+                <span className="absolute top-2 right-12 text-xs text-green-400 bg-gray-800 px-2 py-1 rounded">
                   Copied!
                 </span>
               )}

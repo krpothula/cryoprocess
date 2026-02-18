@@ -19,12 +19,12 @@ const Navbar = ({ setShowJobTree, showJobTree }) => {
   // Check if user is admin (staff or superuser)
   let userInfo = {};
   try { userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}"); } catch (_) { /* corrupted storage */ }
-  const isAdmin = userInfo.is_superuser || userInfo.is_staff;
+  const isAdmin = userInfo.isSuperuser || userInfo.isStaff;
 
   // Get user initials
   const getInitials = () => {
-    const first = userInfo.first_name?.charAt(0)?.toUpperCase() || '';
-    const last = userInfo.last_name?.charAt(0)?.toUpperCase() || '';
+    const first = userInfo.firstName?.charAt(0)?.toUpperCase() || '';
+    const last = userInfo.lastName?.charAt(0)?.toUpperCase() || '';
     if (first && last) return `${first}${last}`;
     if (first) return first;
     if (userInfo.username) return userInfo.username.charAt(0).toUpperCase();
@@ -48,33 +48,33 @@ const Navbar = ({ setShowJobTree, showJobTree }) => {
         .then((resp) => {
           const responseData = resp?.data;
           const project = responseData?.data || responseData;
-          if (Array.isArray(project) && project[0]?.project_name) {
-            setProjectName(project[0].project_name);
-          } else if (project?.project_name) {
-            setProjectName(project.project_name);
+          if (Array.isArray(project) && project[0]?.projectName) {
+            setProjectName(project[0].projectName);
+          } else if (project?.projectName) {
+            setProjectName(project.projectName);
           }
         })
         .catch(() => {
           setProjectName("");
         });
     } else if (sessionId) {
-      // For live sessions: fetch session -> get project_id -> fetch project name
+      // For live sessions: fetch session -> get projectId -> fetch project name
       getSession(sessionId)
         .then((resp) => {
           const sessionData = resp?.data?.data || resp?.data;
-          const pid = sessionData?.project_id;
+          const pid = sessionData?.projectId;
           if (pid) {
             return getProjectByIdApi(pid);
           }
-          throw new Error("No project_id");
+          throw new Error("No projectId");
         })
         .then((resp) => {
           const responseData = resp?.data;
           const project = responseData?.data || responseData;
-          if (Array.isArray(project) && project[0]?.project_name) {
-            setProjectName(project[0].project_name);
-          } else if (project?.project_name) {
-            setProjectName(project.project_name);
+          if (Array.isArray(project) && project[0]?.projectName) {
+            setProjectName(project[0].projectName);
+          } else if (project?.projectName) {
+            setProjectName(project.projectName);
           }
         })
         .catch(() => {
@@ -199,8 +199,8 @@ const Navbar = ({ setShowJobTree, showJobTree }) => {
                   <div className="dropdown-avatar">{getInitials()}</div>
                   <div className="dropdown-user-info">
                     <span className="dropdown-username">{userInfo.username || 'Account'}</span>
-                    <span className={`dropdown-role ${userInfo.is_superuser ? 'superuser' : userInfo.is_staff ? 'staff' : 'user'}`}>
-                      {userInfo.is_superuser ? 'Superuser' : userInfo.is_staff ? 'Staff' : 'User'}
+                    <span className={`dropdown-role ${userInfo.isSuperuser ? 'superuser' : userInfo.isStaff ? 'staff' : 'user'}`}>
+                      {userInfo.isSuperuser ? 'Superuser' : userInfo.isStaff ? 'Staff' : 'User'}
                     </span>
                   </div>
                 </div>

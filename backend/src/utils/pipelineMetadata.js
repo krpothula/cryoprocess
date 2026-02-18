@@ -19,6 +19,7 @@ const logger = require('./logger');
 const Job = require('../models/Job');
 const Project = require('../models/Project');
 const settings = require('../config/settings');
+const { IMPORT_NODE_TYPES } = require('../config/constants');
 
 /**
  * Calculate pixel_size by traversing the pipeline from Import to current job.
@@ -202,7 +203,10 @@ function buildStatsUpdate(stats) {
 
   // Parameter-derived fields: only set if explicitly provided (don't overwrite submission-time values)
   const paramFields = ['total_iterations', 'voltage', 'cs', 'import_type', 'symmetry',
-    'mask_diameter', 'bin_factor', 'pick_method', 'rescaled_size'];
+    'mask_diameter', 'bin_factor', 'pick_method', 'rescaled_size',
+    // Import "other" node type fields
+    'node_type', 'node_label', 'imported_file_name',
+    'voxel_size', 'entry_count'];
   for (const key of paramFields) {
     if (key in stats) {
       update[`pipeline_stats.${key}`] = stats[key];
@@ -270,14 +274,227 @@ async function countStarFileEntries(starPath) {
 }
 
 /**
+ * Count data rows in a STAR file, returning the largest data block count.
+ * RELION STAR files often have multiple blocks (e.g. data_optics with 1-2 rows,
+ * then data_ with the actual entries). This scans ALL blocks and returns the max.
+ * @param {string} starPath - Path to the STAR file
+ * @returns {Promise<number>} Count of data rows in the largest block
+ */
+async function countStarRowsGeneric(starPath) {
+  try {
+    const content = await fs.promises.readFile(starPath, 'utf-8');
+    const lines = content.split('\n');
+
+    let maxCount = 0;
+    let blockCount = 0;
+    let inDataBlock = false;
+    let inLoop = false;
+    let pastHeaders = false;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith('data_')) {
+        // Save previous block count before starting new block
+        if (blockCount > maxCount) maxCount = blockCount;
+        blockCount = 0;
+        inDataBlock = true;
+        inLoop = false;
+        pastHeaders = false;
+        continue;
+      }
+
+      if (inDataBlock && trimmed.startsWith('loop_')) {
+        inLoop = true;
+        pastHeaders = false;
+        continue;
+      }
+
+      // Skip column headers (_rlnXxx)
+      if (inLoop && !pastHeaders && trimmed.startsWith('_')) {
+        continue;
+      }
+
+      // Count non-empty data rows
+      if (inLoop && trimmed && !trimmed.startsWith('#')) {
+        pastHeaders = true;
+        blockCount++;
+      }
+
+      // Empty line after data rows ends the current block
+      if (inLoop && pastHeaders && !trimmed) {
+        inLoop = false;
+        inDataBlock = false;
+      }
+    }
+
+    // Check the last block
+    if (blockCount > maxCount) maxCount = blockCount;
+
+    return maxCount;
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      logger.warn(`[PipelineMetadata] Failed to count rows in ${starPath}: ${error.message}`);
+    }
+    return 0;
+  }
+}
+
+/**
+ * Count total particles across per-micrograph coordinate STAR files.
+ * RELION coords import stores a tiny suffix file at the top level, with actual
+ * coordinate data in per-micrograph *_autopick.star / *_pick.star files in subdirectories.
+ * @param {string} outputDir - Import job output directory
+ * @param {string} mainFile - The main STAR filename to exclude
+ * @returns {Promise<number>} Total particle count
+ */
+async function countCoordsParticles(outputDir, mainFile) {
+  try {
+    let totalCount = 0;
+    const scanDir = async (dir) => {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await scanDir(fullPath);
+        } else if (entry.name.endsWith('.star') && entry.name !== mainFile) {
+          const count = await countStarRowsGeneric(fullPath);
+          if (count > 0) totalCount += count;
+        }
+      }
+    };
+    await scanDir(outputDir);
+    if (totalCount > 0) {
+      logger.info(`[PipelineMetadata] Counted ${totalCount} total particles across coordinate files in ${outputDir}`);
+    }
+    return totalCount;
+  } catch (error) {
+    logger.warn(`[PipelineMetadata] Failed to count coords particles in ${outputDir}: ${error.message}`);
+    return 0;
+  }
+}
+
+/**
  * Store pipeline metadata for Import job
  * @param {Object} job - The job document
  */
 async function storeImportMetadata(job) {
   const params = job.parameters || {};
   const command = job.command || '';
+  const outputDir = job.output_file_path;
 
-  // Determine import type
+  const nodeTypeInfo = IMPORT_NODE_TYPES;
+
+  // --- Handle "other" node type imports (ref3d, mask, halfmap, refs2d, coords) ---
+  // RELION uses different flags: --do_other (ref3d, mask, refs2d), --do_coordinates, --do_halfmaps
+  const isOtherImport = command.includes('--do_other') || command.includes('--do_coordinates') || command.includes('--do_halfmaps');
+  if (isOtherImport) {
+    let nodeType = null;
+    let nodeLabel = 'Unknown';
+    let importedFile = null;
+
+    // Detect node type from command flags
+    if (command.includes('--do_coordinates')) {
+      nodeType = 'coords';
+      nodeLabel = nodeTypeInfo.coords.label;
+      if (outputDir) {
+        const outputFile = path.join(outputDir, nodeTypeInfo.coords.output_file);
+        if (fs.existsSync(outputFile)) importedFile = outputFile;
+      }
+    } else if (command.includes('--do_halfmaps')) {
+      nodeType = 'halfmap';
+      nodeLabel = nodeTypeInfo.halfmap.label;
+      if (outputDir) {
+        const outputFile = path.join(outputDir, nodeTypeInfo.halfmap.output_file);
+        if (fs.existsSync(outputFile)) importedFile = outputFile;
+      }
+    } else {
+      // --do_other: parse --node_type flag
+      const nodeTypeMatch = command.match(/--node_type\s+(\w+)/);
+      if (nodeTypeMatch) {
+        nodeType = nodeTypeMatch[1];
+        if (nodeTypeInfo[nodeType] && outputDir) {
+          nodeLabel = nodeTypeInfo[nodeType].label;
+          const outputFile = path.join(outputDir, nodeTypeInfo[nodeType].output_file);
+          if (fs.existsSync(outputFile)) importedFile = outputFile;
+        } else if (nodeTypeInfo[nodeType]) {
+          nodeLabel = nodeTypeInfo[nodeType].label;
+        }
+      }
+    }
+
+    // Search for expected output files if not found by command
+    if (!importedFile && outputDir) {
+      for (const [nt, info] of Object.entries(nodeTypeInfo)) {
+        const potentialFile = path.join(outputDir, info.output_file);
+        if (fs.existsSync(potentialFile)) {
+          nodeType = nt;
+          nodeLabel = info.label;
+          importedFile = potentialFile;
+          break;
+        }
+      }
+    }
+
+    // Final fallback: find ANY .mrc file
+    if (!importedFile && outputDir && fs.existsSync(outputDir)) {
+      const files = fs.readdirSync(outputDir);
+      for (const fname of files) {
+        if (fname.endsWith('.mrc')) {
+          importedFile = path.join(outputDir, fname);
+          if (!nodeType) { nodeType = 'ref3d'; nodeLabel = '3D Reference'; }
+          break;
+        }
+      }
+    }
+
+    // Build stats for other node types
+    const statsData = {
+      import_type: nodeType || 'other',
+      node_type: nodeType,
+      node_label: nodeLabel
+    };
+
+    if (importedFile && fs.existsSync(importedFile)) {
+      statsData.imported_file_name = path.basename(importedFile);
+
+      // For MRC files, read volume dimensions and voxel size
+      if (importedFile.endsWith('.mrc')) {
+        try {
+          const { getMrcInfo } = require('./mrcParser');
+          const mrcInfo = getMrcInfo(importedFile);
+          if (mrcInfo) {
+            statsData.voxel_size = mrcInfo.pixelSize;
+            statsData.pixel_size = mrcInfo.pixelSize;
+          }
+        } catch (e) {
+          logger.warn(`[PipelineMetadata] Could not read MRC header for ${importedFile}: ${e.message}`);
+        }
+      }
+
+      // For STAR files, count entries
+      if (importedFile.endsWith('.star')) {
+        let entryCount = await countStarRowsGeneric(importedFile);
+
+        // For coords: the main file is tiny (just a suffix reference).
+        // Actual particles are in per-micrograph STAR files in subdirectories.
+        if (entryCount === 0 && nodeType === 'coords' && outputDir) {
+          entryCount = await countCoordsParticles(outputDir, path.basename(importedFile));
+        }
+
+        if (entryCount > 0) {
+          statsData.entry_count = entryCount;
+        }
+      }
+    }
+
+    const updateData = buildStatsUpdate(statsData);
+    await Job.findOneAndUpdate({ id: job.id }, updateData);
+    logger.info(`[PipelineMetadata] Import (other) ${job.job_name} | node: ${nodeType} | label: ${nodeLabel} | file: ${statsData.imported_file_name || 'none'}`);
+    return;
+  }
+
+  // --- Handle movies/micrographs import ---
   let importType = null;
 
   // Method 1: Check command flags
@@ -309,8 +526,7 @@ async function storeImportMetadata(job) {
   const originalPixelSize = params.angpix ? parseFloat(params.angpix) : null;
 
   // Count total files from STAR file
-  let micrographCount = 0;
-  const outputDir = job.output_file_path;
+  let fileCount = 0;
   if (outputDir) {
     for (const starName of ['micrographs.star', 'movies.star']) {
       const starPath = path.join(outputDir, starName);
@@ -324,7 +540,7 @@ async function storeImportMetadata(job) {
 
         const count = await countStarFileEntries(starPath);
         if (count > 0) {
-          micrographCount = count;
+          fileCount = count;
           logger.info(`[PipelineMetadata] Import job ${job.job_name}: counted ${count} entries from ${starName}`);
         }
         break;
@@ -332,14 +548,19 @@ async function storeImportMetadata(job) {
     }
   }
 
-  const updateData = buildStatsUpdate({
+  // Store count in both micrograph_count (for downstream inheritance) and movie_count when applicable
+  const statsData = {
     pixel_size: originalPixelSize,
-    micrograph_count: micrographCount,
+    micrograph_count: fileCount,
     import_type: importType
-  });
+  };
+  if (importType === 'movies') {
+    statsData.movie_count = fileCount;
+  }
 
+  const updateData = buildStatsUpdate(statsData);
   await Job.findOneAndUpdate({ id: job.id }, updateData);
-  logger.info(`[PipelineMetadata] Import ${job.job_name} | pixels: ${originalPixelSize}Å | micrographs: ${micrographCount} | type: ${importType}`);
+  logger.info(`[PipelineMetadata] Import ${job.job_name} | pixels: ${originalPixelSize}Å | count: ${fileCount} | type: ${importType}`);
 }
 
 /**
@@ -351,14 +572,23 @@ async function storeMotionMetadata(job) {
 
   // Get original pixel size from Import job
   let originalPixelSize = null;
-  let micrographCount = 0;
   const importJob = await findImportJob(job);
   if (importJob) {
     const importParams = importJob.parameters || {};
     if (importParams.angpix) {
       originalPixelSize = parseFloat(importParams.angpix);
     }
-    micrographCount = importJob.pipeline_stats?.micrograph_count || importJob.micrograph_count || 0;
+  }
+
+  // Count micrographs from own output corrected_micrographs.star
+  let micrographCount = 0;
+  const outputDir = job.output_file_path;
+  if (outputDir) {
+    const starPath = path.join(outputDir, 'corrected_micrographs.star');
+    if (fs.existsSync(starPath)) {
+      const count = await countStarFileEntries(starPath);
+      if (count > 0) micrographCount = count;
+    }
   }
 
   // Calculate effective pixel size with binning
@@ -589,7 +819,7 @@ async function storeAutoPickMetadata(job) {
 
   // Determine picking method
   const pickMethod = params.useTopaz === 'Yes' ? 'Topaz'
-    : params.useTemplateMatching === 'Yes' ? 'Template' : 'LoG';
+    : params.templateMatching === 'Yes' ? 'Template' : 'LoG';
 
   const updateData = buildStatsUpdate({
     pixel_size: pixelSize,
@@ -877,8 +1107,14 @@ async function storeExtractMetadata(job) {
     }
   }
 
-  // Inherit micrograph_count from upstream
-  const micrographCount = upstreamJob?.pipeline_stats?.micrograph_count || 0;
+  // Count unique micrographs from own particles.star output
+  let micrographCount = 0;
+  if (outputDir) {
+    const micStarPath = path.join(outputDir, 'particles.star');
+    if (fs.existsSync(micStarPath)) {
+      micrographCount = await countMicrographsInStar(micStarPath);
+    }
+  }
 
   const updateData = buildStatsUpdate({
     pixel_size: pixelSize,
@@ -901,17 +1137,15 @@ async function storeExtractMetadata(job) {
 async function storePolishMetadata(job) {
   const outputDir = job.output_file_path;
 
-  // Inherit from upstream
+  // Inherit non-count fields from upstream
   let pixelSize = null;
   let boxSize = null;
-  let micrographCount = 0;
 
   const upstreamJob = await findUpstreamJobDirect(job);
   if (upstreamJob) {
     const us = upstreamJob.pipeline_stats || {};
     pixelSize = getPixelSizeSafe(upstreamJob);
-    boxSize = us.box_size || upstreamJob.box_size || null;
-    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+    boxSize = us.box_size ?? upstreamJob.box_size ?? null;
   }
 
   if (!pixelSize) {
@@ -919,12 +1153,14 @@ async function storePolishMetadata(job) {
     if (pixelCalc.current_pixel_size) pixelSize = pixelCalc.current_pixel_size;
   }
 
-  // Count actual output particles from shiny.star
+  // Count actual output particles and micrographs from shiny.star
   let particleCount = 0;
+  let micrographCount = 0;
   if (outputDir) {
     const starPath = path.join(outputDir, 'shiny.star');
     if (fs.existsSync(starPath)) {
       particleCount = await countParticlesInStar(starPath);
+      micrographCount = await countMicrographsInStar(starPath);
     }
   }
 
@@ -934,8 +1170,7 @@ async function storePolishMetadata(job) {
       micrograph_count: micrographCount,
       particle_count: particleCount,
       box_size: boxSize
-    },
-    {}
+    }
   );
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
@@ -952,17 +1187,15 @@ async function storePolishMetadata(job) {
 async function storeCtfRefineMetadata(job) {
   const outputDir = job.output_file_path;
 
-  // Inherit from upstream
+  // Inherit non-count fields from upstream
   let pixelSize = null;
   let boxSize = null;
-  let micrographCount = 0;
 
   const upstreamJob = await findUpstreamJobDirect(job);
   if (upstreamJob) {
     const us = upstreamJob.pipeline_stats || {};
     pixelSize = getPixelSizeSafe(upstreamJob);
-    boxSize = us.box_size || upstreamJob.box_size || null;
-    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+    boxSize = us.box_size ?? upstreamJob.box_size ?? null;
   }
 
   if (!pixelSize) {
@@ -972,6 +1205,7 @@ async function storeCtfRefineMetadata(job) {
 
   // Parse output star file for particle count, defocus stats, and beam tilt
   let particleCount = 0;
+  let micrographCount = 0;
   let defocusMean = null;
   let astigmatismMean = null;
   let beamTiltX = null;
@@ -986,6 +1220,7 @@ async function storeCtfRefineMetadata(job) {
       astigmatismMean = stats.astigmatismMean;
       beamTiltX = stats.beamTiltX;
       beamTiltY = stats.beamTiltY;
+      micrographCount = await countMicrographsInStar(starPath);
     }
   }
 
@@ -1123,17 +1358,15 @@ async function parseCtfRefineStats(starPath) {
 async function storeSubtractMetadata(job) {
   const outputDir = job.output_file_path;
 
-  // Inherit from upstream
+  // Inherit non-count fields from upstream
   let pixelSize = null;
   let boxSize = null;
-  let micrographCount = 0;
 
   const upstreamJob = await findUpstreamJobDirect(job);
   if (upstreamJob) {
     const us = upstreamJob.pipeline_stats || {};
     pixelSize = getPixelSizeSafe(upstreamJob);
-    boxSize = us.box_size || upstreamJob.box_size || null;
-    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+    boxSize = us.box_size ?? upstreamJob.box_size ?? null;
   }
 
   if (!pixelSize) {
@@ -1148,12 +1381,16 @@ async function storeSubtractMetadata(job) {
     boxSize = newBoxSize;
   }
 
-  // Count actual output particles from particles_subtracted.star
+  // Count actual output particles and micrographs from particles_subtracted.star
   let particleCount = 0;
+  let micrographCount = 0;
   if (outputDir) {
     const starPath = path.join(outputDir, 'particles_subtracted.star');
     if (fs.existsSync(starPath)) {
       particleCount = await countParticlesInStar(starPath);
+      if (particleCount > 0) {
+        micrographCount = await countMicrographsInStar(starPath);
+      }
     }
   }
 
@@ -1187,7 +1424,7 @@ async function storeJoinStarMetadata(job) {
   const upstreamJob = await findUpstreamJobDirect(job);
   if (upstreamJob) {
     pixelSize = getPixelSizeSafe(upstreamJob);
-    boxSize = upstreamJob.pipeline_stats?.box_size || upstreamJob.box_size || null;
+    boxSize = upstreamJob.pipeline_stats?.box_size ?? upstreamJob.box_size ?? null;
   }
 
   if (!pixelSize) {
@@ -1243,7 +1480,7 @@ async function storeLocalResMetadata(job) {
   if (upstreamJob) {
     const us = upstreamJob.pipeline_stats || {};
     pixelSize = getPixelSizeSafe(upstreamJob);
-    boxSize = us.box_size || null;
+    boxSize = us.box_size ?? null;
   }
 
   if (!pixelSize) {
@@ -1368,12 +1605,10 @@ async function storeGenericMetadata(job) {
   if (upstreamJob) {
     const us = upstreamJob.pipeline_stats || {};
     pixelSize = getPixelSizeSafe(upstreamJob);
-    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
-    particleCount = us.particle_count || upstreamJob.particle_count || 0;
-    boxSize = us.box_size || upstreamJob.box_size || null;
-    resolution = us.resolution || upstreamJob.resolution || null;
-    classCount = us.class_count || upstreamJob.class_count || 0;
-    iterationCount = us.iteration_count || upstreamJob.iteration_count || 0;
+    boxSize = us.box_size ?? upstreamJob.box_size ?? null;
+    resolution = us.resolution ?? upstreamJob.resolution ?? null;
+    classCount = us.class_count ?? upstreamJob.class_count ?? 0;
+    iterationCount = us.iteration_count ?? upstreamJob.iteration_count ?? 0;
   }
 
   // If no upstream pixel_size, calculate from the pipeline
@@ -1435,7 +1670,7 @@ async function storeClassificationMetadata(job) {
   const params = job.parameters || {};
   const outputDir = job.output_file_path;
 
-  // Inherit from upstream
+  // Inherit non-count fields from upstream
   let pixelSize = null;
   let boxSize = null;
   let particleCount = 0;
@@ -1445,9 +1680,7 @@ async function storeClassificationMetadata(job) {
   if (upstreamJob) {
     const us = upstreamJob.pipeline_stats || {};
     pixelSize = getPixelSizeSafe(upstreamJob);
-    particleCount = us.particle_count || upstreamJob.particle_count || 0;
-    boxSize = us.box_size || upstreamJob.box_size || null;
-    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+    boxSize = us.box_size ?? upstreamJob.box_size ?? null;
   }
 
   // If no upstream pixel_size, calculate from pipeline
@@ -1513,7 +1746,7 @@ async function storeClassificationMetadata(job) {
 async function storeRefinementMetadata(job) {
   const outputDir = job.output_file_path;
 
-  // Inherit from upstream
+  // Inherit non-count fields from upstream
   let pixelSize = null;
   let boxSize = null;
   let particleCount = 0;
@@ -1523,9 +1756,7 @@ async function storeRefinementMetadata(job) {
   if (upstreamJob) {
     const us = upstreamJob.pipeline_stats || {};
     pixelSize = getPixelSizeSafe(upstreamJob);
-    particleCount = us.particle_count || upstreamJob.particle_count || 0;
-    boxSize = us.box_size || upstreamJob.box_size || null;
-    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+    boxSize = us.box_size ?? upstreamJob.box_size ?? null;
   }
 
   // If no upstream pixel_size, calculate from pipeline
@@ -1592,19 +1823,15 @@ async function storeRefinementMetadata(job) {
 async function storePostProcessMetadata(job) {
   const outputDir = job.output_file_path;
 
-  // Inherit from upstream
+  // Inherit non-count fields from upstream
   let pixelSize = null;
-  let particleCount = 0;
   let boxSize = null;
-  let micrographCount = 0;
 
   const upstreamJob = await findUpstreamJobDirect(job);
   if (upstreamJob) {
     const us = upstreamJob.pipeline_stats || {};
     pixelSize = getPixelSizeSafe(upstreamJob);
-    particleCount = us.particle_count || upstreamJob.particle_count || 0;
-    boxSize = us.box_size || upstreamJob.box_size || null;
-    micrographCount = us.micrograph_count || upstreamJob.micrograph_count || 0;
+    boxSize = us.box_size ?? upstreamJob.box_size ?? null;
   }
 
   // If no upstream pixel_size, calculate from pipeline
@@ -1614,6 +1841,8 @@ async function storePostProcessMetadata(job) {
   }
 
   // Extract resolution and B-factor from postprocess.star
+  // PostProcess doesn't produce count outputs — omit micrograph_count/particle_count
+  // to preserve submission-time inherited values via dot-notation updates
   let resolution = null;
   let bfactor = null;
   if (outputDir) {
@@ -1635,8 +1864,6 @@ async function storePostProcessMetadata(job) {
   const updateData = buildStatsUpdate(
     {
       pixel_size: pixelSize,
-      micrograph_count: micrographCount,
-      particle_count: particleCount,
       box_size: boxSize,
       resolution,
       bfactor
@@ -1644,7 +1871,7 @@ async function storePostProcessMetadata(job) {
   );
 
   await Job.findOneAndUpdate({ id: job.id }, updateData);
-  logger.info(`[PipelineMetadata] PostProcess ${job.job_name} | pixels: ${pixelSize}Å | res: ${resolution}Å | bfac: ${bfactor} | mics: ${micrographCount}`);
+  logger.info(`[PipelineMetadata] PostProcess ${job.job_name} | pixels: ${pixelSize}Å | res: ${resolution}Å | bfac: ${bfactor}`);
 }
 
 /**
@@ -1670,11 +1897,19 @@ async function catalogImportOtherOutputFiles(job) {
     return;
   }
 
-  // Detect node type from command
-  const nodeTypeMatch = (job.command || '').match(/--node_type\s+(\w+)/);
-  const nodeType = nodeTypeMatch?.[1];
+  // Detect node type from command flags
+  const cmd = job.command || '';
+  let nodeType = null;
+  if (cmd.includes('--do_coordinates')) {
+    nodeType = 'coords';
+  } else if (cmd.includes('--do_halfmaps')) {
+    nodeType = 'halfmap';
+  } else {
+    const nodeTypeMatch = cmd.match(/--node_type\s+(\w+)/);
+    nodeType = nodeTypeMatch?.[1];
+  }
   if (!nodeType) {
-    logger.warn(`[CatalogImportOther] No --node_type in command for ${job.job_name}`);
+    logger.warn(`[CatalogImportOther] Cannot determine node type from command for ${job.job_name}`);
     return;
   }
 
@@ -1756,7 +1991,8 @@ async function catalogOutputFiles(job) {
 
   // Special handling for Import "other" node type jobs (ref3d, mask, halfmap, refs2d, coords)
   // RELION copies files with original names, so pattern-based cataloging won't work
-  if (job.job_type === 'Import' && job.command?.includes('--do_other')) {
+  const isOtherNodeImport = job.job_type === 'Import' && (job.command?.includes('--do_other') || job.command?.includes('--do_coordinates') || job.command?.includes('--do_halfmaps'));
+  if (isOtherNodeImport) {
     return catalogImportOtherOutputFiles(job);
   }
 

@@ -23,8 +23,8 @@ const FileBrowseOnly = ({ label, name, value, onBrowse, tooltipText, disabled })
             style={{
               height: "32px",
               width: "100%",
-              border: "1px solid #d1d5db",
-              backgroundColor: "#ffffff",
+              border: "1px solid var(--color-border)",
+              backgroundColor: "var(--color-bg-input)",
               padding: "6px 10px",
               fontSize: "12px",
               borderRadius: "6px",
@@ -32,7 +32,7 @@ const FileBrowseOnly = ({ label, name, value, onBrowse, tooltipText, disabled })
               alignItems: "center",
               gap: 6,
               cursor: disabled ? "not-allowed" : "pointer",
-              color: value ? "#1f2937" : "#9ca3af",
+              color: value ? "var(--color-text)" : "var(--color-text-muted)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -53,7 +53,7 @@ const FileBrowseOnly = ({ label, name, value, onBrowse, tooltipText, disabled })
         </div>
         <div
           style={{
-            backgroundColor: "#fff",
+            backgroundColor: "var(--color-bg-card)",
             padding: "4px 4.4px",
             borderRadius: "4px",
             display: "grid",
@@ -64,7 +64,7 @@ const FileBrowseOnly = ({ label, name, value, onBrowse, tooltipText, disabled })
           onMouseEnter={() => setTooltipVisible(true)}
           onMouseLeave={() => setTooltipVisible(false)}
         >
-          <IoInformationCircleOutline className="text-black text-xl" />
+          <IoInformationCircleOutline className="text-[var(--color-text)] text-xl" />
           {isTooltipVisible && (
             <div
               style={{

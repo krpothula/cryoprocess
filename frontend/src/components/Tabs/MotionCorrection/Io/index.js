@@ -1,6 +1,6 @@
 import React from "react";
 import CustomInput from "../../common/Input";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 import CustomDropdown from "../../common/Dropdown";
 
 const Io = ({

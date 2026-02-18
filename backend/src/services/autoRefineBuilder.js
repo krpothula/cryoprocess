@@ -14,6 +14,7 @@ const {
   isGpuEnabled,
   getGpuIds,
   getInputStarFile,
+  getContinueFrom,
   getMaskDiameter,
   getPooledParticles,
   getSymmetry,
@@ -32,6 +33,13 @@ class AutoRefineBuilder extends BaseJobBuilder {
   }
 
   validate() {
+    // Continue mode: only need the optimiser file
+    const continueFile = getContinueFrom(this.data);
+    if (continueFile) {
+      logger.info(`[AutoRefine] Validation: Passed (continue mode) | continueFrom: ${continueFile}`);
+      return { valid: true, error: null };
+    }
+
     const inputStar = getInputStarFile(this.data);
     const referenceMap = getReference(this.data);
 
@@ -85,6 +93,28 @@ class AutoRefineBuilder extends BaseJobBuilder {
     // Build command with MPI if requested (using configurable launcher)
     const cmd = this.buildMpiCommand('relion_refine', mpiProcs, gpuEnabled);
 
+    // Continue from previous run: RELION reads all parameters from the optimiser file
+    const continueFile = getContinueFrom(data);
+    if (continueFile) {
+      cmd.push('--continue', this.makeRelative(this.resolveInputPath(continueFile)));
+      cmd.push('--o', relOutputDir + path.sep);
+      cmd.push('--j', String(threads));
+      cmd.push('--pool', String(pooled));
+      cmd.push('--pipeline_control', relOutputDir + path.sep);
+      if (!getBoolParam(data, ['useParallelIO', 'Useparalleldisc'], true)) {
+        cmd.push('--no_parallel_disc_io');
+      }
+      if (!getBoolParam(data, ['combineIterations'], false)) {
+        cmd.push('--dont_combine_weights_via_disc');
+      }
+      if (gpuEnabled) {
+        cmd.push('--gpu', getGpuIds(data));
+      }
+      this.addAdditionalArguments(cmd);
+      logger.info(`[AutoRefine] Command: Built (continue mode) | ${cmd.join(' ')}`);
+      return cmd;
+    }
+
     // Get parameters using paramHelper
     const lowPass = getFloatParam(data, ['initialLowPassFilter'], 60);
     const symmetry = getSymmetry(data);
@@ -113,7 +143,11 @@ class AutoRefineBuilder extends BaseJobBuilder {
     cmd.push('--sym', symmetry);
     cmd.push('--particle_diameter', String(getMaskDiameter(data, 200)));
     cmd.push('--healpix_order', String(healpixOrder));
-    cmd.push('--auto_local_healpix_order', '4');
+
+    // Map local search auto-sampling to healpix order
+    const localSampling = getParam(data, ['localSearchFromAutoSampling'], '1.8 degrees');
+    const localHealpixOrder = healpixMap[localSampling] !== undefined ? healpixMap[localSampling] : 4;
+    cmd.push('--auto_local_healpix_order', String(localHealpixOrder));
     cmd.push('--flatten_solvent');
     cmd.push('--norm');
     cmd.push('--scale');
@@ -136,8 +170,8 @@ class AutoRefineBuilder extends BaseJobBuilder {
     }
 
     // Auto-sampling parameters
-    const offsetRange = getIntParam(data, ['offSetRange'], 5);
-    const offsetStep = getIntParam(data, ['offSetStep'], 1);
+    const offsetRange = getIntParam(data, ['offsetRange', 'offSetRange'], 5);
+    const offsetStep = getIntParam(data, ['offsetStep', 'offSetStep'], 1);
     cmd.push('--offset_range', String(offsetRange));
     cmd.push('--offset_step', String(offsetStep));
 
@@ -148,7 +182,7 @@ class AutoRefineBuilder extends BaseJobBuilder {
     }
 
     // Relax symmetry
-    const relaxSym = getParam(data, ['RelaxSymmetry'], null);
+    const relaxSym = getParam(data, ['relaxSymmetry', 'RelaxSymmetry'], null);
     if (relaxSym) {
       cmd.push('--relax_sym', relaxSym);
     }
@@ -163,12 +197,12 @@ class AutoRefineBuilder extends BaseJobBuilder {
     }
 
     // Ignore CTFs
-    if (getBoolParam(data, ['igonreCtf'], false)) {
+    if (getBoolParam(data, ['ignoreCTFs', 'ignoreCtf'], false)) {
       cmd.push('--ctf_intact_first_peak');
     }
 
     // Mask particles
-    if (getBoolParam(data, ['maskIndividualparticles'], true)) {
+    if (getBoolParam(data, ['maskIndividualParticles', 'maskIndividualparticles'], true)) {
       cmd.push('--zero_mask');
     }
 
@@ -183,7 +217,7 @@ class AutoRefineBuilder extends BaseJobBuilder {
     }
 
     // I/O options
-    if (!getBoolParam(data, ['Useparalleldisc'], true)) {
+    if (!getBoolParam(data, ['useParallelIO', 'Useparalleldisc'], true)) {
       cmd.push('--no_parallel_disc_io');
     }
     if (!getBoolParam(data, ['combineIterations'], false)) {
@@ -280,7 +314,7 @@ class AutoRefineBuilder extends BaseJobBuilder {
 
     // Skip padding
     if (getBoolParam(data, ['skipPadding'], false)) {
-      cmd.push('--skip_padding');
+      cmd.push('--skip_gridding');
     }
 
     // Additional arguments

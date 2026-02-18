@@ -14,22 +14,22 @@ const response = require('../utils/responseHelper');
 /**
  * GET /api/admin/usage
  * Query params:
- *   - start_date (ISO string, default: 30 days ago)
- *   - end_date (ISO string, default: now)
- *   - group_by (user | project | month, default: user)
+ *   - startDate (ISO string, default: 30 days ago)
+ *   - endDate (ISO string, default: now)
+ *   - groupBy (user | project | month, default: user)
  *   - format (json | csv, default: json)
  */
 exports.getUsageReport = async (req, res) => {
   try {
     const {
-      start_date,
-      end_date,
-      group_by = 'user',
+      startDate: startDateParam,
+      endDate: endDateParam,
+      groupBy = 'user',
       format = 'json',
     } = req.query;
 
-    const startDate = start_date ? new Date(start_date) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const endDate = end_date ? new Date(end_date) : new Date();
+    const startDate = startDateParam ? new Date(startDateParam) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const endDate = endDateParam ? new Date(endDateParam) : new Date();
 
     // Base match: terminal jobs within date range that have timing data
     const matchStage = {
@@ -52,7 +52,7 @@ exports.getUsageReport = async (req, res) => {
     let groupStage;
     let sortStage;
 
-    switch (group_by) {
+    switch (groupBy) {
       case 'project':
         groupStage = {
           $group: {
@@ -103,21 +103,21 @@ exports.getUsageReport = async (req, res) => {
     const enriched = await Promise.all(
       results.map(async (row) => {
         const entry = {
-          total_jobs: row.total_jobs,
-          successful_jobs: row.successful_jobs,
-          failed_jobs: row.failed_jobs,
-          total_hours: Math.round((row.total_seconds / 3600) * 100) / 100,
+          totalJobs: row.total_jobs,
+          successfulJobs: row.successful_jobs,
+          failedJobs: row.failed_jobs,
+          totalHours: Math.round((row.total_seconds / 3600) * 100) / 100,
         };
 
-        if (group_by === 'user') {
+        if (groupBy === 'user') {
           const user = await User.findOne({ id: row._id }).select('username email first_name last_name').lean();
-          entry.user_id = row._id;
+          entry.userId = row._id;
           entry.username = user?.username || 'Unknown';
           entry.name = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown';
-        } else if (group_by === 'project') {
+        } else if (groupBy === 'project') {
           const project = await Project.findOne({ id: row._id }).select('project_name').lean();
-          entry.project_id = row._id;
-          entry.project_name = project?.project_name || 'Deleted Project';
+          entry.projectId = row._id;
+          entry.projectName = project?.project_name || 'Deleted Project';
         } else {
           entry.year = row._id.year;
           entry.month = row._id.month;
@@ -150,19 +150,19 @@ exports.getUsageReport = async (req, res) => {
     // Compute totals
     const totals = enriched.reduce(
       (acc, row) => ({
-        total_jobs: acc.total_jobs + row.total_jobs,
-        successful_jobs: acc.successful_jobs + row.successful_jobs,
-        failed_jobs: acc.failed_jobs + row.failed_jobs,
-        total_hours: Math.round((acc.total_hours + row.total_hours) * 100) / 100,
+        totalJobs: acc.totalJobs + row.totalJobs,
+        successfulJobs: acc.successfulJobs + row.successfulJobs,
+        failedJobs: acc.failedJobs + row.failedJobs,
+        totalHours: Math.round((acc.totalHours + row.totalHours) * 100) / 100,
       }),
-      { total_jobs: 0, successful_jobs: 0, failed_jobs: 0, total_hours: 0 }
+      { totalJobs: 0, successfulJobs: 0, failedJobs: 0, totalHours: 0 }
     );
 
     return response.successData(res, {
       rows: enriched,
       totals,
-      date_range: { start: startDate.toISOString(), end: endDate.toISOString() },
-      group_by,
+      dateRange: { start: startDate.toISOString(), end: endDate.toISOString() },
+      groupBy,
     });
   } catch (error) {
     logger.error('[Usage] getUsageReport error:', error);

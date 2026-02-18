@@ -26,12 +26,10 @@ const MotionCorrection = () => {
     sumPowerSpectra: "",
     bfactor: 150,
     groupFrames: 1,
-    binningFactor: 1,
-    binningFrame: 1,
 
     threads: 1,
     coresPerNode: 1,
-    runningmpi: 1,
+    mpiProcs: 1,
     patchesX: 1,
     patchesY: 1,
 
@@ -39,7 +37,6 @@ const MotionCorrection = () => {
     doseWeighting: "Yes",
     nonDoseWeighted: "No",
     // savesum: "No",
-    powerSpectraEvery: 4,
     //  gainReferenceImage: '',
     gainRotation: "No rotation (0)",
     gainFlip: "No flipping (0)",
@@ -47,13 +44,12 @@ const MotionCorrection = () => {
     useRelionImplementation: "Yes",
     // motioncore: "",
     // gpu: "",
-    // othermotion: "",
+    // otherMotion: "",
     submitToQueue: "Yes",
 
-    queuename: "",
-    queueSubmitCommand: "",
+    queueName: "",
     //  submissionScript: "",
-    arguments: "",
+    additionalArguments: "",
   };
   const [formData, setFormData] = useState(initialFormData);
   const [isLoading, setLoading] = useState(false);

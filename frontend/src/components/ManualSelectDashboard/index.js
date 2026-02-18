@@ -46,11 +46,11 @@ const ManualSelectDashboard = () => {
 
   // Fetch class images from source job
   const fetchClassImages = useCallback(async () => {
-    if (!results?.source_star_file || !projectId) return;
+    if (!results?.sourceStarFile || !projectId) return;
 
     setClassesLoading(true);
     try {
-      let jobPath = results.source_star_file;
+      let jobPath = results.sourceStarFile;
 
       if (jobPath.startsWith('/')) {
         const parts = jobPath.split('/');
@@ -71,7 +71,7 @@ const ManualSelectDashboard = () => {
     } finally {
       setClassesLoading(false);
     }
-  }, [results?.source_star_file, projectId]);
+  }, [results?.sourceStarFile, projectId]);
 
   useEffect(() => {
     if (selectedJob?.id) {
@@ -80,30 +80,35 @@ const ManualSelectDashboard = () => {
   }, [selectedJob?.id, fetchResults]);
 
   useEffect(() => {
-    if (results?.source_star_file) {
+    if (results?.sourceStarFile) {
       fetchClassImages();
     }
-  }, [results?.source_star_file, fetchClassImages]);
+  }, [results?.sourceStarFile, fetchClassImages]);
 
-  const selectedClassSet = new Set(results?.selected_classes || []);
-  const numSelected = results?.num_classes_selected || results?.selected_classes?.length || 0;
+  const selectedClassSet = new Set(results?.selectedClasses || []);
+  const numSelected = results?.numClassesSelected || results?.selectedClasses?.length || 0;
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading class selection results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -111,98 +116,85 @@ const ManualSelectDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      {(() => {
-        // Use status from results API (most current) or fallback to selectedJob
-        const jobStatus = results?.job_status || selectedJob?.status || 'pending';
-        return (
-          <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-            <div className="flex items-center gap-3">
-              {jobStatus === "success" ? (
-                <FiCheckCircle className="text-green-500 text-xl" />
-              ) : jobStatus === "failed" ? (
-                <FiAlertCircle className="text-red-500 text-xl" />
-              ) : (
-                <FiCheckCircle className="text-yellow-500 text-xl" />
-              )}
-              <div>
-                <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                  Select/{results?.job_name || selectedJob?.job_name || "Job"}
-                </h2>
-                <p style={{
-                  fontSize: "12px",
-                  fontWeight: 500,
-                  color: jobStatus === "success"
-                    ? "var(--color-success-text)"
-                    : jobStatus === "failed"
-                    ? "var(--color-danger-text)"
-                    : jobStatus === "running"
-                    ? "var(--color-warning)"
-                    : "var(--color-warning)"
-                }}>
-                  {jobStatus === "success"
-                    ? "Success"
-                    : jobStatus === "running"
-                    ? "Running..."
-                    : jobStatus === "pending"
-                    ? "Pending"
-                    : jobStatus === "failed"
-                    ? "Error"
-                    : jobStatus}
-                </p>
-              </div>
-            </div>
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
+        <div className="flex items-center gap-3">
+          {status === "success" ? (
+            <FiCheckCircle className="text-green-500 text-xl" />
+          ) : status === "failed" ? (
+            <FiAlertCircle className="text-red-500 text-xl" />
+          ) : (
+            <FiCheckCircle className="text-yellow-500 text-xl" />
+          )}
+          <div>
+            <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
+              Select/{results?.jobName || selectedJob?.jobName || "Job"}
+            </h2>
+            <p style={{
+              fontSize: "12px",
+              fontWeight: 500,
+              color: status === "success"
+                ? "var(--color-success-text)"
+                : status === "failed"
+                ? "var(--color-danger-text)"
+                : "var(--color-warning)"
+            }}>
+              {status === "success"
+                ? "Success"
+                : status === "running"
+                ? "Running..."
+                : status === "pending"
+                ? "Pending"
+                : status === "failed"
+                ? "Error"
+                : status}
+            </p>
           </div>
-        );
-      })()}
+        </div>
+      </div>
 
       {/* Stats Card - Merged */}
-      {(() => {
-        const stats = selectedJob?.pipeline_stats || {};
-        return (
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2">
             <FiGrid className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Classes Selected:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-indigo-text)" }}>
-              {stats.class_count || numSelected} / {stats.iteration_count || classes.length || 0}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {pStats.classCount || numSelected} / {pStats.totalClasses || classes.length || numSelected}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {(stats.particle_count || 0).toLocaleString()}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {(pStats.particleCount ?? 0).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.micrograph_count || 0}
+              {pStats.micrographCount ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiCrosshair className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
+              {pStats.pixelSize ? `${pStats.pixelSize.toFixed(3)} Å/px` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiBox className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.box_size || 0} px
+              {pStats.boxSize ?? 0} px
             </span>
           </div>
         </div>
       </div>
-        );
-      })()}
 
       {/* Class Images Grid */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <h3 className="font-bold text-[var(--color-text)] mb-3 flex items-center gap-2" style={{ fontSize: "12px" }}>
           <FiGrid className="text-violet-500" />
           Class Selection ({numSelected} of {classes.length} selected)
@@ -216,14 +208,14 @@ const ManualSelectDashboard = () => {
         ) : classes.length > 0 ? (
           <div className="class-images-grid">
             {classes.map((cls) => {
-              const isSelected = selectedClassSet.has(cls.class_number);
+              const isSelected = selectedClassSet.has(cls.classNumber);
               return (
                 <div
-                  key={cls.class_number}
+                  key={cls.classNumber}
                   className={`class-image-card ${isSelected ? 'selected' : 'not-selected'}`}
                 >
                   <div className="class-image-wrapper">
-                    <img src={cls.image} alt={`Class ${cls.class_number}`} />
+                    <img src={cls.image} alt={`Class ${cls.classNumber}`} />
                     {isSelected && (
                       <div className="selected-badge">
                         <FiCheckCircle />
@@ -234,9 +226,9 @@ const ManualSelectDashboard = () => {
                     )}
                   </div>
                   <div className="class-image-info">
-                    <span className="class-number">#{cls.class_number}</span>
-                    <span className="class-particles">{cls.distribution?.toFixed(1) || cls.particle_fraction?.toFixed(1) || '0'}%</span>
-                    <span className="class-resolution">{cls.resolution?.toFixed(1) || cls.estimated_resolution?.toFixed(1) || '-'}Å</span>
+                    <span className="class-number">#{cls.classNumber}</span>
+                    <span className="class-particles">{cls.distribution?.toFixed(1) || cls.particleFraction?.toFixed(1) || '0'}%</span>
+                    <span className="class-resolution">{cls.resolution?.toFixed(1) || cls.estimatedResolution?.toFixed(1) || '-'}Å</span>
                   </div>
                 </div>
               );
@@ -245,8 +237,8 @@ const ManualSelectDashboard = () => {
         ) : (
           <div className="text-center py-8 text-[var(--color-text-secondary)]">
             <p>Class images not available</p>
-            {results?.selected_classes?.length > 0 && (
-              <p className="text-sm mt-1">Selected classes: {results.selected_classes.join(', ')}</p>
+            {results?.selectedClasses?.length > 0 && (
+              <p className="text-sm mt-1">Selected classes: {results.selectedClasses.join(', ')}</p>
             )}
           </div>
         )}

@@ -74,9 +74,9 @@ export const checkCachedDataAvailable = async (jobId) => {
   try {
     const response = await getPostProcessStatusApi(jobId);
     return {
-      hasCached: response.data.thumbnail_count > 0 || response.data.stats_available,
-      thumbnailCount: response.data.thumbnail_count || 0,
-      statsAvailable: response.data.stats_available || false,
+      hasCached: response.data.thumbnailCount > 0 || response.data.statsAvailable,
+      thumbnailCount: response.data.thumbnailCount || 0,
+      statsAvailable: response.data.statsAvailable || false,
       complete: response.data.complete || false,
     };
   } catch (error) {

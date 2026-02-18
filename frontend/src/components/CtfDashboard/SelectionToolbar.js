@@ -14,13 +14,13 @@ const SelectionToolbar = ({
   const hasFiltered = filteredCount < totalCount;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-3">
+    <div className="bg-[var(--color-bg-card)] rounded-lg border border-[var(--color-border)] p-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         {/* Selection Controls */}
         <div className="flex items-center gap-2">
           <button
             onClick={onSelectAll}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:bg-[var(--color-info-bg)] rounded transition-colors"
             title="Select all filtered micrographs"
           >
             <FiCheckSquare size={16} />
@@ -30,7 +30,7 @@ const SelectionToolbar = ({
           {hasSelection && (
             <button
               onClick={onDeselectAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-danger-text)] hover:bg-[var(--color-danger-bg)] rounded transition-colors"
               title="Clear selection"
             >
               <FiSquare size={16} />
@@ -42,20 +42,20 @@ const SelectionToolbar = ({
         {/* Selection Counter */}
         <div className="flex items-center gap-4">
           <div className="text-sm">
-            <span className={`font-semibold ${hasSelection ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-slate-400"}`}>
+            <span className={`font-semibold ${hasSelection ? "text-[var(--color-primary)]" : "text-[var(--color-text-secondary)]"}`}>
               {selectedCount}
             </span>
-            <span className="text-gray-400 dark:text-slate-500"> / {filteredCount} selected</span>
+            <span className="text-[var(--color-text-muted)]"> / {filteredCount} selected</span>
           </div>
 
           {/* Selected Stats Summary */}
           {hasSelection && selectedStats.avgResolution && (
-            <div className="hidden sm:flex items-center gap-3 text-xs text-gray-500 dark:text-slate-400 border-l border-gray-200 dark:border-slate-700 pl-3">
+            <div className="hidden sm:flex items-center gap-3 text-xs text-[var(--color-text-secondary)] border-l border-[var(--color-border)] pl-3">
               <span>
-                Avg Res: <strong className="text-gray-700 dark:text-slate-200">{selectedStats.avgResolution?.toFixed(2)} A</strong>
+                Avg Res: <strong className="text-[var(--color-text)]">{selectedStats.avgResolution?.toFixed(2)} A</strong>
               </span>
               <span>
-                Avg FOM: <strong className="text-gray-700 dark:text-slate-200">{selectedStats.avgFOM?.toFixed(3)}</strong>
+                Avg FOM: <strong className="text-[var(--color-text)]">{selectedStats.avgFOM?.toFixed(3)}</strong>
               </span>
             </div>
           )}
@@ -65,11 +65,11 @@ const SelectionToolbar = ({
 
       {/* Filter Summary Banner */}
       {hasFiltered && (
-        <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/30 rounded flex items-center justify-between">
-          <div className="text-sm text-green-700">
+        <div className="mt-2 p-2 bg-[var(--color-success-bg)] rounded flex items-center justify-between">
+          <div className="text-sm text-[var(--color-success)]">
             <strong>{filteredCount}</strong> of {totalCount} micrographs match your filter criteria
             {filteredStats.avgResolution && (
-              <span className="ml-2 text-green-600">
+              <span className="ml-2 text-[var(--color-success)]">
                 (Avg Res: {filteredStats.avgResolution?.toFixed(2)} Å, Avg FOM: {filteredStats.avgFOM?.toFixed(3)})
               </span>
             )}
@@ -79,13 +79,13 @@ const SelectionToolbar = ({
 
       {/* Selection Info Banner */}
       {hasSelection && (
-        <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/30 rounded flex items-center justify-between">
-          <p className="text-sm text-blue-700">
+        <div className="mt-2 p-2 bg-[var(--color-info-bg)] rounded flex items-center justify-between">
+          <p className="text-sm text-[var(--color-primary)]">
             <strong>{selectedCount}</strong> micrograph{selectedCount !== 1 ? "s" : ""} manually selected
           </p>
           <button
             onClick={onDeselectAll}
-            className="text-blue-500 hover:text-blue-700"
+            className="text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
           >
             <FiX size={16} />
           </button>

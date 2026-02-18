@@ -1,8 +1,4 @@
 import axiosInstance from "../../config";
-import {
-  getCachedStatsApi,
-  checkCachedDataAvailable,
-} from "../../cachedDashboard";
 
 // Use unified jobs API for CTF estimation
 const ctfEstimationAPI = (payload = {}) => {
@@ -18,10 +14,6 @@ const ctfRefinementAPI = (payload = {}) => {
 // Request all micrographs - no limit for accurate statistics
 const getCTFResultsApi = (jobId = "", page = 1, pageSize = 100000) => {
   return axiosInstance.get(`/ctf/results/?job_id=${jobId}&page=${page}&page_size=${pageSize}`);
-};
-
-const getCTFLiveStatsApi = (jobId = "") => {
-  return axiosInstance.get(`/ctf/live-stats/?job_id=${jobId}`);
 };
 
 const getCTFImageApi = (jobId = "", micrograph = "") => {
@@ -59,47 +51,12 @@ const getCTFImageWithCacheApi = async (jobId = "", micrograph = "") => {
   return getCTFImageApi(jobId, micrograph);
 };
 
-/**
- * Get CTF live stats with cached fallback.
- * Tries cached stats first, falls back to on-demand parsing.
- * @param {string} jobId - Job ID
- * @returns {Promise} - Response with stats
- */
-const getCTFLiveStatsWithCacheApi = async (jobId = "") => {
-  try {
-    // Try cached stats first
-    const cachedStatus = await checkCachedDataAvailable(jobId);
-
-    if (cachedStatus.statsAvailable) {
-      const cachedStats = await getCachedStatsApi(jobId);
-      // Transform cached stats to match expected format
-      if (cachedStats.data && cachedStats.data.ctf_stats) {
-        return {
-          data: {
-            cached: true,
-            ...cachedStats.data,
-          }
-        };
-      }
-    }
-  } catch (error) {
-    // Cached stats not available, continue to fallback
-    console.debug("Cached CTF stats not available, using on-demand:", error.message);
-  }
-
-  // Fall back to on-demand parsing
-  return getCTFLiveStatsApi(jobId);
-};
-
 export {
   ctfEstimationAPI,
   ctfRefinementAPI,
   getCTFResultsApi,
-  getCTFLiveStatsApi,
   getCTFImageApi,
   getMicrographImageApi,
   exportCTFSelectionApi,
-  // Cached versions with fallback
   getCTFImageWithCacheApi,
-  getCTFLiveStatsWithCacheApi,
 };

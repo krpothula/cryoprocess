@@ -5,8 +5,8 @@ import useToast from "../../hooks/useToast";
 
 const UserProfile = () => {
   const [profile, setProfile] = useState({
-    first_name: "",
-    last_name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     username: ""
   });
@@ -18,9 +18,9 @@ const UserProfile = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({
-    current_password: "",
-    new_password: "",
-    confirm_password: ""
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
   });
 
   // Notification preferences
@@ -29,7 +29,7 @@ const UserProfile = () => {
   // Cluster settings state
   const [clusterUsername, setClusterUsername] = useState("");
   const [clusterSshKey, setClusterSshKey] = useState("");
-  const [clusterStatus, setClusterStatus] = useState({ connected: false, enabled: false, ssh_key_set: false });
+  const [clusterStatus, setClusterStatus] = useState({ connected: false, enabled: false, sshKeySet: false });
   const [isSavingCluster, setSavingCluster] = useState(false);
   const [isTesting, setTesting] = useState(false);
   const [isToggling, setToggling] = useState(false);
@@ -47,24 +47,24 @@ const UserProfile = () => {
       const resp = await getCurrentUser();
       const userData = resp.data.data || resp.data;
       setProfile({
-        first_name: userData.first_name || "",
-        last_name: userData.last_name || "",
+        firstName: userData.firstName || "",
+        lastName: userData.lastName || "",
         email: userData.email || "",
         username: userData.username || ""
       });
       setOriginalProfile({
-        first_name: userData.first_name || "",
-        last_name: userData.last_name || "",
+        firstName: userData.firstName || "",
+        lastName: userData.lastName || "",
         email: userData.email || ""
       });
       // Notification preferences
-      setNotifyEmail(userData.notify_email_default !== false);
+      setNotifyEmail(userData.notifyEmailDefault !== false);
       // Cluster settings
-      setClusterUsername(userData.cluster_username || "");
+      setClusterUsername(userData.clusterUsername || "");
       setClusterStatus({
-        connected: userData.cluster_connected || false,
-        enabled: userData.cluster_enabled || false,
-        ssh_key_set: userData.cluster_ssh_key_set || false
+        connected: userData.clusterConnected || false,
+        enabled: userData.clusterEnabled || false,
+        sshKeySet: userData.clusterSshKeySet || false
       });
     } catch (error) {
       showToast(error.response?.data?.message || "Failed to load profile", { type: "error" });
@@ -78,21 +78,21 @@ const UserProfile = () => {
     try {
       setSaving(true);
       await updateProfileApi({
-        first_name: profile.first_name,
-        last_name: profile.last_name,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
         email: profile.email,
-        notify_email_default: notifyEmail
+        notifyEmailDefault: notifyEmail
       });
 
       const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
-      userInfo.first_name = profile.first_name;
-      userInfo.last_name = profile.last_name;
+      userInfo.firstName = profile.firstName;
+      userInfo.lastName = profile.lastName;
       userInfo.email = profile.email;
       localStorage.setItem("userInfo", JSON.stringify(userInfo));
 
       setOriginalProfile({
-        first_name: profile.first_name,
-        last_name: profile.last_name,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
         email: profile.email
       });
 
@@ -106,11 +106,11 @@ const UserProfile = () => {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (passwordData.new_password !== passwordData.confirm_password) {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
       showToast("New passwords do not match", { type: "error" });
       return;
     }
-    if (passwordData.new_password.length < 8) {
+    if (passwordData.newPassword.length < 8) {
       showToast("Password must be at least 8 characters", { type: "error" });
       return;
     }
@@ -118,12 +118,12 @@ const UserProfile = () => {
     try {
       setChangingPassword(true);
       await changePasswordApi({
-        current_password: passwordData.current_password,
-        new_password: passwordData.new_password,
-        confirm_password: passwordData.confirm_password
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+        confirmPassword: passwordData.confirmPassword
       });
       showToast("Password changed successfully", { type: "success" });
-      setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
+      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (error) {
       showToast(error.response?.data?.message || "Failed to change password", { type: "error" });
     } finally {
@@ -141,17 +141,17 @@ const UserProfile = () => {
     try {
       setSavingCluster(true);
       setTestMessage("");
-      const payload = { cluster_username: clusterUsername };
+      const payload = { clusterUsername };
       // Only send SSH key if user pasted a new one
       if (clusterSshKey) {
-        payload.cluster_ssh_key = clusterSshKey;
+        payload.clusterSshKey = clusterSshKey;
       }
       const resp = await updateClusterSettingsApi(payload);
       const data = resp.data.data || resp.data;
       setClusterStatus({
-        connected: data.cluster_connected || false,
-        enabled: data.cluster_enabled ?? clusterStatus.enabled,
-        ssh_key_set: data.cluster_ssh_key_set || false
+        connected: data.clusterConnected || false,
+        enabled: data.clusterEnabled ?? clusterStatus.enabled,
+        sshKeySet: data.clusterSshKeySet || false
       });
       setClusterSshKey(""); // Clear the textarea after save
       showToast("Cluster settings saved", { type: "success" });
@@ -188,8 +188,8 @@ const UserProfile = () => {
   const handleClearKey = async () => {
     try {
       setSavingCluster(true);
-      await updateClusterSettingsApi({ cluster_ssh_key: "" });
-      setClusterStatus((prev) => ({ ...prev, connected: false, enabled: false, ssh_key_set: false }));
+      await updateClusterSettingsApi({ clusterSshKey: "" });
+      setClusterStatus((prev) => ({ ...prev, connected: false, enabled: false, sshKeySet: false }));
       setClusterSshKey("");
       setTestMessage("");
       showToast("SSH key removed", { type: "success" });
@@ -204,12 +204,12 @@ const UserProfile = () => {
     const newEnabled = !clusterStatus.enabled;
     try {
       setToggling(true);
-      const resp = await updateClusterSettingsApi({ cluster_enabled: newEnabled });
+      const resp = await updateClusterSettingsApi({ clusterEnabled: newEnabled });
       const data = resp.data.data || resp.data;
       setClusterStatus({
-        connected: data.cluster_connected ?? clusterStatus.connected,
-        enabled: data.cluster_enabled ?? newEnabled,
-        ssh_key_set: data.cluster_ssh_key_set ?? clusterStatus.ssh_key_set
+        connected: data.clusterConnected ?? clusterStatus.connected,
+        enabled: data.clusterEnabled ?? newEnabled,
+        sshKeySet: data.clusterSshKeySet ?? clusterStatus.sshKeySet
       });
       showToast(
         newEnabled ? "Cluster account enabled — jobs will use your credentials" : "Cluster account disabled — jobs will use default service account",
@@ -269,8 +269,8 @@ const UserProfile = () => {
                   <label>First Name</label>
                   <input
                     type="text"
-                    value={profile.first_name}
-                    onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
+                    value={profile.firstName}
+                    onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
                     placeholder="First name"
                   />
                 </div>
@@ -278,8 +278,8 @@ const UserProfile = () => {
                   <label>Last Name</label>
                   <input
                     type="text"
-                    value={profile.last_name}
-                    onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
+                    value={profile.lastName}
+                    onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
                     placeholder="Last name"
                   />
                 </div>
@@ -325,8 +325,8 @@ const UserProfile = () => {
                 <div className="pwd-wrap">
                   <input
                     type={showCurrentPassword ? "text" : "password"}
-                    value={passwordData.current_password}
-                    onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                     placeholder="Current password"
                     required
                   />
@@ -335,14 +335,13 @@ const UserProfile = () => {
                   </button>
                 </div>
               </div>
-              <div className="form-row">
-                <div className="form-group">
+              <div className="form-group">
                   <label>New Password</label>
                   <div className="pwd-wrap">
                     <input
                       type={showNewPassword ? "text" : "password"}
-                      value={passwordData.new_password}
-                      onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                       placeholder="Min 8 chars"
                       required
                       minLength={8}
@@ -357,8 +356,8 @@ const UserProfile = () => {
                   <div className="pwd-wrap">
                     <input
                       type={showConfirmPassword ? "text" : "password"}
-                      value={passwordData.confirm_password}
-                      onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                       placeholder="Confirm"
                       required
                     />
@@ -367,7 +366,6 @@ const UserProfile = () => {
                     </button>
                   </div>
                 </div>
-              </div>
               <button type="submit" className="btn-primary" disabled={isChangingPassword}>
                 {isChangingPassword ? <><FiLoader className="spinner" size={14} /> Changing...</> : <><FiLock size={14} /> Change</>}
               </button>
@@ -406,7 +404,7 @@ const UserProfile = () => {
               <div className="form-group">
                 <label>
                   SSH Private Key
-                  {clusterStatus.ssh_key_set && (
+                  {clusterStatus.sshKeySet && (
                     <button
                       type="button"
                       onClick={handleClearKey}
@@ -420,7 +418,7 @@ const UserProfile = () => {
                 <textarea
                   value={clusterSshKey}
                   onChange={(e) => setClusterSshKey(e.target.value)}
-                  placeholder={clusterStatus.ssh_key_set
+                  placeholder={clusterStatus.sshKeySet
                     ? "SSH key is saved. Paste a new key to replace it."
                     : "Paste your SSH private key here (-----BEGIN OPENSSH PRIVATE KEY-----...)"
                   }
@@ -448,8 +446,8 @@ const UserProfile = () => {
                 type="button"
                 className="btn-test"
                 onClick={handleTestConnection}
-                disabled={isTesting || !clusterStatus.ssh_key_set}
-                title={!clusterStatus.ssh_key_set ? "Save your SSH key first" : "Test SSH connection to cluster"}
+                disabled={isTesting || !clusterStatus.sshKeySet}
+                title={!clusterStatus.sshKeySet ? "Save your SSH key first" : "Test SSH connection to cluster"}
               >
                 {isTesting ? <><FiLoader className="spinner" size={14} /> Testing...</> : <><FiWifi size={14} /> Test Connection</>}
               </button>

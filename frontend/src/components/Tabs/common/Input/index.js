@@ -34,15 +34,15 @@ function transformOptimiserFilesResponse(apiResponse, stage) {
   // Group all files under the stage name, with job/filename format
   // Extract just the job folder (e.g., "Job035") if job_name contains a path like "Select/Job035"
   const files = apiResponse.data.data.files.map((file) => {
-    const jobFolder = file.job_name?.includes('/')
-      ? file.job_name.split('/').pop()
-      : file.job_name;
+    const jobFolder = file.jobName?.includes('/')
+      ? file.jobName.split('/').pop()
+      : file.jobName;
     return {
-      name: `${jobFolder}/${file.file_name}`,
-      path: file.file_path,
-      job_status: file.job_status,
-      job_name: file.job_name,
-      created_at: file.created_at,
+      name: `${jobFolder}/${file.fileName}`,
+      path: file.filePath,
+      jobStatus: file.jobStatus,
+      jobName: file.jobName,
+      createdAt: file.createdAt,
       iteration: file.iteration,
     };
   });
@@ -51,7 +51,7 @@ function transformOptimiserFilesResponse(apiResponse, stage) {
     const displayName = STAGE_DISPLAY_NAMES[stage] || stage;
     result.groups = [{
       group: `${displayName} (Continue From)`,
-      job_status: "success",
+      jobStatus: "success",
       files: files,
     }];
   }
@@ -79,17 +79,17 @@ function transformStageOutputFilesResponse(apiResponse) {
     if (!groupMap[stage]) {
       groupMap[stage] = {
         group: STAGE_DISPLAY_NAMES[stage] || stage,
-        job_status: 'success',
+        jobStatus: 'success',
         files: [],
       };
     }
     groupMap[stage].files.push({
       name: `${file.jobName}/${file.fileName}`,
       path: file.filePath,
-      entry_count: file.entryCount || 0,
-      job_status: file.jobStatus,
-      job_name: file.jobName,
-      created_at: file.createdAt,
+      entryCount: file.entryCount || 0,
+      jobStatus: file.jobStatus,
+      jobName: file.jobName,
+      createdAt: file.createdAt,
     });
   }
 
@@ -354,9 +354,9 @@ const CustomInput = ({
                         onClick={() => toggleGroup(group.group)}
                       >
                         {isExpanded ? <FiChevronDown size={14} className="text-[var(--color-text-muted)]" /> : <FiChevronRight size={14} className="text-[var(--color-text-muted)]" />}
-                        {group.job_status === "success" ? (
+                        {group.jobStatus === "success" ? (
                           <FiCheckCircle className="text-[var(--color-success-text)]" size={14} />
-                        ) : group.job_status === "failed" ? (
+                        ) : group.jobStatus === "failed" ? (
                           <FiAlertCircle className="text-[var(--color-danger-text)]" size={14} />
                         ) : (
                           <FiClock className="text-[var(--color-warning-text)]" size={14} />
@@ -373,9 +373,9 @@ const CustomInput = ({
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="flex-1 min-w-0" title={file.name}>{file.name}</span>
-                            {file.entry_count > 0 && (
+                            {file.entryCount > 0 && (
                               <span className="text-xs text-[var(--color-text-secondary)] flex-shrink-0">
-                                ({file.entry_count})
+                                ({file.entryCount})
                               </span>
                             )}
                           </div>
@@ -450,9 +450,9 @@ const CustomInput = ({
                         onClick={() => toggleGroup(group.group)}
                       >
                         {isExpanded ? <FiChevronDown size={14} className="text-[var(--color-text-muted)]" /> : <FiChevronRight size={14} className="text-[var(--color-text-muted)]" />}
-                        {group.job_status === "success" ? (
+                        {group.jobStatus === "success" ? (
                           <FiCheckCircle className="text-[var(--color-success-text)]" size={14} />
-                        ) : group.job_status === "failed" ? (
+                        ) : group.jobStatus === "failed" ? (
                           <FiAlertCircle className="text-[var(--color-danger-text)]" size={14} />
                         ) : (
                           <FiClock className="text-[var(--color-warning-text)]" size={14} />
@@ -470,7 +470,7 @@ const CustomInput = ({
                           <span className="flex-1 min-w-0" title={file.name || file.path}>{file.name || file.path}</span>
                           <div className="flex items-center gap-2 flex-shrink-0 text-xs text-[var(--color-text-secondary)]">
                             {file.iteration && <span>iter {file.iteration}</span>}
-                            {file.class_num && <span>class {file.class_num}</span>}
+                            {file.classNum && <span>class {file.classNum}</span>}
                           </div>
                         </div>
                       ))}
@@ -543,13 +543,13 @@ const CustomInput = ({
                           <span className="truncate">{file.name || file.path}</span>
                           <div className="flex items-center gap-2 ml-2 text-xs text-[var(--color-text-secondary)]">
                             {file.iteration && <span>iter {file.iteration}</span>}
-                            {file.job_status && (
+                            {file.jobStatus && (
                               <span className={`${
-                                file.job_status === "success" ? "text-[var(--color-success-text)]" :
-                                file.job_status === "failed" ? "text-[var(--color-danger-text)]" :
+                                file.jobStatus === "success" ? "text-[var(--color-success-text)]" :
+                                file.jobStatus === "failed" ? "text-[var(--color-danger-text)]" :
                                 "text-[var(--color-warning-text)]"
                               }`}>
-                                {file.job_status}
+                                {file.jobStatus}
                               </span>
                             )}
                           </div>

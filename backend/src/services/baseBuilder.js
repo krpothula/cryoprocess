@@ -10,7 +10,7 @@ const logger = require('../utils/logger');
 const { getProjectPath } = require('../utils/pathUtils');
 const settings = require('../config/settings');
 const { getKnownFlags } = require('../config/relionFlags');
-const { getThreads, isGpuEnabled, getGpuIds, getParam } = require('../utils/paramHelper');
+const { getThreads, isGpuEnabled, getGpuIds, getParam, getBoolParam } = require('../utils/paramHelper');
 
 class BaseJobBuilder {
   constructor(data, project, user) {
@@ -207,7 +207,7 @@ class BaseJobBuilder {
    * @param {string[]} cmd - Command array
    */
   addGpuFlags(cmd) {
-    if (isGpuEnabled(this.data)) {
+    if (this.supportsGpu && isGpuEnabled(this.data)) {
       const gpuIds = getGpuIds(this.data);
       cmd.push('--gpu', gpuIds);
     }
@@ -300,7 +300,7 @@ class BaseJobBuilder {
    * @returns {string[]} Command prefix array
    */
   buildMpiCommand(relionCommand, mpiProcs, useGpu = false) {
-    const submitToQueue = this.data.submitToQueue === 'Yes';
+    const submitToQueue = getBoolParam(this.data, ['submitToQueue', 'SubmitToQueue'], true);
     const cmd = [];
 
     if (mpiProcs <= 1) {

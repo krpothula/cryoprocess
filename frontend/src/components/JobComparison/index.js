@@ -58,7 +58,7 @@ const JobComparisonModal = ({ jobId, jobName, jobType, onClose }) => {
       .then((res) => {
         const allJobs = res?.data?.data || [];
         const filtered = allJobs.filter(
-          (j) => j.job_type === jobType && j.id !== jobId
+          (j) => j.jobType === jobType && j.id !== jobId
         );
         setSameTypeJobs(filtered);
       })
@@ -111,7 +111,7 @@ const JobComparisonModal = ({ jobId, jobName, jobType, onClose }) => {
 
   const compareJobName = sameTypeJobs.find(
     (j) => j.id === selectedCompareJobId
-  )?.job_name;
+  )?.jobName;
 
   return (
     <div style={S.overlay} onClick={onClose}>
@@ -163,7 +163,7 @@ const JobComparisonModal = ({ jobId, jobName, jobType, onClose }) => {
                 <option value="">Select a job...</option>
                 {sameTypeJobs.map((j) => (
                   <option key={j.id} value={j.id}>
-                    {j.job_name} \u2014 {j.status}
+                    {j.jobName} \u2014 {j.status}
                   </option>
                 ))}
               </select>

@@ -2,7 +2,7 @@ import React from "react";
 import CustomDropdown from "../../common/Dropdown";
 import SimpleInput from "../../common/SimpleInput";
 import CustomInput from "../../common/Input";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 
 const Colors = ({
   handleInputChange,
@@ -27,7 +27,7 @@ const Colors = ({
       <SimpleInput
         label="MetaDataLabel for Color:"
         name="metadataLabel"
-        value={formData.metadataLabelColor}
+        value={formData.metadataLabel}
         onChange={handleInputChange}
         tooltipText="STAR file column name to use for coloring particles (e.g., rlnDefocusU, rlnAutopickFigureOfMerit)."
         disabled={!isblueRedColorParticlesYes}

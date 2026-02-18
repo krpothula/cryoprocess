@@ -40,12 +40,12 @@ const JOB_TYPE_NAMES = {
 };
 
 const STATUS_CONFIG = {
-  success: { label: "SUCCESS", color: "#10b981", bg: "#ecfdf5" },
-  failed: { label: "FAILED", color: "#ef4444", bg: "#fef2f2" },
-  error: { label: "ERROR", color: "#ef4444", bg: "#fef2f2" },
-  running: { label: "RUNNING", color: "#f59e0b", bg: "#fffbeb" },
-  pending: { label: "PENDING", color: "#6366f1", bg: "#eef2ff" },
-  cancelled: { label: "CANCELLED", color: "#6b7280", bg: "#f1f5f9" },
+  success: { label: "SUCCESS", color: "var(--color-success)", bg: "var(--color-success-bg)" },
+  failed: { label: "FAILED", color: "var(--color-danger)", bg: "var(--color-danger-bg)" },
+  error: { label: "ERROR", color: "var(--color-danger)", bg: "var(--color-danger-bg)" },
+  running: { label: "RUNNING", color: "var(--color-warning)", bg: "var(--color-warning-bg)" },
+  pending: { label: "PENDING", color: "var(--color-indigo-text)", bg: "var(--color-indigo-bg)" },
+  cancelled: { label: "CANCELLED", color: "var(--color-text-secondary)", bg: "var(--color-bg-hover)" },
 };
 
 function formatDuration(start, end) {
@@ -194,11 +194,11 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
   const handleCopyError = () => {
     if (!jobMeta) return;
     const text = [
-      `Job: ${jobMeta.job_name}`,
-      `Type: ${JOB_TYPE_NAMES[jobMeta.job_type] || jobMeta.job_type}`,
+      `Job: ${jobMeta.jobName}`,
+      `Type: ${JOB_TYPE_NAMES[jobMeta.jobType] || jobMeta.jobType}`,
       `Status: ${jobMeta.status?.toUpperCase()}`,
-      jobMeta.slurm_job_id ? `SLURM ID: ${jobMeta.slurm_job_id}` : null,
-      jobMeta.error_message ? `Error: ${jobMeta.error_message}` : null,
+      jobMeta.slurmJobId ? `SLURM ID: ${jobMeta.slurmJobId}` : null,
+      jobMeta.errorMessage ? `Error: ${jobMeta.errorMessage}` : null,
       jobMeta.command ? `Command: ${jobMeta.command}` : null,
       slurmDetails ? `SLURM State: ${slurmDetails.state}` : null,
       slurmDetails?.exitCode ? `Exit Code: ${slurmDetails.exitCode}` : null,
@@ -229,7 +229,7 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
     : 0;
 
   const statusCfg = STATUS_CONFIG[jobMeta?.status] || STATUS_CONFIG.pending;
-  const duration = formatDuration(jobMeta?.start_time, jobMeta?.end_time);
+  const duration = formatDuration(jobMeta?.startTime, jobMeta?.endTime);
   const isFailed = jobMeta?.status === "failed";
 
   // ─── Render helpers ──────────────────────────────────────────
@@ -239,10 +239,10 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
     return (
       <div style={styles.header}>
         <div style={styles.headerRow}>
-          <span style={styles.jobName}>{jobMeta.job_name}</span>
+          <span style={styles.jobName}>{jobMeta.jobName}</span>
           <span style={styles.dot}>·</span>
           <span style={styles.jobType}>
-            {JOB_TYPE_NAMES[jobMeta.job_type] || jobMeta.job_type}
+            {JOB_TYPE_NAMES[jobMeta.jobType] || jobMeta.jobType}
           </span>
           <span
             style={{
@@ -253,9 +253,9 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
           >
             {statusCfg.label}
           </span>
-          {jobMeta.slurm_job_id && (
+          {jobMeta.slurmJobId && (
             <span style={styles.slurmBadge}>
-              SLURM: {jobMeta.slurm_job_id}
+              SLURM: {jobMeta.slurmJobId}
             </span>
           )}
         </div>
@@ -265,9 +265,9 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
               <FiClock size={12} /> {duration}
             </span>
           )}
-          {jobMeta.start_time && (
+          {jobMeta.startTime && (
             <span style={styles.metaItem}>
-              Started: {new Date(jobMeta.start_time).toLocaleTimeString()}
+              Started: {new Date(jobMeta.startTime).toLocaleTimeString()}
             </span>
           )}
           {isFailed && (
@@ -282,11 +282,11 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
   };
 
   const renderErrorBanner = () => {
-    if (!isFailed || !jobMeta?.error_message) return null;
+    if (!isFailed || !jobMeta?.errorMessage) return null;
     return (
       <div style={styles.errorBanner}>
         <FiAlertCircle size={16} style={{ flexShrink: 0 }} />
-        <span style={styles.errorBannerText}>{jobMeta.error_message}</span>
+        <span style={styles.errorBannerText}>{jobMeta.errorMessage}</span>
       </div>
     );
   };
@@ -309,7 +309,7 @@ const JobLogs = ({ jobId, autoRefresh = true, refreshInterval = 3000 }) => {
           ...styles.tab,
           ...(activeTab === "errors" ? styles.tabActive : {}),
           ...(stderrLineCount > 0 && activeTab !== "errors"
-            ? { color: "#ef4444" }
+            ? { color: "var(--color-danger)" }
             : {}),
         }}
       >
@@ -674,7 +674,7 @@ const styles = {
     borderRadius: "9px",
     fontSize: "10px",
     fontWeight: 600,
-    background: "#dc2626",
+    background: "var(--color-danger-text)",
     color: "#ffffff",
   },
   tabBadgeWarning: {
@@ -687,7 +687,7 @@ const styles = {
     borderRadius: "9px",
     fontSize: "10px",
     fontWeight: 600,
-    background: "#f59e0b",
+    background: "var(--color-warning)",
     color: "#ffffff",
   },
   logPre: {

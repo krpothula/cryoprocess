@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getSlurmPartitions, getSlurmNodes, getSlurmStatus, getSlurmConnectionInfo, getResourceLimits } from "../../../../services/slurmApi";
 import { useBuilder } from "../../../../context/BuilderContext";
-import PixelSizeInput from "../PixelSixeInput";
+import PixelSizeInput from "../PixelSizeInput";
 import CustomDropdown from "../Dropdown";
 import SimpleInput from "../SimpleInput";
 import "./SlurmRunningConfig.css";
@@ -64,7 +64,7 @@ const SlurmRunningConfig = ({
   // Use standardized lowercase field names
   const isSubmitToQueueYes = formData.submitToQueue === "Yes";
   const submitToQueueFieldName = 'submitToQueue';
-  const queueNameFieldName = 'queuename';
+  const queueNameFieldName = 'queueName';
 
   // Fetch host machine resource limits and connection info on mount
   useEffect(() => {
@@ -78,15 +78,15 @@ const SlurmRunningConfig = ({
 
   // Dynamic max values: use host limits for local, generous defaults for SLURM cluster
   const maxMpi = (!isSubmitToQueueYes && resourceLimits)
-    ? resourceLimits.available_cpus : 128;
+    ? resourceLimits.availableCpus : 128;
   const maxThreads = (!isSubmitToQueueYes && resourceLimits)
-    ? resourceLimits.available_cpus : 64;
+    ? resourceLimits.availableCpus : 64;
   const maxGpus = (!isSubmitToQueueYes && resourceLimits)
-    ? resourceLimits.gpu_count : 8;
+    ? resourceLimits.gpuCount : 8;
 
   // Resource validation for three execution scenarios
-  const mpiVal = parseInt(formData.runningmpi || formData.numberOfMpiProcs || 1, 10) || 1;
-  const threadsVal = parseInt(formData.threads || formData.numberOfThreads || 1, 10) || 1;
+  const mpiVal = parseInt(formData.mpiProcs || 1, 10) || 1;
+  const threadsVal = parseInt(formData.threads || 1, 10) || 1;
 
   useEffect(() => {
     // Auto-Refine requires odd MPI (1 master + even workers for two half-sets)
@@ -108,7 +108,7 @@ const SlurmRunningConfig = ({
       // Scenario 1: SLURM + Local (no SSH to cluster)
       if (resourceLimits) {
         const total = mpiVal * threadsVal;
-        const maxCpus = resourceLimits.available_cpus;
+        const maxCpus = resourceLimits.availableCpus;
         if (total > maxCpus) {
           setResourceError(
             `MPI (${mpiVal}) \u00D7 Threads (${threadsVal}) = ${total} exceeds this system\u2019s limit of ${maxCpus} CPUs`
@@ -118,14 +118,14 @@ const SlurmRunningConfig = ({
       }
     } else if (connectionInfo && connectionInfo.mode === 'ssh') {
       // Scenario 3: SLURM + Cluster — check node resources
-      const selectedNodeName = formData.clustername;
+      const selectedNodeName = formData.clusterName;
       if (selectedNodeName && rawNodes.length > 0) {
         const node = rawNodes.find(n => n.name === selectedNodeName);
         if (node) {
           const total = mpiVal * threadsVal;
-          if (total > node.cpus_total) {
+          if (total > node.cpusTotal) {
             setResourceError(
-              `MPI (${mpiVal}) \u00D7 Threads (${threadsVal}) = ${total} exceeds node ${node.name}\u2019s resources (${node.cpus_total} CPUs)`
+              `MPI (${mpiVal}) \u00D7 Threads (${threadsVal}) = ${total} exceeds node ${node.name}\u2019s resources (${node.cpusTotal} CPUs)`
             );
             return;
           }
@@ -134,7 +134,7 @@ const SlurmRunningConfig = ({
     }
 
     setResourceError(null);
-  }, [mpiVal, threadsVal, isSubmitToQueueYes, connectionInfo, resourceLimits, rawNodes, formData.clustername, setResourceError, requireOddMpi]);
+  }, [mpiVal, threadsVal, isSubmitToQueueYes, connectionInfo, resourceLimits, rawNodes, formData.clusterName, setResourceError, requireOddMpi]);
 
   // Determine which fields are in error (for red highlighting)
   const isMpiOddError = requireOddMpi && mpiVal > 1 && mpiVal % 2 === 0;
@@ -153,7 +153,7 @@ const SlurmRunningConfig = ({
   }, [isSubmitToQueueYes]);
 
   // Fetch nodes when partition changes
-  const currentQueueName = formData.queuename || "";
+  const currentQueueName = formData.queueName || "";
   useEffect(() => {
     if (isSubmitToQueueYes && currentQueueName) {
       fetchNodes(currentQueueName);
@@ -217,7 +217,7 @@ const SlurmRunningConfig = ({
             const color = isDown ? '#9ca3af' : (isAvailable ? '#16a34a' : '#dc2626');
 
             return {
-              label: `${n.name} (${n.cpus_total - n.cpus_alloc}/${n.cpus_total} CPUs, ${n.gpus} GPUs)`,
+              label: `${n.name} (${n.cpusTotal - n.cpusAlloc}/${n.cpusTotal} CPUs, ${n.gpus} GPUs)`,
               value: n.name,
               disabled: isDown,
               color: color
@@ -258,15 +258,15 @@ const SlurmRunningConfig = ({
           <CustomDropdown
             label="Run on node:"
             options={nodes.length > 0 ? nodes : [{ label: "Any available node", value: "" }]}
-            value={formData.clustername || ""}
-            name="clustername"
+            value={formData.clusterName || ""}
+            name="clusterName"
             onChange={handleInputChange}
             tooltipText="Specific node to run on (optional, leave empty for any available)"
             disabled={loading || !isSubmitToQueueYes}
           />
         </div>
-        {isSubmitToQueueYes && formData.clustername && nodes.length > 0 && (() => {
-          const selectedNode = nodes.find(n => n.value === formData.clustername);
+        {isSubmitToQueueYes && formData.clusterName && nodes.length > 0 && (() => {
+          const selectedNode = nodes.find(n => n.value === formData.clusterName);
           if (!selectedNode) return null;
           return (
             <span
@@ -294,8 +294,8 @@ const SlurmRunningConfig = ({
         placeholder={String(computeProfile?.defaultMpi || 4)}
         min={1}
         max={maxMpi}
-        value={formData.runningmpi !== undefined && formData.runningmpi !== "" ? formData.runningmpi : (formData.numberOfMpiProcs !== undefined ? formData.numberOfMpiProcs : "")}
-        name="runningmpi"
+        value={formData.mpiProcs !== undefined && formData.mpiProcs !== "" ? formData.mpiProcs : ""}
+        name="mpiProcs"
         onChange={handleNumericChange}
         handleInputChange={handleNumericChange}
         tooltipText="Number of MPI processes. Must be odd for Auto-Refine (1 master + even split for two half-sets, e.g. 3, 5, 7). Maps to SLURM --ntasks."
@@ -334,8 +334,8 @@ const SlurmRunningConfig = ({
       <SimpleInput
         label={isSubmitToQueueYes ? "Additional SLURM arguments:" : "Additional arguments:"}
         placeholder={isSubmitToQueueYes ? "e.g., --mem=64G --time=48:00:00" : ""}
-        name="arguments"
-        value={formData.arguments || ""}
+        name="additionalArguments"
+        value={formData.additionalArguments || ""}
         onChange={handleInputChange}
         tooltipText={isSubmitToQueueYes ? "Additional arguments passed directly to sbatch" : "Additional command-line arguments"}
       />
@@ -351,7 +351,7 @@ const SlurmRunningConfig = ({
           label="Number of threads:"
           placeholder={String(computeProfile?.defaultThreads || 1)}
           min={1}
-          max={resourceLimits ? resourceLimits.available_cpus : 64}
+          max={resourceLimits ? resourceLimits.availableCpus : 64}
           value={formData.threads !== undefined && formData.threads !== "" ? formData.threads : ""}
           name="threads"
           onChange={handleNumericChange}

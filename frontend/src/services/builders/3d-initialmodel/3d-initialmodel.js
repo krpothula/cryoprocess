@@ -1,7 +1,7 @@
 import axiosInstance from "../../config";
 
 // Submit job via unified endpoint
-const threeDIntialModelAPI = (payload = {}) => {
+const threeDInitialModelAPI = (payload = {}) => {
   return axiosInstance.post(`/api/jobs/initial_model/`, payload);
 };
 
@@ -32,7 +32,7 @@ const getInitialModelLiveStatsApi = (jobId) => {
 };
 
 export {
-  threeDIntialModelAPI,
+  threeDInitialModelAPI,
   getInitialModelResultsApi,
   getInitialModelSlicesApi,
   getInitialModelMRCApi,

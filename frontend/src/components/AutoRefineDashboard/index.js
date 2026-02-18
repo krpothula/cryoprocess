@@ -22,21 +22,15 @@ import {
 } from "react-icons/fi";
 import MolstarViewer from "../InitialModelDashboard/MolstarViewer";
 import FscChart from "../common/FscChart";
-import axiosInstance from "../../services/config";
+import { getAutoRefineResultsApi, getAutoRefineFscApi } from "../../services/builders/3d-autorefine/3d-autorefine";
 import useJobNotification from "../../hooks/useJobNotification";
+import useJobProgress from "../../hooks/useJobProgress";
 
 const API_BASE_URL = process.env.REACT_APP_API_HOST || "";
 
-const getAutoRefineResultsApi = async (jobId) => {
-  return axiosInstance.get(`${API_BASE_URL}/autorefine/results/?job_id=${jobId}`);
-};
-
-const getAutoRefineFscApi = async (jobId) => {
-  return axiosInstance.get(`${API_BASE_URL}/autorefine/fsc/?job_id=${jobId}`);
-};
-
 const AutoRefineDashboard = () => {
   const { selectedJob } = useBuilder();
+  const wsProgress = useJobProgress(selectedJob?.id);
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState(null);
   const [selectedIteration, setSelectedIteration] = useState("latest");
@@ -47,19 +41,19 @@ const AutoRefineDashboard = () => {
   const [fscData, setFscData] = useState([]);
 
   const handleDownload = () => {
-    const iter = selectedIteration === "latest" ? (results?.latest_iteration || "") : selectedIteration;
+    const iter = selectedIteration === "latest" ? (results?.latestIteration || "") : selectedIteration;
     const url = `${API_BASE_URL}/autorefine/mrc/?type=${mapType}&job_id=${selectedJob?.id}&iteration=${iter}&class=1`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedJob?.job_name || 'refine3d'}_it${iter}_${mapType}.mrc`;
+    a.download = `${selectedJob?.jobName || 'refine3d'}_it${iter}_${mapType}.mrc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
 
   const copyCommand = () => {
-    if (selectedJob?.command) {
-      navigator.clipboard.writeText(selectedJob.command);
+    if (command) {
+      navigator.clipboard.writeText(command);
       setCommandCopied(true);
       setTimeout(() => setCommandCopied(false), 2000);
     }
@@ -81,11 +75,11 @@ const AutoRefineDashboard = () => {
         setError(null);
 
         // Fetch FSC curve data
-        if (response.data.data?.total_iterations > 0) {
+        if (response.data.data?.totalIterations > 0) {
           getAutoRefineFscApi(selectedJob.id)
             .then((fscRes) => {
-              if (mountedRef.current && fscRes?.data?.data?.fsc_curve) {
-                setFscData(fscRes.data.data.fsc_curve);
+              if (mountedRef.current && fscRes?.data?.data?.fscCurve) {
+                setFscData(fscRes.data.data.fscCurve);
               }
             })
             .catch(() => {}); // FSC is optional
@@ -109,7 +103,7 @@ const AutoRefineDashboard = () => {
     if (selectedJob?.status === "running") {
       const interval = setInterval(() => {
         fetchResults();
-      }, 15000);
+      }, 5000);
       return () => clearInterval(interval);
     }
   }, [selectedJob?.status, fetchResults]);
@@ -135,18 +129,23 @@ const AutoRefineDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading auto-refinement results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -154,41 +153,39 @@ const AutoRefineDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                Refine3D/{selectedJob?.job_name || "Job"}
+                Refine3D/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -202,7 +199,7 @@ const AutoRefineDashboard = () => {
                 <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
-            {showCommand && selectedJob?.command && (
+            {showCommand && command && (
               <button
                 onClick={copyCommand}
                 className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
@@ -226,45 +223,42 @@ const AutoRefineDashboard = () => {
                 lineHeight: '1.4'
               }}
             >
-              {selectedJob?.command || "Command not available for this job"}
+              {command || "Command not available for this job"}
             </div>
           )}
         </div>
       </div>
 
       {/* Stats Card - Two Rows */}
-      {(() => {
-        const stats = selectedJob?.pipeline_stats || {};
-        return (
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         {/* Row 1: Resolution, Iteration, Particles, Micrographs */}
         <div className="grid grid-cols-4 gap-4 mb-3">
           <div className="flex items-center gap-2">
             <FiTarget className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Resolution:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {stats.resolution ? `${stats.resolution.toFixed(2)} Å` : "N/A"}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {pStats.resolution ? `${pStats.resolution.toFixed(2)} Å` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Iteration:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.iteration_count || 0}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: status === "running" ? "var(--color-warning)" : "var(--color-text-heading)" }}>
+              {wsProgress?.iterationCount ?? pStats.iterationCount ?? 0}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {(stats.particle_count || 0).toLocaleString()}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {(pStats.particleCount ?? 0).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.micrograph_count || 0}
+              {pStats.micrographCount ?? 0}
             </span>
           </div>
         </div>
@@ -274,31 +268,29 @@ const AutoRefineDashboard = () => {
             <FiCrosshair className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
+              {pStats.pixelSize ? `${pStats.pixelSize.toFixed(3)} Å/px` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiGrid className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.box_size || 0} px
+              {pStats.boxSize ?? 0} px
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiRotateCw className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Symmetry:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.symmetry || "C1"}
+              {params.symmetry ?? "C1"}
             </span>
           </div>
           <div />
         </div>
       </div>
-        );
-      })()}
 
       {/* 3D Visualization */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiBox className="text-blue-500" size={13} />
@@ -306,25 +298,25 @@ const AutoRefineDashboard = () => {
           </h3>
 
           <div className="flex items-center gap-3">
-            {results?.unique_iterations?.length > 0 && (
+            {results?.uniqueIterations?.length > 0 && (
               <select
                 value={selectedIteration}
                 onChange={(e) => setSelectedIteration(e.target.value)}
-                className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-blue-300"
+                className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-border-focus)]"
                 style={{ fontSize: "12px" }}
               >
-                <option value="latest">Latest (Iteration {results.latest_iteration})</option>
-                {results.unique_iterations.map((it) => (
+                <option value="latest">Latest (Iteration {results.latestIteration})</option>
+                {results.uniqueIterations.map((it) => (
                   <option key={it} value={it}>Iteration {it}</option>
                 ))}
               </select>
             )}
 
-            {results?.has_half_maps && (
+            {results?.hasHalfMaps && (
               <select
                 value={mapType}
                 onChange={(e) => setMapType(e.target.value)}
-                className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-blue-300"
+                className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-border-focus)]"
                 style={{ fontSize: "12px" }}
               >
                 <option value="half1">Half Map 1</option>
@@ -341,10 +333,10 @@ const AutoRefineDashboard = () => {
               Refresh
             </button>
 
-            {results?.total_iterations > 0 && (
+            {results?.totalIterations > 0 && (
               <button
                 onClick={handleDownload}
-                className="flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
+                className="flex items-center gap-1 px-3 py-1 bg-[var(--color-info-bg)] hover:bg-[var(--color-primary-light)] text-[var(--color-primary)] rounded-lg transition-colors"
                 style={{ fontSize: "12px" }}
                 title={`Download ${mapType} map (.mrc)`}
               >
@@ -355,7 +347,7 @@ const AutoRefineDashboard = () => {
           </div>
         </div>
 
-        {results?.total_iterations > 0 ? (
+        {results?.totalIterations > 0 ? (
           <MolstarViewer
             key={`${selectedJob?.id}-${selectedIteration}-${mapType}`}
             jobId={selectedJob?.id}
@@ -370,7 +362,7 @@ const AutoRefineDashboard = () => {
             <p className="text-lg font-medium">No Refined Map Yet</p>
             <p className="text-sm text-center mt-2">
               The refined 3D map will appear here once processing completes.
-              {selectedJob?.status === "running" && (
+              {status === "running" && (
                 <span className="block mt-2 text-amber-500">Job is currently running...</span>
               )}
             </p>
@@ -379,7 +371,7 @@ const AutoRefineDashboard = () => {
       </div>
 
       {/* FSC Curve */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiTrendingUp className="text-blue-500" size={13} />

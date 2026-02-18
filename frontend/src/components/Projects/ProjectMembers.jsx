@@ -67,7 +67,7 @@ const ProjectMembers = ({ projectId, projectName, isOwner, onClose }) => {
       try {
         setIsSearching(true);
         const resp = await searchUsersApi(searchQuery);
-        const existingIds = [owner?.user_id, ...members.map(m => m.user_id)];
+        const existingIds = [owner?.userId, ...members.map(m => m.userId)];
         const filtered = (resp.data.data || []).filter(u => !existingIds.includes(u.id));
         setSearchResults(filtered);
       } catch (error) {
@@ -190,8 +190,8 @@ const ProjectMembers = ({ projectId, projectName, isOwner, onClose }) => {
                   </div>
                   <div className="member-details">
                     <span className="member-name">
-                      {owner.first_name || owner.last_name
-                        ? `${owner.first_name} ${owner.last_name}`.trim()
+                      {owner.firstName || owner.lastName
+                        ? `${owner.firstName} ${owner.lastName}`.trim()
                         : owner.username}
                     </span>
                     <span className="member-email">{owner.email}</span>
@@ -210,18 +210,18 @@ const ProjectMembers = ({ projectId, projectName, isOwner, onClose }) => {
                   </div>
                   <div className="member-details">
                     <span className="member-name">
-                      {member.first_name || member.last_name
-                        ? `${member.first_name} ${member.last_name}`.trim()
+                      {member.firstName || member.lastName
+                        ? `${member.firstName} ${member.lastName}`.trim()
                         : member.username}
                     </span>
                     <span className="member-email">{member.email}</span>
                   </div>
                 </div>
                 <div className="member-actions">
-                  {editingMember === member.user_id ? (
+                  {editingMember === member.userId ? (
                     <select
                       value={member.role}
-                      onChange={(e) => handleUpdateRole(member.user_id, e.target.value)}
+                      onChange={(e) => handleUpdateRole(member.userId, e.target.value)}
                       onBlur={() => setEditingMember(null)}
                       autoFocus
                       className="role-select"
@@ -232,7 +232,7 @@ const ProjectMembers = ({ projectId, projectName, isOwner, onClose }) => {
                   ) : (
                     <span
                       className={`role-badge ${getRoleBadgeClass(member.role)} ${isOwner ? 'clickable' : ''}`}
-                      onClick={() => isOwner && setEditingMember(member.user_id)}
+                      onClick={() => isOwner && setEditingMember(member.userId)}
                       title={isOwner ? "Click to change role" : ""}
                     >
                       {member.role}
@@ -374,7 +374,7 @@ const ProjectMembers = ({ projectId, projectName, isOwner, onClose }) => {
               </button>
               <button
                 className="btn-danger"
-                onClick={() => handleRemoveMember(removeConfirm.user_id)}
+                onClick={() => handleRemoveMember(removeConfirm.userId)}
               >
                 Remove
               </button>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Duplicates from "./Duplicates";
 import Io from "./Io";
+import Subsets from "./Subsets";
+import ClassOption from "./ClassOption";
 import Running from "./Running";
 import "../../form.css";
 import SubmitButton from "../common/SubmitButton";
@@ -11,7 +13,7 @@ import { DefaultMessages } from "../common/Data";
 
 const Subset = () => {
   const initialFormData = {
-    microGraphsStar: "",
+    micrographsStar: "",
     particlesStar: "",
     select2DClass: "No",
 
@@ -19,14 +21,11 @@ const Subset = () => {
     manyParticles: -1,
     manyClasses: -1,
     approxNr: 1,
-    SigmaValue: 4,
+    sigmaValue: 4,
     subsetSize: 100,
     numberSubsets: -1,
     minParticleDistance: 30,
     pixelSizeExtraction: -1,
-    dendrogramThreshold: 0.85,
-    minClassSize: -1000,
-    minCoresPerNode: 1,
 
     classAverages: "Yes",
     regroupParticles: "No",
@@ -39,11 +38,9 @@ const Subset = () => {
     split: "No",
     randomise: "No",
     removeDuplicates: "No",
-    filamentsByDendrogram: "No",
 
     submitToQueue: "No",
     queueName: "",
-    queueSubmitCommand: "",
     // submissionScript: '',
     additionalArguments: "",
   };
@@ -155,6 +152,18 @@ const Subset = () => {
           I/O
         </button>
         <button
+          className={activeTab === "Class Options" ? "active-tab" : ""}
+          onClick={() => handleTabChange("Class Options")}
+        >
+          Class Options
+        </button>
+        <button
+          className={activeTab === "Subsets" ? "active-tab" : ""}
+          onClick={() => handleTabChange("Subsets")}
+        >
+          Subsets
+        </button>
+        <button
           className={activeTab === "Duplicates" ? "active-tab" : ""}
           onClick={() => handleTabChange("Duplicates")}
         >
@@ -176,6 +185,22 @@ const Subset = () => {
             handleInputChange={handleInputChange}
             handleRangeChange={handleRangeChange}
             jobType={JobTypes["subset_selection"]}
+          />
+        )}
+        {activeTab === "Class Options" && (
+          <ClassOption
+            formData={formData}
+            dropdownOptions={dropdownOptions}
+            handleInputChange={handleInputChange}
+            handleRangeChange={handleRangeChange}
+          />
+        )}
+        {activeTab === "Subsets" && (
+          <Subsets
+            formData={formData}
+            dropdownOptions={dropdownOptions}
+            handleInputChange={handleInputChange}
+            handleRangeChange={handleRangeChange}
           />
         )}
         {activeTab === "Duplicates" && (

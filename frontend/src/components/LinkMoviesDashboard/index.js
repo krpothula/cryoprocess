@@ -28,8 +28,8 @@ const LinkMoviesDashboard = () => {
 
   // Copy command to clipboard
   const copyCommand = () => {
-    if (selectedJob?.command || results?.command) {
-      navigator.clipboard.writeText(selectedJob?.command || results?.command);
+    if (command) {
+      navigator.clipboard.writeText(command);
       setCommandCopied(true);
       setTimeout(() => setCommandCopied(false), 2000);
     }
@@ -96,66 +96,67 @@ const LinkMoviesDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading Link Movies results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
 
-  const command = selectedJob?.command || results?.command;
-  const stats = selectedJob?.pipeline_stats || {};
-  const linkedCount = stats.movie_count || results?.linked_count || 0;
-  const linkedFiles = results?.linked_files || [];
+  const linkedCount = pStats.movieCount ?? results?.linkedCount ?? 0;
+  const linkedFiles = results?.linkedFiles || [];
   const summary = results?.summary || {};
 
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status || results?.job_status)}
+            {getStatusIcon(status || results?.jobStatus)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                Import/{selectedJob?.job_name || results?.job_name || "Job"}
+                Import/{selectedJob?.jobName || results?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status || results?.job_status}
+                  : status || results?.jobStatus}
               </p>
             </div>
           </div>
         </div>
 
         {/* Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -200,26 +201,26 @@ const LinkMoviesDashboard = () => {
       </div>
 
       {/* Stats Card - Merged */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FiLink className="text-gray-400 dark:text-slate-500" size={14} />
+            <FiLink className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Files Linked:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {linkedCount}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiFolder className="text-gray-400 dark:text-slate-500" size={14} />
+            <FiFolder className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Destination:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }} title={results?.destination_folder}>
-              {results?.destination_folder?.split("/").slice(-2).join("/") || "Movies"}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }} title={results?.destinationFolder}>
+              {results?.destinationFolder?.split("/").slice(-2).join("/") || "Movies"}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <FiExternalLink className="text-gray-400 dark:text-slate-500" size={14} />
+            <FiExternalLink className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Link Type:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {summary["Link Type"] || "Symlink"}
             </span>
           </div>
@@ -227,14 +228,14 @@ const LinkMoviesDashboard = () => {
       </div>
 
       {/* Linked Files List */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
-        <h3 className="font-bold text-gray-700 dark:text-slate-200 mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
+        <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
           <FiFile className="text-blue-500" />
           Linked Files ({linkedFiles.length})
         </h3>
 
         {linkedFiles.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 dark:text-slate-500">
+          <div className="text-center py-8 text-[var(--color-text-muted)]">
             <FiFile className="text-4xl mx-auto mb-2" />
             <p>No files linked yet</p>
           </div>
@@ -243,22 +244,22 @@ const LinkMoviesDashboard = () => {
             <table className="w-full text-sm">
               <thead className="bg-[var(--color-bg)] sticky top-0">
                 <tr>
-                  <th className="text-left p-2 font-medium text-gray-600 dark:text-slate-300">Name</th>
-                  <th className="text-left p-2 font-medium text-gray-600 dark:text-slate-300">Type</th>
-                  <th className="text-left p-2 font-medium text-gray-600 dark:text-slate-300">Target</th>
+                  <th className="text-left p-2 font-medium text-[var(--color-text-secondary)]">Name</th>
+                  <th className="text-left p-2 font-medium text-[var(--color-text-secondary)]">Type</th>
+                  <th className="text-left p-2 font-medium text-[var(--color-text-secondary)]">Target</th>
                 </tr>
               </thead>
               <tbody>
                 {linkedFiles.map((file, idx) => (
-                  <tr key={idx} className="border-t dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800">
+                  <tr key={idx} className="border-t border-[var(--color-border)] hover:bg-[var(--color-bg-hover)]">
                     <td className="p-2 flex items-center gap-2">
-                      <FiFile className="text-gray-400 dark:text-slate-500" />
+                      <FiFile className="text-[var(--color-text-muted)]" />
                       <span className="truncate max-w-[200px]" title={file.name}>
                         {file.name}
                       </span>
                     </td>
                     <td className="p-2">
-                      {file.is_symlink ? (
+                      {file.isSymlink ? (
                         <span className="text-blue-600 flex items-center gap-1">
                           <FiExternalLink className="text-xs" />
                           Symlink
@@ -267,7 +268,7 @@ const LinkMoviesDashboard = () => {
                         <span className="text-green-600">Copy</span>
                       )}
                     </td>
-                    <td className="p-2 text-gray-500 truncate max-w-[300px]" title={file.target}>
+                    <td className="p-2 text-[var(--color-text-secondary)] truncate max-w-[300px]" title={file.target}>
                       {file.target || "-"}
                     </td>
                   </tr>

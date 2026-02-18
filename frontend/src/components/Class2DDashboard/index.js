@@ -23,6 +23,7 @@ import {
   FiCrosshair,
 } from "react-icons/fi";
 import useJobNotification from "../../hooks/useJobNotification";
+import useJobProgress from "../../hooks/useJobProgress";
 
 const Class2DDashboard = () => {
   const { selectedJob } = useBuilder();
@@ -82,7 +83,7 @@ const Class2DDashboard = () => {
         setLiveStats(response.data.data);
 
         // If job just completed, refresh results
-        if (response.data.data.job_status === "success" && selectedJob?.status === "running") {
+        if (response.data.data.jobStatus === "success" && selectedJob?.status === "running") {
           fetchResults();
         }
       }
@@ -119,10 +120,10 @@ const Class2DDashboard = () => {
 
   // Fetch images when results load or iteration changes
   useEffect(() => {
-    if (results?.total_iterations > 0 || liveStats?.current_iteration > 0) {
+    if (results?.totalIterations > 0 || liveStats?.currentIteration > 0) {
       fetchClassImages(selectedIteration);
     }
-  }, [results, liveStats?.current_iteration, selectedIteration, fetchClassImages]);
+  }, [results, liveStats?.currentIteration, selectedIteration, fetchClassImages]);
 
   // Polling for running jobs - every 5 seconds
   useEffect(() => {
@@ -142,6 +143,9 @@ const Class2DDashboard = () => {
   // Trigger immediate fetch on WebSocket job_update (supplements polling)
   useJobNotification(selectedJob?.id, fetchResults);
 
+  // Real-time progress via WebSocket (supplements polling for stats cards)
+  const wsProgress = useJobProgress(selectedJob?.id);
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "success":
@@ -160,33 +164,35 @@ const Class2DDashboard = () => {
     setSelectedIteration(e.target.value);
   };
 
-  // Get stats from pipeline_stats (single source of truth)
-  const stats = selectedJob?.pipeline_stats || {};
-  const numClasses = stats.class_count || 0;
-  const boxSize = stats.box_size || 0;
-  const maskDiameter = stats.mask_diameter || 0;
-  const totalIterations = liveStats?.total_iterations ?? stats.total_iterations ?? 0;
-  const currentIteration = liveStats?.current_iteration ?? stats.iteration_count ?? 0;
-  const particleCount = stats.particle_count || 0;
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading 2D classification results...
         </p>
       </div>
     );
   }
 
-  // Show error only if job is not running/pending
-  const isJobInProgress = selectedJob?.status === "running" || selectedJob?.status === "pending";
-  if (error && !isJobInProgress) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  const numClasses = params.numberOfClasses ?? 0;
+  const isVDAM = ["Yes", "yes", "true", true].includes(params.useVDAM);
+  const totalIterations = isVDAM ? (params.vdamMiniBatches ?? 0) : (params.numberEMIterations ?? 0);
+  const currentIteration = liveStats?.currentIteration ?? wsProgress?.iterationCount ?? pStats.iterationCount ?? 0;
+  const boxSize = pStats.boxSize ?? 0;
+  const maskDiameter = params.maskDiameter ?? 0;
+  const particleCount = wsProgress?.particleCount ?? pStats.particleCount ?? 0;
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -194,41 +200,39 @@ const Class2DDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                Class2D/{selectedJob?.job_name || "Job"}
+                Class2D/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Failed"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -242,7 +246,7 @@ const Class2DDashboard = () => {
                 <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
-            {showCommand && selectedJob?.command && (
+            {showCommand && command && (
               <button
                 onClick={copyCommand}
                 className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
@@ -266,14 +270,14 @@ const Class2DDashboard = () => {
                 lineHeight: '1.4'
               }}
             >
-              {selectedJob?.command || "Command not available for this job"}
+              {command || "Command not available for this job"}
             </div>
           )}
         </div>
       </div>
 
       {/* Stats Card */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2">
             <FiGrid className="text-[var(--color-text-muted)]" size={14} />
@@ -284,8 +288,8 @@ const Class2DDashboard = () => {
           </div>
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Iterations:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: selectedJob?.status === "running" ? "var(--color-warning)" : "var(--color-text-heading)" }}>
+            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{isVDAM ? "Mini-batches:" : "Iterations:"}</span>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: status === "running" ? "var(--color-warning)" : "var(--color-text-heading)" }}>
               {currentIteration}/{totalIterations}
             </span>
           </div>
@@ -293,7 +297,7 @@ const Class2DDashboard = () => {
             <FiCrosshair className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
+              {pStats.pixelSize ? `${pStats.pixelSize.toFixed(3)} Å/px` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -321,7 +325,7 @@ const Class2DDashboard = () => {
       </div>
 
       {/* 2D Classes Gallery */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiGrid className="text-blue-500" size={13} />
@@ -334,12 +338,12 @@ const Class2DDashboard = () => {
               <select
                 value={selectedIteration}
                 onChange={handleIterationChange}
-                className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-blue-300"
+                className="px-3 py-1 border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-border-focus)]"
                 style={{ fontSize: "12px" }}
               >
                 <option value="latest">Latest (Iteration {currentIteration})</option>
                 {[...new Set([
-                  ...(classesData?.available_iterations || []),
+                  ...(classesData?.availableIterations || []),
                   ...(results?.iterations?.map(it => it.iteration) || [])
                 ].map(Number))]
                   .filter(it => it !== currentIteration)
@@ -380,7 +384,7 @@ const Class2DDashboard = () => {
           >
             {classesData.classes.map((cls, index) => (
               <div
-                key={cls.class_number || index}
+                key={cls.classNumber || index}
                 style={{
                   backgroundColor: '#000',
                   width: 'calc((100% - 36px) / 10)',
@@ -389,7 +393,7 @@ const Class2DDashboard = () => {
               >
                 <img
                   src={cls.image}
-                  alt={`Class ${cls.class_number || index + 1}`}
+                  alt={`Class ${cls.classNumber || index + 1}`}
                   className="w-full h-full object-contain"
                 />
               </div>
@@ -401,7 +405,7 @@ const Class2DDashboard = () => {
             <p className="text-lg font-medium">No Classes Yet</p>
             <p className="text-sm text-center mt-2">
               2D class averages will appear here once the first iteration completes.
-              {selectedJob?.status === "running" && (
+              {status === "running" && (
                 <span className="block mt-2 text-amber-500">Job is currently running...</span>
               )}
             </p>
@@ -416,17 +420,6 @@ const Class2DDashboard = () => {
           </div>
         )}
       </div>
-
-      <style>{`
-        .class-gallery-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-          gap: 2px;
-          background: #000;
-          padding: 4px;
-          border-radius: 8px;
-        }
-      `}</style>
     </div>
   );
 };

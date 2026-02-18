@@ -142,6 +142,12 @@ class PostProcessBuilder extends BaseJobBuilder {
       cmd.push('--mtf', this.makeRelative(this.resolveInputPath(mtfFile)));
     }
 
+    // Original detector pixel size for MTF correction
+    const mtfAngpix = getFloatParam(data, ['originalDetector'], -1);
+    if (mtfAngpix > 0) {
+      cmd.push('--mtf_angpix', String(mtfAngpix));
+    }
+
     // Low-pass filter
     // Frontend sends 'skipFSC' ("Yes"/"No") for skip FSC toggle
     if (getBoolParam(data, ['skipFSC'], false)) {

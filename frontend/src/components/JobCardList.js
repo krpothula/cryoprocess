@@ -27,7 +27,7 @@ const getIcon = (status) => {
   }
 };
 
-// Map job_type (PascalCase) to display names
+// Map jobType (PascalCase) to display names
 const JOB_TYPE_DISPLAY_NAMES = {
   LinkMovies: "Link Movies",
   Import: "Import",
@@ -86,7 +86,7 @@ const JobCardList = ({ jobs, setSelectedJob, selectedJob, onJobCancelled, onJobU
               role="button"
               tabIndex="0"
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedJob(job); } }}
-              aria-label={`${job.job_name} - ${getJobTypeDisplayName(job.job_type)} - ${job.status}`}
+              aria-label={`${job.jobName} - ${getJobTypeDisplayName(job.jobType)} - ${job.status}`}
               aria-pressed={isSelected}
             >
               <div className="job-card-header">
@@ -95,14 +95,14 @@ const JobCardList = ({ jobs, setSelectedJob, selectedJob, onJobCancelled, onJobU
                   style={{ color: statusStyle.color }}
                 >
                   <span aria-hidden="true">{getIcon(job.status)}</span>
-                  {job.job_name}
+                  {job.jobName}
                 </span>
                 <JobActions
                   jobId={job.id}
-                  jobName={job.job_name}
-                  jobType={job.job_type}
+                  jobName={job.jobName}
+                  jobType={job.jobType}
                   jobStatus={job.status}
-                  notifyEmail={job.notify_email}
+                  notifyEmail={job.notifyEmail}
                   onJobUpdated={handleJobUpdated}
                   onJobCancelled={onJobCancelled}
                   showLogs={false}
@@ -111,8 +111,8 @@ const JobCardList = ({ jobs, setSelectedJob, selectedJob, onJobCancelled, onJobU
                 />
               </div>
               <div className="job-card-details">
-                <span className="job-type">{getJobTypeDisplayName(job.job_type)}</span>
-                <span className="job-date">{formatDateString(job.start_time)}</span>
+                <span className="job-type">{getJobTypeDisplayName(job.jobType)}</span>
+                <span className="job-date">{formatDateString(job.startTime)}</span>
               </div>
             </div>
           );
@@ -200,9 +200,9 @@ JobCardList.propTypes = {
   jobs: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,
-      job_name: PropTypes.string.isRequired,
+      jobName: PropTypes.string.isRequired,
       status: PropTypes.string.isRequired,
-      start_time: PropTypes.string,
+      startTime: PropTypes.string,
     })
   ).isRequired,
   setSelectedJob: PropTypes.func.isRequired,

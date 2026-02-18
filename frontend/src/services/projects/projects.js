@@ -2,7 +2,7 @@ import axiosInstance from "../config";
 
 /**
  * Create a new project
- * Node.js expects: { project_name, description }
+ * Node.js expects: { projectName, description }
  */
 const createProjectApi = (payload = {}) => {
   return axiosInstance.post(`/api/projects`, payload);
@@ -10,10 +10,10 @@ const createProjectApi = (payload = {}) => {
 
 /**
  * Get list of all projects
- * @param {object} params - { limit, skip, include_archived }
+ * @param {object} params - { limit, skip, includeArchived }
  */
-const getProjectListApi = ({ limit, skip = 1, include_archived = 'false' }) => {
-  return axiosInstance.get(`/api/projects?skip=${skip}&limit=${limit}&include_archived=${include_archived}`);
+const getProjectListApi = ({ limit, skip = 1, includeArchived = 'false' }) => {
+  return axiosInstance.get(`/api/projects?skip=${skip}&limit=${limit}&includeArchived=${includeArchived}`);
 };
 
 /**
@@ -24,7 +24,7 @@ const getProjectByIdApi = (projectId) => {
 };
 
 /**
- * Update project settings (name, description, webhook_urls, etc.)
+ * Update project settings (name, description, webhookUrls, etc.)
  */
 const updateProjectApi = (projectId, payload) => {
   return axiosInstance.put(`/api/projects/${projectId}`, payload);
@@ -53,7 +53,7 @@ const getProjectMembersApi = (projectId) => {
 /**
  * Add member to project
  * @param {string} projectId - Project ID
- * @param {object} payload - { user_id, username, or email } and { role }
+ * @param {object} payload - { userId, username, or email } and { role }
  */
 const addProjectMemberApi = (projectId, payload) => {
   return axiosInstance.post(`/api/projects/${projectId}/members`, payload);

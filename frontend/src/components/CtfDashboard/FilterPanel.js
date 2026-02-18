@@ -19,20 +19,20 @@ const FilterPanel = ({
   const astigStats = stats.astigmatism || { min: 0, max: 200, mean: 50 };
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+    <div className="bg-[var(--color-bg-card)] rounded-lg border border-[var(--color-border)] p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <FiFilter className="text-blue-500" />
-          <span className="font-semibold text-gray-700 dark:text-slate-200">Quality Filters</span>
+          <span className="font-semibold text-[var(--color-text)]">Quality Filters</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 dark:text-slate-400">
+          <span className="text-sm text-[var(--color-text-secondary)]">
             {filteredCount} of {totalCount} micrographs
           </span>
           <button
             onClick={onReset}
-            className="p-1.5 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded"
+            className="p-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] rounded"
             title="Reset filters"
           >
             <FiRefreshCw size={14} />
@@ -45,10 +45,10 @@ const FilterPanel = ({
         {/* Max Resolution (lower is better) */}
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm text-gray-600 dark:text-slate-300">
+            <label className="text-sm text-[var(--color-text-secondary)]">
               Max Resolution (A)
             </label>
-            <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
+            <span className="text-sm font-medium text-[var(--color-text)]">
               {filters.maxResolution ? `≤ ${filters.maxResolution}` : "Any"}
             </span>
           </div>
@@ -60,7 +60,7 @@ const FilterPanel = ({
             onChange={(e) => handleSliderChange("maxResolution", e.target.value)}
             color="blue"
           />
-          <div className="flex justify-between text-xs text-gray-400 dark:text-slate-500 mt-1">
+          <div className="flex justify-between text-xs text-[var(--color-text-muted)] mt-1">
             <span>Better ({resolutionStats.min?.toFixed(1) || "2.0"})</span>
             <span>Worse ({resolutionStats.max?.toFixed(1) || "8.0"})</span>
           </div>
@@ -69,10 +69,10 @@ const FilterPanel = ({
         {/* Min Figure of Merit (higher is better) */}
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm text-gray-600 dark:text-slate-300">
+            <label className="text-sm text-[var(--color-text-secondary)]">
               Min Figure of Merit
             </label>
-            <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
+            <span className="text-sm font-medium text-[var(--color-text)]">
               {filters.minFOM ? `≥ ${filters.minFOM}` : "Any"}
             </span>
           </div>
@@ -84,7 +84,7 @@ const FilterPanel = ({
             onChange={(e) => handleSliderChange("minFOM", e.target.value)}
             color="green"
           />
-          <div className="flex justify-between text-xs text-gray-400 dark:text-slate-500 mt-1">
+          <div className="flex justify-between text-xs text-[var(--color-text-muted)] mt-1">
             <span>Worse (0.50)</span>
             <span>Better (1.00)</span>
           </div>
@@ -93,10 +93,10 @@ const FilterPanel = ({
         {/* Max Astigmatism (lower is better) */}
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm text-gray-600 dark:text-slate-300">
+            <label className="text-sm text-[var(--color-text-secondary)]">
               Max Astigmatism (A)
             </label>
-            <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
+            <span className="text-sm font-medium text-[var(--color-text)]">
               {filters.maxAstigmatism ? `≤ ${filters.maxAstigmatism}` : "Any"}
             </span>
           </div>
@@ -108,7 +108,7 @@ const FilterPanel = ({
             onChange={(e) => handleSliderChange("maxAstigmatism", e.target.value)}
             color="orange"
           />
-          <div className="flex justify-between text-xs text-gray-400 dark:text-slate-500 mt-1">
+          <div className="flex justify-between text-xs text-[var(--color-text-muted)] mt-1">
             <span>Better (0)</span>
             <span>Worse ({astigStats.max?.toFixed(0) || "200"})</span>
           </div>
@@ -117,10 +117,10 @@ const FilterPanel = ({
         {/* Defocus Range */}
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm text-gray-600 dark:text-slate-300">
+            <label className="text-sm text-[var(--color-text-secondary)]">
               Defocus Range (A)
             </label>
-            <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
+            <span className="text-sm font-medium text-[var(--color-text)]">
               {filters.minDefocus || filters.maxDefocus
                 ? `${filters.minDefocus || 0} - ${filters.maxDefocus || "∞"}`
                 : "Any"}
@@ -132,15 +132,15 @@ const FilterPanel = ({
               placeholder="Min"
               value={filters.minDefocus || ""}
               onChange={(e) => handleSliderChange("minDefocus", e.target.value)}
-              className="flex-1 px-2 py-1 text-sm border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:border-blue-300"
+              className="flex-1 px-2 py-1 text-sm border border-[var(--color-border)] rounded focus:outline-none focus:border-[var(--color-border-focus)]"
             />
-            <span className="text-gray-400 dark:text-slate-500">-</span>
+            <span className="text-[var(--color-text-muted)]">-</span>
             <input
               type="number"
               placeholder="Max"
               value={filters.maxDefocus || ""}
               onChange={(e) => handleSliderChange("maxDefocus", e.target.value)}
-              className="flex-1 px-2 py-1 text-sm border border-gray-200 dark:border-slate-700 rounded focus:outline-none focus:border-blue-300"
+              className="flex-1 px-2 py-1 text-sm border border-[var(--color-border)] rounded focus:outline-none focus:border-[var(--color-border-focus)]"
             />
           </div>
         </div>
@@ -148,8 +148,8 @@ const FilterPanel = ({
 
       {/* Filter Summary */}
       {filteredCount < totalCount && (
-        <div className="mt-4 p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-          <p className="text-sm text-blue-700">
+        <div className="mt-4 p-2 bg-[var(--color-info-bg)] rounded-lg">
+          <p className="text-sm text-[var(--color-primary)]">
             Showing <strong>{filteredCount}</strong> of {totalCount} micrographs
             {totalCount - filteredCount > 0 && (
               <span className="text-blue-500">

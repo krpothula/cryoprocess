@@ -36,10 +36,13 @@ class WebSocketServer {
       this.handleConnection(ws, req);
     });
 
-    // Connect to SLURM monitor for status changes
+    // Connect to SLURM monitor for status changes and progress updates
     const monitor = getMonitor();
     monitor.on('statusChange', (data) => {
       this.broadcastJobUpdate(data);
+    });
+    monitor.on('progressChange', (data) => {
+      this.broadcastJobProgress(data);
     });
 
     logger.info('[WebSocket] Server initialized');
@@ -256,7 +259,7 @@ class WebSocketServer {
 
       // Check if user is a project member
       const membership = await ProjectMember.findOne({
-        project_id: projectId,
+        projectId,
         user_id: userId
       });
       return !!membership;
@@ -382,7 +385,7 @@ class WebSocketServer {
     const message = {
       type: 'job_update',
       id: jobId,               // standardized field name
-      project_id: projectId,
+      projectId,
       status: newStatus,
       oldStatus,
       newStatus,
@@ -397,6 +400,37 @@ class WebSocketServer {
         this.send(ws, message);
       }
       logger.debug(`[WebSocket] Broadcast job update to ${projectSubs.size} clients | job: ${jobId}`);
+    }
+  }
+
+  /**
+   * Broadcast job progress (pipeline_stats changes) to project subscribers.
+   * Sent periodically (every 5s poll cycle) when iteration_count, micrograph_count,
+   * or particle_count changes for a running job.
+   * @param {Object} data - Progress data from SLURM monitor
+   */
+  broadcastJobProgress(data) {
+    const { projectId, jobId, jobType, iterationCount, micrographCount, particleCount, totalIterations, progressPercent } = data;
+
+    const message = {
+      type: 'job_progress',
+      id: jobId,
+      projectId,
+      jobType,
+      iterationCount,
+      micrographCount,
+      particleCount,
+      totalIterations,
+      progressPercent,
+      timestamp: new Date().toISOString()
+    };
+
+    const projectSubs = this.projectClients.get(projectId);
+    if (projectSubs) {
+      for (const ws of projectSubs) {
+        this.send(ws, message);
+      }
+      logger.debug(`[WebSocket] Broadcast job progress to ${projectSubs.size} clients | job: ${jobId} | iter: ${iterationCount} | mic: ${micrographCount}`);
     }
   }
 

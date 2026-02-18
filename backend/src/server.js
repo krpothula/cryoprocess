@@ -189,12 +189,12 @@ const settings = require('./config/settings');
 app.get('/api/software-config', authMiddleware, (req, res) => {
   res.json({
     success: true,
-    motioncor2_exe: settings.MOTIONCOR2_EXE || '',
-    ctffind_exe: settings.CTFFIND_EXE || '',
-    gctf_exe: settings.GCTF_EXE || '',
-    modelangelo_exe: settings.MODELANGELO_EXE || '',
-    relion_path: settings.SINGULARITY_IMAGE || '',
-    email_notifications_enabled: settings.EMAIL_NOTIFICATIONS_ENABLED && !!settings.SMTP_HOST,
+    motioncor2Exe: settings.MOTIONCOR2_EXE || '',
+    ctffindExe: settings.CTFFIND_EXE || '',
+    gctfExe: settings.GCTF_EXE || '',
+    modelangeloExe: settings.MODELANGELO_EXE || '',
+    relionPath: settings.SINGULARITY_IMAGE || '',
+    emailNotificationsEnabled: settings.EMAIL_NOTIFICATIONS_ENABLED && !!settings.SMTP_HOST,
   });
 });
 
@@ -377,6 +377,72 @@ const startServer = async () => {
     // NOW start polling - all listeners are attached
     slurmMonitor.start();
     logger.info('[SLURM] Monitor started');
+
+    // Recover orphaned direct-execution jobs.
+    // If the server restarted while a local process was running, the child.on('close')
+    // handler is lost. Check for RELION markers to resolve status; otherwise mark failed.
+    (async () => {
+      try {
+        const Job = require('./models/Job');
+        const fs = require('fs');
+        const { JOB_STATUS } = require('./config/constants');
+        const orphans = await Job.find({
+          status: { $in: [JOB_STATUS.RUNNING, JOB_STATUS.PENDING] },
+          slurm_job_id: null,
+          execution_method: 'direct'
+        }).lean();
+
+        for (const job of orphans) {
+          // Check if the process is still alive
+          let processAlive = false;
+          if (job.local_pid) {
+            try {
+              process.kill(job.local_pid, 0); // signal 0 = existence check
+              processAlive = true;
+            } catch (_) {
+              // ESRCH = process gone
+            }
+          }
+
+          if (processAlive) {
+            logger.info(`[Startup] Direct job ${job.job_name} (pid ${job.local_pid}) still running, skipping`);
+            continue;
+          }
+
+          // Process is gone — check RELION markers to determine final status
+          let finalStatus = JOB_STATUS.FAILED;
+          let errorMsg = 'Orphaned: server restarted while job was running';
+
+          if (job.output_file_path) {
+            const successMarker = require('path').join(job.output_file_path, 'RELION_JOB_EXIT_SUCCESS');
+            const failureMarker = require('path').join(job.output_file_path, 'RELION_JOB_EXIT_FAILURE');
+
+            if (fs.existsSync(successMarker)) {
+              finalStatus = JOB_STATUS.SUCCESS;
+              errorMsg = null;
+            } else if (fs.existsSync(failureMarker)) {
+              finalStatus = JOB_STATUS.FAILED;
+              errorMsg = 'Job failed (detected from RELION marker after restart)';
+            }
+          }
+
+          await Job.findOneAndUpdate({ id: job.id }, {
+            status: finalStatus,
+            end_time: new Date(),
+            local_pid: null,
+            error_message: errorMsg
+          });
+
+          logger.info(`[Startup] Recovered orphaned direct job ${job.job_name} → ${finalStatus}`);
+        }
+
+        if (orphans.length > 0) {
+          logger.info(`[Startup] Recovered ${orphans.length} orphaned direct job(s)`);
+        }
+      } catch (err) {
+        logger.error(`[Startup] Failed to recover orphaned direct jobs: ${err.message}`);
+      }
+    })();
 
     // Resume any live sessions that were running before restart
     liveOrchestrator.resumeRunningSessions().catch(err => {

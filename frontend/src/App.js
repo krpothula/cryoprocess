@@ -69,7 +69,7 @@ const AdminRoute = ({ element }) => {
   if (!isAuthenticated()) {
     return <Navigate to="/login" />;
   }
-  if (!userInfo.is_superuser && !userInfo.is_staff) {
+  if (!userInfo.isSuperuser && !userInfo.isStaff) {
     return <Navigate to="/projects" />;
   }
   return element;

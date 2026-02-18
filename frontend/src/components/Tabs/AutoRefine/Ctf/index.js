@@ -17,8 +17,8 @@ const Ctf = ({formData,handleInputChange,dropdownOptions}) => {
        <CustomDropdown
         label="Ignore CTFs until first peak?"
         options={dropdownOptions}
-        value={formData.igonreCtf}
-        name="igonreCtf"
+        value={formData.ignoreCTFs}
+        name="ignoreCTFs"
         onChange={handleInputChange}
         tooltipText="Ignore CTF until the first peak. May help with extremely defocused images. Generally leave as 'No' for standard processing."
       />

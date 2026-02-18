@@ -77,7 +77,7 @@ const CustomDropdown = ({
           onFocus={() => setTooltipVisible(true)}
           onBlur={() => setTooltipVisible(false)}
         >
-          <IoInformationCircleOutline className="text-gray-400 dark:text-slate-500 text-sm" />
+          <IoInformationCircleOutline className="text-[var(--color-text-muted)] text-sm" />
           {isTooltipVisible && tooltipText && (
             <div
               style={{

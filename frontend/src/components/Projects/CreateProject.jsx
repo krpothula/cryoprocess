@@ -12,9 +12,9 @@ import {
 
 const CreateProject = () => {
   const [formData, setFormData] = useState({
-    project_name: "",
+    projectName: "",
     description: "",
-    movie_directory: "",
+    movieDirectory: "",
   });
   const [openSections, setOpenSections] = useState({
     project: true,
@@ -40,7 +40,7 @@ const CreateProject = () => {
     e.preventDefault();
     setError(null);
 
-    if (!formData.project_name.trim()) {
+    if (!formData.projectName.trim()) {
       setError({ message: "Project name is required.", type: "validation" });
       return;
     }
@@ -48,12 +48,12 @@ const CreateProject = () => {
     setLoading(true);
 
     const payload = {
-      project_name: formData.project_name,
+      projectName: formData.projectName,
       description: formData.description,
     };
 
-    if (formData.movie_directory.trim()) {
-      payload.movie_directory = formData.movie_directory.trim();
+    if (formData.movieDirectory.trim()) {
+      payload.movieDirectory = formData.movieDirectory.trim();
     }
 
     createProjectApi(payload)
@@ -71,7 +71,7 @@ const CreateProject = () => {
         const errorMessage =
           err?.response?.data?.message ||
           "Something went wrong while creating the project, please try again.";
-        const errorType = err?.response?.data?.error_type || "unknown";
+        const errorType = err?.response?.data?.errorType || "unknown";
         setError({ message: errorMessage, type: errorType });
       })
       .finally(() => {
@@ -168,12 +168,12 @@ const CreateProject = () => {
             {openSections.project && (
               <div className="lp-section-body">
                 <div className="lp-form-group">
-                  <label htmlFor="project_name">Project Name</label>
+                  <label htmlFor="projectName">Project Name</label>
                   <input
                     type="text"
-                    id="project_name"
-                    name="project_name"
-                    value={formData.project_name}
+                    id="projectName"
+                    name="projectName"
+                    value={formData.projectName}
                     onChange={handleChange}
                     placeholder="e.g. Ribosome_20260206"
                     required
@@ -209,14 +209,14 @@ const CreateProject = () => {
             {openSections.data && (
               <div className="lp-section-body">
                 <div className="lp-form-group">
-                  <label htmlFor="movie_directory">
+                  <label htmlFor="movieDirectory">
                     Movie / Micrograph Directory
                   </label>
                   <input
                     type="text"
-                    id="movie_directory"
-                    name="movie_directory"
-                    value={formData.movie_directory}
+                    id="movieDirectory"
+                    name="movieDirectory"
+                    value={formData.movieDirectory}
                     onChange={handleChange}
                     placeholder="/data/microscope/session_001"
                   />

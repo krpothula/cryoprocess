@@ -56,7 +56,7 @@ class ImportJobBuilder {
    * @returns {{valid: boolean, error: string|null}}
    */
   validate() {
-    const isOtherImport = getBoolParam(this.data, ['nodetype'], false);
+    const isOtherImport = getBoolParam(this.data, ['nodeType', 'nodetype'], false);
 
     if (isOtherImport) {
       return this._validateOtherImport();
@@ -130,7 +130,7 @@ class ImportJobBuilder {
    * Validate raw movies/micrographs import
    */
   _validateMoviesImport() {
-    const inputFiles = getParam(this.data, ['input_files'], '');
+    const inputFiles = getParam(this.data, ['inputFiles', 'input_files'], '');
 
     if (!inputFiles) {
       logger.warn('[Import] Validation: Failed | input_files is required');
@@ -260,8 +260,8 @@ class ImportJobBuilder {
       relOutputDir = outputDir;
     }
 
-    const isOtherImport = getBoolParam(this.data, ['nodetype'], false);
-    logger.info(`[Import] Command: nodetype = '${this.data.nodetype}', import_other = ${isOtherImport}`);
+    const isOtherImport = getBoolParam(this.data, ['nodeType', 'nodetype'], false);
+    logger.info(`[Import] Command: nodeType = '${this.data.nodeType || this.data.nodetype}', import_other = ${isOtherImport}`);
 
     if (isOtherImport) {
       return this._buildOtherImportCommand(outputDir, relOutputDir);
@@ -298,7 +298,7 @@ class ImportJobBuilder {
     ];
 
     // Add optics group rename if specified (RELION uses --particles_optics_group_name for particle/coord imports)
-    const renameOptics = getParam(this.data, ['renameopticsgroup'], '');
+    const renameOptics = getParam(this.data, ['renameOpticsGroup', 'renameopticsgroup'], '');
     if (renameOptics && config.flag === '--do_coordinates') {
       cmd.push('--particles_optics_group_name', renameOptics);
     }
@@ -317,7 +317,7 @@ class ImportJobBuilder {
    */
   _buildMoviesImportCommand(outputDir, relOutputDir) {
     // Decide output file based on multiframemovies
-    const multiframe = getBoolParam(this.data, ['multiframemovies'], false);
+    const multiframe = getBoolParam(this.data, ['multiFrameMovies', 'multiframemovies'], false);
     let outputFile, movieFlag;
 
     if (multiframe) {
@@ -329,10 +329,10 @@ class ImportJobBuilder {
     }
 
     // Handle naming mismatch between frontend/backend
-    const optics = getParam(this.data, ['opticsgroupname'], 'opticsGroup1');
+    const optics = getParam(this.data, ['opticsGroupName', 'opticsgroupname'], 'opticsGroup1');
 
     // Get input path and make it relative
-    let inputPath = getParam(this.data, ['input_files'], '');
+    let inputPath = getParam(this.data, ['inputFiles', 'input_files'], '');
     let relativeInput;
     if (inputPath.startsWith(this.projectPath)) {
       relativeInput = path.relative(this.projectPath, inputPath);

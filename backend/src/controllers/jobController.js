@@ -15,12 +15,13 @@ const { getProjectPath } = require('../utils/pathUtils');
 const response = require('../utils/responseHelper');
 const { JOB_STATUS } = require('../config/constants');
 const { getJobProgress, getTotalExpected } = require('../utils/progressHelper');
-const { isGpuEnabled } = require('../utils/paramHelper');
+const { isGpuEnabled, getBoolParam } = require('../utils/paramHelper');
 const User = require('../models/User');
 const { decryptField } = require('../utils/crypto');
 const ProjectMember = require('../models/ProjectMember');
 const { checkProjectAccess } = require('./projectMemberController');
 const auditLog = require('../utils/auditLogger');
+const { mapKeys } = require('../utils/mapKeys');
 
 // Import unified job registry (single source of truth)
 const {
@@ -104,6 +105,40 @@ exports.submitJob = async (req, res) => {
     const jobName = await Job.getNextJobName(project.id);
     const outputDir = builder.getOutputDir(jobName);
 
+    // Determine execution method and system type BEFORE building command
+    // so resource clamping takes effect on the values the builder reads.
+    // execution_method: 'direct' (spawn) or 'slurm' (sbatch)
+    // system_type:      'local' (same machine) or 'remote' (SSH cluster)
+    const executionMethod = getBoolParam(data, ['submitToQueue', 'SubmitToQueue'], true) ? 'slurm' : 'direct';
+    const systemType = (executionMethod === 'slurm' && isSSHMode()) ? 'remote' : 'local';
+
+    // Clamp resources for direct execution to prevent overloading host machine.
+    // Must happen before buildCommand() so builders use clamped values.
+    if (executionMethod === 'direct') {
+      const { getSystemResources } = require('../utils/systemResources');
+      const sys = getSystemResources();
+      const maxCpus = sys.availableCpus;
+
+      let mpi = parseInt(data.runningmpi || data.numberOfMpiProcs || data.mpiProcs || 1, 10);
+      let threads = parseInt(data.threads || data.numberOfThreads || 1, 10);
+
+      if (mpi * threads > maxCpus) {
+        const origMpi = mpi, origThreads = threads;
+        threads = Math.max(1, Math.floor(maxCpus / mpi));
+        if (mpi * threads > maxCpus) {
+          mpi = Math.max(1, Math.floor(maxCpus / threads));
+        }
+        logger.info(`[${jobType}] Resource clamped: mpi ${origMpi}->${mpi}, threads ${origThreads}->${threads} (max ${maxCpus} CPUs)`);
+      }
+
+      data.runningmpi = mpi;
+      data.numberOfMpiProcs = mpi;
+      data.mpiProcs = mpi;
+      data.threads = threads;
+      data.numberOfThreads = threads;
+      data.gres = Math.min(parseInt(data.gres || 0, 10), sys.gpuCount);
+    }
+
     logger.job.step(jobType, 4, 'Building command', { job_name: jobName });
     logger.project.step(projectPath, project.id, jobType, 4, 'Building command', { job_name: jobName });
     const cmd = builder.buildCommand(outputDir, jobName);
@@ -184,15 +219,15 @@ exports.submitJob = async (req, res) => {
       const upstreamJob = await Job.findOne({ id: resolvedInputJobIds[0] }).lean();
       if (upstreamJob) {
         const us = upstreamJob.pipeline_stats || {};
-        inheritedStats.micrograph_count = us.micrograph_count || upstreamJob.micrograph_count || 0;
-        inheritedStats.particle_count = us.particle_count || upstreamJob.particle_count || 0;
-        inheritedStats.pixel_size = us.pixel_size || upstreamJob.pixel_size ||
+        inheritedStats.micrograph_count = us.micrograph_count ?? upstreamJob.micrograph_count ?? 0;
+        inheritedStats.particle_count = us.particle_count ?? upstreamJob.particle_count ?? 0;
+        inheritedStats.pixel_size = us.pixel_size ?? upstreamJob.pixel_size ??
           (upstreamJob.parameters?.angpix ? parseFloat(upstreamJob.parameters.angpix) : null);
-        inheritedStats.box_size = us.box_size || upstreamJob.box_size ||
-          upstreamJob.parameters?.particleBoxSize || null;
-        inheritedStats.resolution = us.resolution || null;
-        inheritedStats.class_count = us.class_count || 0;
-        inheritedStats.iteration_count = us.iteration_count || 0;
+        inheritedStats.box_size = us.box_size ?? upstreamJob.box_size ??
+          upstreamJob.parameters?.particleBoxSize ?? null;
+        inheritedStats.resolution = us.resolution ?? null;
+        inheritedStats.class_count = us.class_count ?? 0;
+        inheritedStats.iteration_count = us.iteration_count ?? 0;
 
         // If values are missing, look further upstream
         if (!inheritedStats.box_size || !inheritedStats.pixel_size || !inheritedStats.micrograph_count) {
@@ -209,18 +244,18 @@ exports.submitJob = async (req, res) => {
             const as = ancestorJob.pipeline_stats || {};
 
             if (!inheritedStats.box_size) {
-              inheritedStats.box_size = as.box_size || ancestorJob.box_size ||
-                ancestorJob.parameters?.particleBoxSize || null;
+              inheritedStats.box_size = as.box_size ?? ancestorJob.box_size ??
+                ancestorJob.parameters?.particleBoxSize ?? null;
             }
             if (!inheritedStats.pixel_size) {
-              inheritedStats.pixel_size = as.pixel_size || ancestorJob.pixel_size ||
+              inheritedStats.pixel_size = as.pixel_size ?? ancestorJob.pixel_size ??
                 (ancestorJob.parameters?.angpix ? parseFloat(ancestorJob.parameters.angpix) : null);
             }
             if (!inheritedStats.micrograph_count) {
-              inheritedStats.micrograph_count = as.micrograph_count || ancestorJob.micrograph_count || 0;
+              inheritedStats.micrograph_count = as.micrograph_count ?? ancestorJob.micrograph_count ?? 0;
             }
             if (!inheritedStats.particle_count) {
-              inheritedStats.particle_count = as.particle_count || ancestorJob.particle_count || 0;
+              inheritedStats.particle_count = as.particle_count ?? ancestorJob.particle_count ?? 0;
             }
 
             if (ancestorJob.input_job_ids) {
@@ -305,7 +340,8 @@ exports.submitJob = async (req, res) => {
       input_job_ids: resolvedInputJobIds,  // Database IDs for tree connections
       output_file_path: outputDir,
       command: commandStr,
-      execution_mode: data.execution_mode || 'slurm',
+      execution_method: executionMethod,
+      system_type: systemType,
       parameters: req.body,
       pipeline_stats: inheritedStats,
       notify_email: !!req.body.notify_email
@@ -314,42 +350,9 @@ exports.submitJob = async (req, res) => {
     logger.job.step(jobType, 6, 'Job saved to database', { job_id: jobId, output_dir: outputDir });
     logger.project.step(projectPath, project.id, jobType, 6, 'Job saved to database', { job_id: jobId, output_dir: outputDir });
 
-    // Determine execution mode
-    let executionMode = data.execution_mode || 'slurm';
-    const submitToQueue = data.submitToQueue || data.SubmitToQueue;
-    if (submitToQueue === 'No' || submitToQueue === false) {
-      executionMode = 'local';
-    }
-
-    // Clamp resources for local execution to prevent overloading host machine
-    if (executionMode === 'local') {
-      const { getSystemResources } = require('../utils/systemResources');
-      const sys = getSystemResources();
-      const maxCpus = sys.availableCpus;
-
-      let mpi = parseInt(data.runningmpi || data.numberOfMpiProcs || data.mpiProcs || 1, 10);
-      let threads = parseInt(data.threads || data.numberOfThreads || 1, 10);
-
-      if (mpi * threads > maxCpus) {
-        const origMpi = mpi, origThreads = threads;
-        threads = Math.max(1, Math.floor(maxCpus / mpi));
-        if (mpi * threads > maxCpus) {
-          mpi = Math.max(1, Math.floor(maxCpus / threads));
-        }
-        logger.info(`[${jobType}] Resource clamped: mpi ${origMpi}->${mpi}, threads ${origThreads}->${threads} (max ${maxCpus} CPUs)`);
-      }
-
-      data.runningmpi = mpi;
-      data.numberOfMpiProcs = mpi;
-      data.mpiProcs = mpi;
-      data.threads = threads;
-      data.numberOfThreads = threads;
-      data.gres = Math.min(parseInt(data.gres || 0, 10), sys.gpuCount);
-    }
-
-    // Extract SLURM parameters
+    // Extract SLURM parameters when using SLURM scheduler
     let slurmParams = null;
-    if (executionMode === 'slurm') {
+    if (executionMethod === 'slurm') {
       // GPU detection: Check multiple parameter formats
       // - gpuAcceleration: "Yes"/"No" (frontend checkbox)
       // - useGPU: "0" (GPU device ID, means GPU is requested)
@@ -382,17 +385,16 @@ exports.submitJob = async (req, res) => {
         runningmpi: effectiveMpi,
         threads: data.threads || data.numberOfThreads,
         gres: effectiveGres,
-        coresPerNode: data.coresPerNode || data.minimumDedicatedcoresPerNode,
-        clustername: data.clustername,
+        coresPerNode: data.coresPerNode || data.minimumDedicatedCoresPerNode || data.minimumDedicatedcoresPerNode || data.minDedicatedCores || data.minCoresPerNode,
+        clustername: data.clusterName || data.clustername,
         arguments: data.arguments || data.slurmArguments || data.AdditionalArguments
       };
     }
 
-    // Check if submitting user has per-user cluster credentials enabled
-    // Only relevant when SSH mode is active (remote cluster); for local SLURM,
-    // sbatch runs directly on the host and no SSH session is needed.
+    // Check if submitting user has per-user cluster credentials enabled.
+    // Only relevant for remote systems; for local SLURM, sbatch runs directly.
     let userCredentials = null;
-    if (executionMode === 'slurm' && isSSHMode()) {
+    if (systemType === 'remote') {
       try {
         const submittingUser = await User.findOne({ id: req.user.id }).select('+cluster_ssh_key').lean();
         if (submittingUser?.cluster_enabled && submittingUser.cluster_ssh_key && submittingUser.cluster_username) {
@@ -407,8 +409,8 @@ exports.submitJob = async (req, res) => {
       }
     }
 
-    logger.job.step(jobType, 7, 'Preparing submission', { execution_mode: executionMode });
-    logger.project.step(projectPath, project.id, jobType, 7, 'Preparing submission', { execution_mode: executionMode });
+    logger.job.step(jobType, 7, 'Preparing submission', { execution_method: executionMethod, system_type: systemType });
+    logger.project.step(projectPath, project.id, jobType, 7, 'Preparing submission', { execution_method: executionMethod, system_type: systemType });
 
     // Special handling for link_movies - execute directly (no SLURM)
     if (jobType === 'link_movies' || jobType === 'linkmovies') {
@@ -438,7 +440,7 @@ exports.submitJob = async (req, res) => {
       return res.status(jobStatus === JOB_STATUS.SUCCESS ? 200 : 500).json({
         status: jobStatus,
         id: jobId,
-        job_name: jobName,
+        jobName: jobName,
         message: result.message,
         source: result.source,
         destination: result.destination
@@ -476,10 +478,10 @@ exports.submitJob = async (req, res) => {
       return res.status(isSuccess ? 200 : 500).json({
         status: isSuccess ? JOB_STATUS.SUCCESS : JOB_STATUS.FAILED,
         id: jobId,
-        job_name: jobName,
+        jobName: jobName,
         message: isSuccess ? `Selected ${selectionResult.num_particles} particles` : 'No particles found in selected classes',
-        particle_count: selectionResult?.num_particles || 0,
-        selected_classes: selectionResult?.selected_classes || []
+        particleCount: selectionResult?.num_particles || 0,
+        selectedClasses: selectionResult?.selected_classes || []
       });
     }
 
@@ -494,7 +496,7 @@ exports.submitJob = async (req, res) => {
       projectId: project.id,
       projectPath: getProjectPath(project),
       outputDir,
-      executionMode,
+      executionMethod,
       slurmParams,
       postCommand: builder.postCommand,
       userCredentials
@@ -523,8 +525,8 @@ exports.submitJob = async (req, res) => {
     res.status(submissionResult.success ? 202 : 500).json({
       status: responseStatus,
       id: jobId,
-      job_name: jobName,
-      slurm_job_id: submissionResult.slurm_job_id,
+      jobName: jobName,
+      slurmJobId: submissionResult.slurm_job_id,
       message: submissionResult.message || `${stageName} job submitted successfully`,
       error: submissionResult.error
     });
@@ -555,11 +557,11 @@ exports.getJobResults = async (req, res) => {
 
     return response.successData(res, {
       id: job.id,
-      job_name: job.job_name,
-      job_type: job.job_type,
-      job_status: job.status,
+      jobName: job.job_name,
+      jobType: job.job_type,
+      jobStatus: job.status,
       command: job.command,
-      output_dir: job.output_file_path,
+      outputDir: job.output_file_path,
       parameters: job.parameters
     });
   } catch (error) {
@@ -593,15 +595,15 @@ exports.getJobSummary = async (req, res) => {
 
       return {
         id: job.id,
-        job_name: job.job_name,
+        jobName: job.job_name,
         status: job.status,
-        input_files: params.input_files || '',
-        movies_count: job.pipeline_stats?.micrograph_count || 0,
+        inputFiles: params.input_files || '',
+        moviesCount: job.pipeline_stats?.micrograph_count ?? 0,
         angpix: params.angpix,
         kV: params.kV,
-        output_dir: job.output_file_path,
+        outputDir: job.output_file_path,
         command: job.command,
-        created_at: job.created_at
+        createdAt: job.created_at
       };
     });
 
@@ -635,13 +637,13 @@ exports.getJobDetails = async (req, res) => {
 
     return response.successData(res, {
       id: job.id,
-      job_name: job.job_name,
-      job_type: job.job_type,
+      jobName: job.job_name,
+      jobType: job.job_type,
       status: job.status,
       parameters: job.parameters,
-      start_time: job.start_time,
-      end_time: job.end_time,
-      project_id: job.project_id
+      startTime: job.start_time,
+      endTime: job.end_time,
+      projectId: job.project_id
     });
   } catch (error) {
     logger.error('[JobDetails] Error:', error);
@@ -690,20 +692,22 @@ exports.listJobs = async (req, res) => {
     // Transform to match frontend expectations
     const jobsData = jobs.map(job => ({
       id: job.id,
-      job_name: job.job_name,
-      job_type: job.job_type,
+      jobName: job.job_name,
+      jobType: job.job_type,
       status: job.status,
-      slurm_job_id: job.slurm_job_id,
-      created_at: job.created_at,
-      updated_at: job.updated_at,
-      start_time: job.start_time,
-      end_time: job.end_time,
-      output_file_path: job.output_file_path,
-      input_job_ids: job.input_job_ids || [],
-      error_message: job.error_message,
+      executionMethod: job.execution_method || 'slurm',
+      systemType: job.system_type || 'local',
+      slurmJobId: job.slurm_job_id,
+      createdAt: job.created_at,
+      updatedAt: job.updated_at,
+      startTime: job.start_time,
+      endTime: job.end_time,
+      outputFilePath: job.output_file_path,
+      inputJobIds: job.input_job_ids || [],
+      errorMessage: job.error_message,
       command: job.command || null,
       parameters: job.parameters || {},
-      pipeline_stats: job.pipeline_stats || {}
+      pipelineStats: mapKeys(job.pipeline_stats || {})
     }));
 
     const total = await Job.countDocuments({ project_id: projectId });
@@ -760,13 +764,13 @@ exports.getJobsTree = async (req, res) => {
     jobs.forEach(job => {
       jobMap.set(job.id, {
         id: job.id,
-        job_name: job.job_name,
-        job_type: job.job_type,
+        jobName: job.job_name,
+        jobType: job.job_type,
         status: job.status,
-        created_at: job.created_at,
+        createdAt: job.created_at,
         command: job.command || null,
-        output_file_path: job.output_file_path,
-        parent_id: '',
+        outputFilePath: job.output_file_path,
+        parentId: '',
         children: []
       });
       jobDataMap.set(job.id, job);
@@ -815,7 +819,7 @@ exports.getJobsTree = async (req, res) => {
         rootJobs.push(node);
       } else {
         const primaryParentId = pickPrimaryParent(inputIds);
-        node.parent_id = primaryParentId;
+        node.parentId = primaryParentId;
         const parent = jobMap.get(primaryParentId);
         if (parent) {
           parent.children.push(node);
@@ -832,7 +836,7 @@ exports.getJobsTree = async (req, res) => {
     const orphans = [];
 
     for (const node of rootJobs) {
-      if (node.job_type === 'Import' || node.job_type === 'LinkMovies') {
+      if (node.jobType === 'Import' || node.jobType === 'LinkMovies') {
         trueRoots.push(node);
       } else {
         orphans.push(node);
@@ -844,14 +848,14 @@ exports.getJobsTree = async (req, res) => {
       const jobRefs = new Set();
 
       // Extract job references from command string
-      const cmdRefs = extractJobRefs(jobData?.command, orphan.job_name);
+      const cmdRefs = extractJobRefs(jobData?.command, orphan.jobName);
       cmdRefs.forEach(r => jobRefs.add(r));
 
       // Extract job references from parameter values (file paths)
       if (jobData?.parameters && typeof jobData.parameters === 'object') {
         for (const val of Object.values(jobData.parameters)) {
           if (typeof val === 'string') {
-            const paramRefs = extractJobRefs(val, orphan.job_name);
+            const paramRefs = extractJobRefs(val, orphan.jobName);
             paramRefs.forEach(r => jobRefs.add(r));
           }
         }
@@ -866,10 +870,10 @@ exports.getJobsTree = async (req, res) => {
 
       if (candidateIds.length > 0) {
         const parentId = pickPrimaryParent(candidateIds);
-        orphan.parent_id = parentId;
+        orphan.parentId = parentId;
         jobMap.get(parentId).children.push(orphan);
         childOf.add(orphan.id);
-        logger.info(`[Jobs] Fallback: attached ${orphan.job_name} (${orphan.job_type}) to parent ${jobMap.get(parentId).job_name}`);
+        logger.info(`[Jobs] Fallback: attached ${orphan.jobName} (${orphan.jobType}) to parent ${jobMap.get(parentId).jobName}`);
       } else {
         // Still orphaned — keep as root
         trueRoots.push(orphan);
@@ -879,16 +883,16 @@ exports.getJobsTree = async (req, res) => {
     // Sort children chronologically at every level for consistent arrangement
     const sortChildren = (node) => {
       if (node.children && node.children.length > 0) {
-        node.children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        node.children.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         node.children.forEach(sortChildren);
       }
     };
-    trueRoots.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    trueRoots.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     trueRoots.forEach(sortChildren);
 
     return response.success(res, {
       data: trueRoots,
-      total_jobs: jobs.length
+      totalJobs: jobs.length
     });
   } catch (error) {
     logger.error('[Jobs] Tree error:', error);
@@ -946,8 +950,8 @@ exports.getJobProgress = async (req, res) => {
       if (job.input_job_ids && job.input_job_ids.length > 0) {
         const inputJobs = await Job.find({ id: { $in: job.input_job_ids } }).lean();
         for (const inputJob of inputJobs) {
-          if (inputJob.job_type === 'Import' && (inputJob.pipeline_stats?.micrograph_count || inputJob.micrograph_count) > 0) {
-            totalExpected = inputJob.pipeline_stats?.micrograph_count || inputJob.micrograph_count;
+          if (inputJob.job_type === 'Import' && (inputJob.pipeline_stats?.micrograph_count ?? inputJob.micrograph_count) > 0) {
+            totalExpected = inputJob.pipeline_stats?.micrograph_count ?? inputJob.micrograph_count;
             logger.info(`[JobProgress] Found Import job via input_job_ids with ${totalExpected} micrographs`);
             break;
           }
@@ -972,7 +976,7 @@ exports.getJobProgress = async (req, res) => {
 
             if (upstreamJob) {
               // Check micrograph_count first, then star_cache.total_count
-              const usMicCount = upstreamJob.pipeline_stats?.micrograph_count || upstreamJob.micrograph_count || 0;
+              const usMicCount = upstreamJob.pipeline_stats?.micrograph_count ?? upstreamJob.micrograph_count ?? 0;
               if (usMicCount > 0) {
                 totalExpected = usMicCount;
                 logger.info(`[JobProgress] Found upstream job ${upstreamJobName} with ${totalExpected} micrographs (from pipeline_stats)`);
@@ -986,8 +990,8 @@ exports.getJobProgress = async (req, res) => {
                     id: { $in: upstreamJob.input_job_ids },
                     job_type: 'Import'
                   }).lean();
-                  if ((importJob?.pipeline_stats?.micrograph_count || importJob?.micrograph_count) > 0) {
-                    totalExpected = importJob.pipeline_stats?.micrograph_count || importJob.micrograph_count;
+                  if ((importJob?.pipeline_stats?.micrograph_count ?? importJob?.micrograph_count) > 0) {
+                    totalExpected = importJob.pipeline_stats?.micrograph_count ?? importJob.micrograph_count;
                     logger.info(`[JobProgress] Found Import job via upstream with ${totalExpected} micrographs`);
                   }
                 }
@@ -1001,7 +1005,7 @@ exports.getJobProgress = async (req, res) => {
     }
 
     // Get progress by counting output files
-    const progress = getJobProgress(outputDir, job.job_type, totalExpected);
+    const progress = await getJobProgress(outputDir, job.job_type, totalExpected);
 
     if (!progress) {
       // Job type not supported for progress tracking
@@ -1125,12 +1129,12 @@ exports.getJobOutputs = async (req, res) => {
 
     return response.success(res, {
       data: {
-        job_id: job.id,
-        job_name: job.job_name,
-        job_type: job.job_type,
+        jobId: job.id,
+        jobName: job.job_name,
+        jobType: job.job_type,
         status: job.status,
-        output_files: outputFiles,
-        downstream_suggestions: suggestions,
+        outputFiles: outputFiles,
+        downstreamSuggestions: suggestions,
       }
     });
   } catch (error) {

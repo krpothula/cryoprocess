@@ -171,7 +171,7 @@ const LiveDashboard = () => {
       const res = await liveApi.getSessionActivity(sessionId, filters);
       const payload = res.data;
       setActivity(payload?.data || []);
-      setActivityTotal(payload?.unfiltered_total || payload?.data?.length || 0);
+      setActivityTotal(payload?.unfilteredTotal ?? payload?.data?.length ?? 0);
     } catch (err) {
       console.error("Failed to fetch activity:", err);
     }
@@ -181,7 +181,7 @@ const LiveDashboard = () => {
   const fetchClassData = useCallback(async () => {
     // Get class2d job ID from session or jobsByType
     const class2dJob = jobsByType.Class2D;
-    const class2dIds = session?.jobs?.class2d_ids;
+    const class2dIds = session?.jobs?.class2dIds;
     const class2dJobId = class2dJob?.id || (class2dIds?.length ? class2dIds[class2dIds.length - 1] : null);
 
     if (!class2dJobId) {
@@ -200,7 +200,7 @@ const LiveDashboard = () => {
     } finally {
       setClassLoading(false);
     }
-  }, [jobsByType, session?.jobs?.class2d_ids]);
+  }, [jobsByType, session?.jobs?.class2dIds]);
 
 
   // ---------- websocket ----------
@@ -211,9 +211,9 @@ const LiveDashboard = () => {
         wsRef.current = new WebSocket(WS_URL);
 
         wsRef.current.onopen = () => {
-          if (session?.project_id && wsRef.current.readyState === WebSocket.OPEN) {
+          if (session?.projectId && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(
-              JSON.stringify({ type: "subscribe", project_id: session.project_id })
+              JSON.stringify({ type: "subscribe", projectId: session.projectId })
             );
           }
         };
@@ -242,7 +242,7 @@ const LiveDashboard = () => {
       }
     };
 
-    if (session?.project_id) {
+    if (session?.projectId) {
       connectWebSocket();
     }
 
@@ -255,7 +255,7 @@ const LiveDashboard = () => {
         wsRef.current = null;
       }
     };
-  }, [session?.project_id, fetchSession, fetchStats]);
+  }, [session?.projectId, fetchSession, fetchStats]);
 
   // ---------- polling fallback ----------
 
@@ -266,20 +266,20 @@ const LiveDashboard = () => {
 
   // Fetch project name when session loads
   useEffect(() => {
-    if (session?.project_id) {
-      getProjectByIdApi(session.project_id)
+    if (session?.projectId) {
+      getProjectByIdApi(session.projectId)
         .then((resp) => {
           const responseData = resp?.data;
           const project = responseData?.data || responseData;
-          if (Array.isArray(project) && project[0]?.project_name) {
-            setProjectName(project[0].project_name);
-          } else if (project?.project_name) {
-            setProjectName(project.project_name);
+          if (Array.isArray(project) && project[0]?.projectName) {
+            setProjectName(project[0].projectName);
+          } else if (project?.projectName) {
+            setProjectName(project.projectName);
           }
         })
         .catch(() => setProjectName(""));
     }
-  }, [session?.project_id]);
+  }, [session?.projectId]);
 
   useEffect(() => {
     if (session?.status === "running" || session?.status === "paused" || session?.status === "pending") {
@@ -377,25 +377,24 @@ const LiveDashboard = () => {
   // ---------- derived ----------
 
   const st = session?.state || {};
-  const isTerminal = session?.status === "stopped" || session?.status === "completed";
 
-  const currentStageKey = STAGE_TYPE_TO_KEY[st.current_stage] || null;
+  const currentStageKey = STAGE_TYPE_TO_KEY[st.currentStage] || null;
 
   // Has class2d data?
-  const hasClass2d = (session?.jobs?.class2d_ids?.length || 0) > 0 || session?.class2d_config?.enabled;
+  const hasClass2d = (session?.jobs?.class2dIds?.length ?? 0) > 0 || session?.class2dConfig?.enabled;
 
   // Tab definitions — stage tabs are direct links to the project dashboard with job pre-selected
   const stageLink = (jobId) =>
-    session?.project_id && jobId
-      ? `/project/${session.project_id}?selectJob=${jobId}`
+    session?.projectId && jobId
+      ? `/project/${session.projectId}?selectJob=${jobId}`
       : null;
 
   const TABS = [
     { key: "overview", label: "Overview", icon: FiActivity },
-    { key: "import", label: "Import", icon: FiFilm, link: stageLink(session?.jobs?.import_id), jobId: session?.jobs?.import_id },
-    { key: "motion", label: "Motion Correction", icon: FiRefreshCw, link: stageLink(session?.jobs?.motion_id), jobId: session?.jobs?.motion_id },
-    { key: "ctf", label: "CTF", icon: FiCrosshair, link: stageLink(session?.jobs?.ctf_id), jobId: session?.jobs?.ctf_id },
-    { key: "autopick", label: "AutoPick", icon: FiGrid, link: stageLink(session?.jobs?.pick_id), jobId: session?.jobs?.pick_id },
+    { key: "import", label: "Import", icon: FiFilm, link: stageLink(session?.jobs?.importId), jobId: session?.jobs?.importId },
+    { key: "motion", label: "Motion Correction", icon: FiRefreshCw, link: stageLink(session?.jobs?.motionId), jobId: session?.jobs?.motionId },
+    { key: "ctf", label: "CTF", icon: FiCrosshair, link: stageLink(session?.jobs?.ctfId), jobId: session?.jobs?.ctfId },
+    { key: "autopick", label: "AutoPick", icon: FiGrid, link: stageLink(session?.jobs?.pickId), jobId: session?.jobs?.pickId },
     ...(hasClass2d ? [{ key: "classes", label: "2D Classes", icon: FiImage }] : []),
     { key: "activity", label: "Activity Log", icon: FiClock },
   ];
@@ -411,7 +410,13 @@ const LiveDashboard = () => {
     );
   }
 
-  if (error) {
+  const pStats = session?.pipelineStats || {};
+  const params = session?.parameters || {};
+  const status = session?.status;
+  const command = session?.command || "";
+  const isTerminal = status === "stopped" || status === "completed";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
       <div style={styles.loadingContainer}>
         <FiAlertCircle style={{ fontSize: 40, color: "var(--color-danger-text)" }} />
@@ -426,16 +431,16 @@ const LiveDashboard = () => {
   // ---------- render ----------
 
   const LEVEL_CONFIG = {
-    error: { color: "var(--color-danger-text)", bg: "var(--color-danger-bg)", border: "#fca5a5", icon: FiAlertCircle, label: "Error" },
-    warning: { color: "var(--color-warning-text)", bg: "var(--color-warning-bg)", border: "#fde047", icon: FiAlertTriangle, label: "Warning" },
-    success: { color: "var(--color-success-text)", bg: "var(--color-success-bg)", border: "#86efac", icon: FiCheckCircle, label: "Success" },
-    info: { color: "var(--color-primary)", bg: "var(--color-info-bg)", border: "#93c5fd", icon: FiInfo, label: "Info" },
+    error: { color: "var(--color-danger-text)", bg: "var(--color-danger-bg)", border: "var(--color-danger-border)", icon: FiAlertCircle, label: "Error" },
+    warning: { color: "var(--color-warning-text)", bg: "var(--color-warning-bg)", border: "var(--color-warning-border)", icon: FiAlertTriangle, label: "Warning" },
+    success: { color: "var(--color-success-text)", bg: "var(--color-success-bg)", border: "var(--color-success-border)", icon: FiCheckCircle, label: "Success" },
+    info: { color: "var(--color-primary)", bg: "var(--color-info-bg)", border: "var(--color-info-border)", icon: FiInfo, label: "Info" },
   };
 
   const STAGE_FILTER_OPTIONS = ["Import", "MotionCorr", "CtfFind", "AutoPick", "Extract", "Class2D"];
 
-  const StatusIcon = STATUS_ICONS[session?.status] || FiClock;
-  const statusColor = STATUS_COLORS[session?.status] || "var(--color-text-secondary)";
+  const StatusIcon = STATUS_ICONS[status] || FiClock;
+  const statusColor = STATUS_COLORS[status] || "var(--color-text-secondary)";
 
   return (
     <div style={styles.page}>
@@ -463,9 +468,9 @@ const LiveDashboard = () => {
                 }}
               >
                 <StatusIcon size={11} />
-                {session?.status}
+                {status}
               </span>
-              {session?.status === "running" && (
+              {status === "running" && (
                 <span style={styles.liveIndicator}>
                   <span style={styles.liveDot} />
                   LIVE
@@ -478,7 +483,7 @@ const LiveDashboard = () => {
         <div style={styles.headerRight}>
           {!isTerminal && (
             <>
-              {session?.status === "pending" ? (
+              {status === "pending" ? (
                 <button
                   style={{ ...styles.controlBtn, ...styles.controlBtnStart }}
                   onClick={handleStart}
@@ -487,7 +492,7 @@ const LiveDashboard = () => {
                   <FiPlay size={13} />
                   {actionLoading === "start" ? "Starting..." : "Start Processing"}
                 </button>
-              ) : session?.status === "running" ? (
+              ) : status === "running" ? (
                 <button
                   style={{ ...styles.controlBtn, ...styles.controlBtnPause }}
                   onClick={handlePause}
@@ -496,7 +501,7 @@ const LiveDashboard = () => {
                   <FiPause size={13} />
                   {actionLoading === "pause" ? "Pausing..." : "Pause"}
                 </button>
-              ) : session?.status === "paused" ? (
+              ) : status === "paused" ? (
                 <button
                   style={{ ...styles.controlBtn, ...styles.controlBtnResume }}
                   onClick={handleResume}
@@ -606,16 +611,16 @@ const LiveDashboard = () => {
   // ===================== OVERVIEW TAB =====================
 
   function renderOverview() {
-    const rawPassHistory = session?.pass_history || [];
+    const rawPassHistory = session?.passHistory || [];
 
     // Current cumulative counts (latest state)
     const currentCounts = {
-      import: st.movies_imported || st.movies_found || 0,
-      motion: st.movies_motion || 0,
-      ctf: st.movies_ctf || 0,
-      pick: st.movies_picked || 0,
-      extract: st.particles_extracted || 0,
-      class2d: session?.jobs?.class2d_ids?.length || 0,
+      import: st.moviesImported ?? st.moviesFound ?? 0,
+      motion: st.moviesMotion ?? 0,
+      ctf: st.moviesCtf ?? 0,
+      pick: st.moviesPicked ?? 0,
+      extract: st.particlesExtracted ?? 0,
+      class2d: session?.jobs?.class2dIds?.length ?? 0,
     };
 
     // If pass_history is empty but session has data, synthesize from current state
@@ -623,13 +628,13 @@ const LiveDashboard = () => {
       ? rawPassHistory
       : (currentCounts.import > 0 || currentCounts.motion > 0)
         ? [{
-            pass_number: st.pass_count || 1,
-            movies_imported: currentCounts.import,
-            movies_motion: currentCounts.motion,
-            movies_ctf: currentCounts.ctf,
-            movies_picked: currentCounts.pick,
-            particles_extracted: currentCounts.extract,
-            class2d_count: currentCounts.class2d,
+            passNumber: st.passCount || 1,
+            moviesImported: currentCounts.import,
+            moviesMotion: currentCounts.motion,
+            moviesCtf: currentCounts.ctf,
+            moviesPicked: currentCounts.pick,
+            particlesExtracted: currentCounts.extract,
+            class2dCount: currentCounts.class2d,
           }]
         : [];
 
@@ -639,7 +644,7 @@ const LiveDashboard = () => {
       : -1;
 
     function stageStatus(idx) {
-      if (isTerminal && session?.status === "completed") return "completed";
+      if (isTerminal && status === "completed") return "completed";
       if (idx < currentStageIdx) return "completed";
       if (idx === currentStageIdx) return "current";
       if (currentCounts[PIPELINE_STAGES[idx].key] > 0) return "completed";
@@ -647,7 +652,7 @@ const LiveDashboard = () => {
     }
 
     // Target for progress fractions on the current live pipeline
-    const moviesImported = st.movies_imported || 0;
+    const moviesImported = st.moviesImported ?? 0;
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -656,9 +661,9 @@ const LiveDashboard = () => {
           <div style={styles.cardHeader}>
             <FiChevronRight size={14} style={{ color: "var(--color-primary)" }} />
             <span style={styles.cardTitle}>Pipeline Progress</span>
-            {st.pass_count > 0 && (
+            {st.passCount > 0 && (
               <span style={{ fontSize: 11, color: "var(--color-text-secondary)", marginLeft: 8 }}>
-                Pass #{st.pass_count}
+                Pass #{st.passCount}
                 {moviesImported > 0 && <> &middot; {moviesImported} movies</>}
               </span>
             )}
@@ -681,7 +686,7 @@ const LiveDashboard = () => {
                 textColor = "var(--color-success-text)";
               } else if (status === "current") {
                 boxBg = "var(--color-info-bg)";
-                boxBorder = "#93c5fd";
+                boxBorder = "var(--color-info-border)";
                 textColor = "var(--color-warning-text)";
               }
 
@@ -729,21 +734,21 @@ const LiveDashboard = () => {
               <div style={{ height: 1, background: "var(--color-border)", marginBottom: 8 }} />
               {passHistory.map((pass, idx) => {
                 const cumValues = [
-                  pass.movies_imported || 0,
-                  pass.movies_motion || 0,
-                  pass.movies_ctf || 0,
-                  pass.movies_picked || 0,
-                  pass.particles_extracted || 0,
-                  pass.class2d_count || 0,
+                  pass.moviesImported ?? 0,
+                  pass.moviesMotion ?? 0,
+                  pass.moviesCtf ?? 0,
+                  pass.moviesPicked ?? 0,
+                  pass.particlesExtracted ?? 0,
+                  pass.class2dCount ?? 0,
                 ];
                 const prev = idx > 0 ? passHistory[idx - 1] : null;
                 const prevValues = prev ? [
-                  prev.movies_imported || 0,
-                  prev.movies_motion || 0,
-                  prev.movies_ctf || 0,
-                  prev.movies_picked || 0,
-                  prev.particles_extracted || 0,
-                  prev.class2d_count || 0,
+                  prev.moviesImported ?? 0,
+                  prev.moviesMotion ?? 0,
+                  prev.moviesCtf ?? 0,
+                  prev.moviesPicked ?? 0,
+                  prev.particlesExtracted ?? 0,
+                  prev.class2dCount ?? 0,
                 ] : null;
 
                 return (
@@ -758,7 +763,7 @@ const LiveDashboard = () => {
                       fontWeight: 700,
                       color: "var(--color-text-secondary)",
                     }}>
-                      Pass {pass.pass_number}
+                      Pass {pass.passNumber}
                     </span>
                     {/* Values — same flex layout as pipelineRow to align with stage boxes */}
                     <div style={{
@@ -813,13 +818,13 @@ const LiveDashboard = () => {
             <span style={styles.cardTitle}>Processing Info</span>
           </div>
           <div style={styles.infoGrid}>
-            <InfoRow label="Pipeline Passes" value={st.pass_count ?? "--"} />
-            <InfoRow label="Last Pass" value={formatDateTime(st.last_pipeline_pass)} />
-            <InfoRow label="Session Started" value={formatDateTime(session?.start_time || session?.created_at)} />
-            <InfoRow label="Input Mode" value={session?.input_mode === "watch" ? "Watch Directory" : "Existing Movies"} />
-            <InfoRow label="Watch Directory" value={session?.watch_directory || "--"} mono fullWidth />
-            <InfoRow label="File Pattern" value={session?.file_pattern || "--"} mono />
-            <InfoRow label="Pixel Size" value={session?.optics?.pixel_size ? `${session.optics.pixel_size} Å/px` : "--"} />
+            <InfoRow label="Pipeline Passes" value={st.passCount ?? "--"} />
+            <InfoRow label="Last Pass" value={formatDateTime(st.lastPipelinePass)} />
+            <InfoRow label="Session Started" value={formatDateTime(session?.startTime || session?.createdAt)} />
+            <InfoRow label="Input Mode" value={session?.inputMode === "watch" ? "Watch Directory" : "Existing Movies"} />
+            <InfoRow label="Watch Directory" value={session?.watchDirectory || "--"} mono fullWidth />
+            <InfoRow label="File Pattern" value={session?.filePattern || "--"} mono />
+            <InfoRow label="Pixel Size" value={session?.optics?.pixelSize ? `${session.optics.pixelSize} Å/px` : "--"} />
           </div>
         </div>
       </div>
@@ -840,7 +845,7 @@ const LiveDashboard = () => {
     const hasClasses = classes.length > 0;
 
     if (!hasClasses) {
-      const class2dIds = session?.jobs?.class2d_ids || [];
+      const class2dIds = session?.jobs?.class2dIds || [];
       return (
         <div style={styles.emptyState}>
           <FiImage size={32} style={{ color: "var(--color-border)" }} />
@@ -849,9 +854,9 @@ const LiveDashboard = () => {
               ? "2D classification has not been triggered yet."
               : "Loading class averages..."}
           </p>
-          {session?.class2d_config?.enabled && (
+          {session?.class2dConfig?.enabled && (
             <p style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>
-              Triggers when particles exceed {session.class2d_config.particle_threshold?.toLocaleString() || "5,000"}
+              Triggers when particles exceed {session.class2dConfig.particleThreshold?.toLocaleString() || "5,000"}
             </p>
           )}
         </div>
@@ -859,7 +864,7 @@ const LiveDashboard = () => {
     }
 
     // Sort by distribution descending
-    const sorted = [...classes].sort((a, b) => (b.distribution || 0) - (a.distribution || 0));
+    const sorted = [...classes].sort((a, b) => (b.distribution ?? 0) - (a.distribution ?? 0));
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -884,13 +889,13 @@ const LiveDashboard = () => {
         {/* Class gallery grid */}
         <div style={styles.classGrid}>
           {sorted.map((cls, idx) => {
-            const dist = cls.distribution != null ? (cls.distribution * 100).toFixed(1) : cls.particle_fraction?.toFixed(1);
-            const res = cls.estimated_resolution != null ? Number(cls.estimated_resolution).toFixed(1) : null;
+            const dist = cls.distribution != null ? (cls.distribution * 100).toFixed(1) : cls.particleFraction?.toFixed(1);
+            const res = cls.estimatedResolution != null ? Number(cls.estimatedResolution).toFixed(1) : null;
             return (
-              <div key={cls.class_number ?? idx} style={styles.classCard} title={`Class ${cls.class_number ?? idx + 1}\nDistribution: ${dist || "?"}%\nResolution: ${res || "?"} Å`}>
+              <div key={cls.classNumber ?? idx} style={styles.classCard} title={`Class ${cls.classNumber ?? idx + 1}\nDistribution: ${dist || "?"}%\nResolution: ${res || "?"} Å`}>
                 <div style={styles.classImageWrap}>
                   {cls.image ? (
-                    <img src={cls.image} alt={`Class ${cls.class_number ?? idx + 1}`} style={styles.classImg} />
+                    <img src={cls.image} alt={`Class ${cls.classNumber ?? idx + 1}`} style={styles.classImg} />
                   ) : (
                     <div style={{ ...styles.classImgPlaceholder }}>?</div>
                   )}
@@ -1038,11 +1043,11 @@ const LiveDashboard = () => {
                 const LevelIcon = cfg.icon;
                 const hasContext = evt.context && Object.keys(evt.context).length > 0;
                 const isExpanded = expandedEntries.has(idx);
-                const dur = evt.context?.duration_ms;
+                const dur = evt.context?.durationMs;
 
                 // Pipeline boundary divider
                 if (isPipelineBoundary(evt)) {
-                  const passNum = evt.pass_number || evt.context?.pass_number;
+                  const passNum = evt.passNumber || evt.context?.passNumber;
                   return (
                     <div key={idx} style={actStyles.passDivider}>
                       <div style={actStyles.passDividerLine} />
@@ -1088,8 +1093,8 @@ const LiveDashboard = () => {
                         </span>
                       )}
 
-                      {evt.job_name && (
-                        <span style={actStyles.jobBadge}>{evt.job_name}</span>
+                      {evt.jobName && (
+                        <span style={actStyles.jobBadge}>{evt.jobName}</span>
                       )}
 
                       {hasContext && (
@@ -1110,88 +1115,88 @@ const LiveDashboard = () => {
                     {isExpanded && hasContext && (
                       <div style={actStyles.contextPanel}>
                         {/* SLURM details */}
-                        {(evt.context.slurm_job_id || evt.context.slurm_state || evt.context.exit_code) && (
+                        {(evt.context.slurmJobId || evt.context.slurmState || evt.context.exitCode) && (
                           <div style={actStyles.contextSection}>
                             <span style={actStyles.contextLabel}>SLURM</span>
                             <div style={actStyles.contextGrid}>
-                              {evt.context.slurm_job_id && <ContextKV k="Job ID" v={evt.context.slurm_job_id} />}
-                              {evt.context.slurm_state && <ContextKV k="State" v={evt.context.slurm_state} />}
-                              {evt.context.exit_code && <ContextKV k="Exit Code" v={evt.context.exit_code} />}
+                              {evt.context.slurmJobId && <ContextKV k="Job ID" v={evt.context.slurmJobId} />}
+                              {evt.context.slurmState && <ContextKV k="State" v={evt.context.slurmState} />}
+                              {evt.context.exitCode && <ContextKV k="Exit Code" v={evt.context.exitCode} />}
                               {evt.context.elapsed && <ContextKV k="Elapsed" v={evt.context.elapsed} />}
                             </div>
                           </div>
                         )}
 
                         {/* Counts */}
-                        {(evt.context.micrograph_count != null || evt.context.particle_count != null || evt.context.file_count != null) && (
+                        {(evt.context.micrographCount != null || evt.context.particleCount != null || evt.context.fileCount != null) && (
                           <div style={actStyles.contextSection}>
                             <span style={actStyles.contextLabel}>Counts</span>
                             <div style={actStyles.contextGrid}>
-                              {evt.context.file_count != null && <ContextKV k="Files" v={evt.context.file_count} />}
-                              {evt.context.total_found != null && <ContextKV k="Total Found" v={evt.context.total_found} />}
-                              {evt.context.micrograph_count != null && <ContextKV k="Micrographs" v={evt.context.micrograph_count} />}
-                              {evt.context.particle_count != null && <ContextKV k="Particles" v={evt.context.particle_count} />}
-                              {evt.context.movies_processed != null && <ContextKV k="Movies" v={evt.context.movies_processed} />}
-                              {evt.context.particles_extracted != null && <ContextKV k="Extracted" v={evt.context.particles_extracted} />}
+                              {evt.context.fileCount != null && <ContextKV k="Files" v={evt.context.fileCount} />}
+                              {evt.context.totalFound != null && <ContextKV k="Total Found" v={evt.context.totalFound} />}
+                              {evt.context.micrographCount != null && <ContextKV k="Micrographs" v={evt.context.micrographCount} />}
+                              {evt.context.particleCount != null && <ContextKV k="Particles" v={evt.context.particleCount} />}
+                              {evt.context.moviesProcessed != null && <ContextKV k="Movies" v={evt.context.moviesProcessed} />}
+                              {evt.context.particlesExtracted != null && <ContextKV k="Extracted" v={evt.context.particlesExtracted} />}
                             </div>
                           </div>
                         )}
 
                         {/* SLURM params */}
-                        {evt.context.slurm_params && (
+                        {evt.context.slurmParams && (
                           <div style={actStyles.contextSection}>
                             <span style={actStyles.contextLabel}>SLURM Config</span>
                             <div style={actStyles.contextGrid}>
-                              {evt.context.slurm_params.partition && <ContextKV k="Partition" v={evt.context.slurm_params.partition} />}
-                              {evt.context.slurm_params.mpi && <ContextKV k="MPI" v={evt.context.slurm_params.mpi} />}
-                              {evt.context.slurm_params.threads && <ContextKV k="Threads" v={evt.context.slurm_params.threads} />}
-                              {evt.context.slurm_params.gpus != null && <ContextKV k="GPUs" v={evt.context.slurm_params.gpus} />}
+                              {evt.context.slurmParams.partition && <ContextKV k="Partition" v={evt.context.slurmParams.partition} />}
+                              {evt.context.slurmParams.mpi && <ContextKV k="MPI" v={evt.context.slurmParams.mpi} />}
+                              {evt.context.slurmParams.threads && <ContextKV k="Threads" v={evt.context.slurmParams.threads} />}
+                              {evt.context.slurmParams.gpus != null && <ContextKV k="GPUs" v={evt.context.slurmParams.gpus} />}
                             </div>
                           </div>
                         )}
 
                         {/* stderr output */}
-                        {evt.context.stderr_preview && (
+                        {evt.context.stderrPreview && (
                           <div style={actStyles.contextSection}>
                             <span style={{ ...actStyles.contextLabel, color: "var(--color-danger-text)" }}>stderr output</span>
-                            <pre style={actStyles.stderrBlock}>{evt.context.stderr_preview}</pre>
+                            <pre style={actStyles.stderrBlock}>{evt.context.stderrPreview}</pre>
                           </div>
                         )}
 
                         {/* RELION error lines */}
-                        {evt.context.relion_errors && (
+                        {evt.context.relionErrors && (
                           <div style={actStyles.contextSection}>
                             <span style={{ ...actStyles.contextLabel, color: "var(--color-danger-text)" }}>RELION Errors</span>
-                            <pre style={actStyles.stderrBlock}>{evt.context.relion_errors}</pre>
+                            <pre style={actStyles.stderrBlock}>{evt.context.relionErrors}</pre>
                           </div>
                         )}
 
                         {/* Command preview */}
-                        {evt.context.command_preview && (
+                        {evt.context.commandPreview && (
                           <div style={actStyles.contextSection}>
                             <span style={actStyles.contextLabel}>Command</span>
-                            <pre style={actStyles.cmdBlock}>{evt.context.command_preview}</pre>
+                            <pre style={actStyles.cmdBlock}>{evt.context.commandPreview}</pre>
                           </div>
                         )}
 
                         {/* Log file path */}
-                        {evt.context.log_file_path && (
+                        {evt.context.logFilePath && (
                           <div style={actStyles.contextSection}>
                             <span style={actStyles.contextLabel}>Log File</span>
-                            <code style={actStyles.logFilePath}>{evt.context.log_file_path}</code>
+                            <code style={actStyles.logFilePath}>{evt.context.logFilePath}</code>
                           </div>
                         )}
 
                         {/* Session summary (for session_completed) */}
-                        {evt.context.total_passes != null && (
+                        {evt.context.totalPasses != null && (
                           <div style={actStyles.contextSection}>
                             <span style={actStyles.contextLabel}>Session Summary</span>
                             <div style={actStyles.contextGrid}>
-                              <ContextKV k="Total Passes" v={evt.context.total_passes} />
-                              {evt.context.movies_processed != null && <ContextKV k="Movies" v={evt.context.movies_processed} />}
-                              {evt.context.movies_rejected != null && <ContextKV k="Rejected" v={evt.context.movies_rejected} />}
-                              {evt.context.particles_extracted != null && <ContextKV k="Particles" v={evt.context.particles_extracted} />}
-                              {evt.context.duration_ms != null && <ContextKV k="Duration" v={formatDurationFe(evt.context.duration_ms)} />}
+                              <ContextKV k="Total Passes" v={evt.context.totalPasses} />
+                              {evt.context.moviesProcessed != null && <ContextKV k="Movies" v={evt.context.moviesProcessed} />}
+                              {evt.context.moviesRejected != null && <ContextKV k="Rejected" v={evt.context.moviesRejected} />}
+                              {evt.context.particlesExtracted != null && <ContextKV k="Particles" v={evt.context.particlesExtracted} />}
+                              {evt.context.durationMs != null && <ContextKV k="Duration" v={formatDurationFe(evt.context.durationMs)} />}
                             </div>
                           </div>
                         )}
@@ -1322,10 +1327,10 @@ const styles = {
     cursor: "pointer",
     transition: "all 0.15s ease",
   },
-  controlBtnStart: { background: "#ecfdf5", borderColor: "#6ee7b7", color: "#047857", fontWeight: 600 },
-  controlBtnPause: { background: "#fefce8", borderColor: "#fde047", color: "#a16207" },
-  controlBtnResume: { background: "#eff6ff", borderColor: "#93c5fd", color: "#1d4ed8" },
-  controlBtnStop: { background: "var(--color-danger-bg)", borderColor: "#fca5a5", color: "var(--color-danger-text)" },
+  controlBtnStart: { background: "var(--color-success-bg)", borderColor: "var(--color-success-border)", color: "var(--color-success-strong)", fontWeight: 600 },
+  controlBtnPause: { background: "var(--color-warning-bg)", borderColor: "var(--color-warning-border)", color: "var(--color-warning-strong)" },
+  controlBtnResume: { background: "var(--color-info-bg)", borderColor: "var(--color-info-border)", color: "var(--color-info-strong)" },
+  controlBtnStop: { background: "var(--color-danger-bg)", borderColor: "var(--color-danger-border)", color: "var(--color-danger-text)" },
   controlBtnStopConfirm: { background: "var(--color-danger-text)", borderColor: "var(--color-danger-text)", color: "#ffffff" },
   controlBtnCancel: { background: "var(--color-bg)", borderColor: "var(--color-border)", color: "var(--color-text-secondary)" },
   stopConfirm: { display: "flex", alignItems: "center", gap: 8 },

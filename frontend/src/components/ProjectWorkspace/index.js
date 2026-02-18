@@ -117,9 +117,9 @@ const ProjectWorkspace = ({
     try {
       const res = await getJobOutputsApi(nodeId);
       const data = res?.data?.data;
-      if (data?.downstream_suggestions?.length > 0) {
+      if (data?.downstreamSuggestions?.length > 0) {
         // Find suggestion matching the active input field AND current builder
-        const match = data.downstream_suggestions.find(
+        const match = data.downstreamSuggestions.find(
           s => s.field === activeField && s.downstream === selectedJob
         );
 
@@ -128,7 +128,7 @@ const ProjectWorkspace = ({
           setActiveTab("builder");
         } else {
           // Fallback: try any suggestion matching just the field name
-          const fallback = data.downstream_suggestions.find(
+          const fallback = data.downstreamSuggestions.find(
             s => s.field === activeField && s.filePath
           );
           if (fallback?.filePath) {

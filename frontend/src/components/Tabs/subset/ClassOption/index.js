@@ -1,6 +1,6 @@
 import React from 'react'
 import CustomDropdown from '../../common/Dropdown'
-import PixelSizeInput from '../../common/PixelSixeInput'
+import PixelSizeInput from '../../common/PixelSizeInput'
 
 const ClassOption = ({handleInputChange, dropdownOptions,formData,handleRangeChange}) => {
   const isEnabled = formData.select2DClass === "Yes"; 

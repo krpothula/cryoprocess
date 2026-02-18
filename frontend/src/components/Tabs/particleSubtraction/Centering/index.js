@@ -1,17 +1,17 @@
 import React from 'react'
-import PixelSizeInput from '../../common/PixelSixeInput'
+import PixelSizeInput from '../../common/PixelSizeInput'
 import InputGroup from '../../common/InputGroup'
 import CustomDropdown from '../../common/Dropdown'
 
 const Centering = ({handleInputChange,formData,handleRangeChange,dropdownOptions}) => {
-    const isEnable2 = formData.subtracted_images === "Yes";
+    const isEnable2 = formData.subtractedImages === "Yes";
   return (
     <div className="grid py-5 tab-content">
     <CustomDropdown
-      label="Do center subbtracted images on mask?"
+      label="Do center subtracted images on mask?"
       options={dropdownOptions}
-      value={formData.subtracted_images}
-      name="subtracted_images"
+      value={formData.subtractedImages}
+      name="subtractedImages"
       onChange={handleInputChange}
       tooltipText="Do centering and reboxing of subtracted particles. Enable to re-center particles on the remaining signal after subtraction."
     />

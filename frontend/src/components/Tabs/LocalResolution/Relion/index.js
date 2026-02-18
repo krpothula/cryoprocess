@@ -1,6 +1,6 @@
 import React from 'react'
 
-import PixelSizeInput from '../../common/PixelSixeInput'
+import PixelSizeInput from '../../common/PixelSizeInput'
 import CustomInput from '../../common/Input'
 
 const Relion = ({handleRangeChange, handleInputChange, formData}) => {

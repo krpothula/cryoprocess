@@ -2,7 +2,7 @@ import axiosInstance from "./config";
 
 /**
  * Get usage report
- * @param {object} params - { start_date, end_date, group_by }
+ * @param {object} params - { startDate, endDate, groupBy }
  */
 export const getUsageReport = (params = {}) => {
   const query = new URLSearchParams(params).toString();

@@ -38,10 +38,10 @@ const CustomFileInput = ({
             style={{
               height: "36px",
               width: "100%",
-              border: "1px solid gray",
+              border: "1px solid var(--color-border)",
               padding: "8px",
               borderRadius: "4px",
-              backgroundColor: "#ffffe3",
+              backgroundColor: "var(--color-warning-bg)",
               opacity: disabled ? 0.3 : 1,
             }}
           />
@@ -50,7 +50,7 @@ const CustomFileInput = ({
         <div style={{ width: "30%", display: "flex", gap: "2px" }}>
           <div
             style={{
-              backgroundColor: disabled ? "#a7a7d6" : "#7878ff",
+              backgroundColor: disabled ? "var(--color-text-muted)" : "var(--color-primary)",
               padding: "4px",
               borderRadius: "4px",
               display: "flex",
@@ -91,7 +91,7 @@ const CustomFileInput = ({
             disabled={disabled}
             style={{
               color: "white",
-              backgroundColor: disabled ? "#a7a7d6" : "#7878ff",
+              backgroundColor: disabled ? "var(--color-text-muted)" : "var(--color-primary)",
               padding: "4px 2px",
               height: "36px",
               width: "35%",

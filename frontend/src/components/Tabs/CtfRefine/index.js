@@ -29,11 +29,10 @@ const initialFormData = {
   // Running parameters
   mpiProcs: 1,
   threads: 1,
-  minCoresPerNode: 1,
+  coresPerNode: 1,
   submitToQueue: "Yes",
   queueName: "",
-  queueSubmitCommand: "",
-  addArguments: "",
+  additionalArguments: "",
 };
 
 const CtfRefine = () => {

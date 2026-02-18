@@ -25,8 +25,8 @@ const FastaBrowseOnly = ({ label, name, value, onBrowse, onPaste, tooltipText })
               height: "32px",
               flex: 1,
               minWidth: 0,
-              border: "1px solid #e2e8f0",
-              backgroundColor: "#ffffff",
+              border: "1px solid var(--color-border)",
+              backgroundColor: "var(--color-bg-input)",
               padding: "6px 10px",
               fontSize: "12px",
               borderRadius: "6px",
@@ -34,7 +34,7 @@ const FastaBrowseOnly = ({ label, name, value, onBrowse, onPaste, tooltipText })
               alignItems: "center",
               gap: 6,
               cursor: "pointer",
-              color: value ? "#1f2937" : "#9ca3af",
+              color: value ? "var(--color-text)" : "var(--color-text-muted)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -57,8 +57,8 @@ const FastaBrowseOnly = ({ label, name, value, onBrowse, onPaste, tooltipText })
             style={{
               height: "32px",
               padding: "0 8px",
-              backgroundColor: "#eff6ff",
-              border: "1px solid #bfdbfe",
+              backgroundColor: "var(--color-primary-bg)",
+              border: "1px solid var(--color-info-border)",
               borderRadius: "6px",
               cursor: "pointer",
               display: "flex",
@@ -68,15 +68,15 @@ const FastaBrowseOnly = ({ label, name, value, onBrowse, onPaste, tooltipText })
             }}
             title="Paste FASTA sequence"
           >
-            <FiEdit2 style={{ color: "#3b82f6" }} size={13} />
+            <FiEdit2 style={{ color: "var(--color-primary)" }} size={13} />
           </button>
         </div>
         <div
-          className="bg-white dark:bg-slate-800 p-[2px] rounded flex items-center justify-center cursor-pointer relative"
+          className="bg-[var(--color-bg-card)] p-[2px] rounded flex items-center justify-center cursor-pointer relative"
           onMouseEnter={() => setTooltipVisible(true)}
           onMouseLeave={() => setTooltipVisible(false)}
         >
-          <IoInformationCircleOutline className="text-gray-400 text-sm" />
+          <IoInformationCircleOutline className="text-[var(--color-text-muted)] text-sm" />
           {isTooltipVisible && (
             <div
               style={{

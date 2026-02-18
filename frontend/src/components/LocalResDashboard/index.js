@@ -56,7 +56,7 @@ const LocalResDashboard = () => {
     const url = `${API_BASE_URL}/localres/mrc/?type=${type}&job_id=${selectedJob?.id}`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedJob?.job_name || 'localres'}_${type}.mrc`;
+    a.download = `${selectedJob?.jobName || 'localres'}_${type}.mrc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -129,64 +129,67 @@ const LocalResDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading local resolution results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
 
   // The filtered map is the actual density - we color it using values from the locres map
-  const hasFilteredMap = results?.has_locres_filtered;
-  const hasLocresMap = results?.has_locres_map;
+  const hasFilteredMap = results?.hasLocresFiltered;
+  const hasLocresMap = results?.hasLocresMap;
 
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                LocalRes/{selectedJob?.job_name || "Job"}
+                LocalRes/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -200,7 +203,7 @@ const LocalResDashboard = () => {
                 <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
-            {showCommand && selectedJob?.command && (
+            {showCommand && command && (
               <button
                 onClick={copyCommand}
                 className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
@@ -224,46 +227,41 @@ const LocalResDashboard = () => {
                 lineHeight: '1.4'
               }}
             >
-              {selectedJob?.command || "Command not available for this job"}
+              {command || "Command not available for this job"}
             </div>
           )}
         </div>
       </div>
 
       {/* Stats Card */}
-      {(() => {
-        const stats = selectedJob?.pipeline_stats || {};
-        return (
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
             <FiTarget className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Mean Resolution:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {stats.resolution ? `${stats.resolution.toFixed(2)} Å` : "N/A"}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {pStats.resolution ? `${pStats.resolution.toFixed(2)} Å` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiZap className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>B-factor:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.bfactor != null ? `${stats.bfactor} Å²` : "N/A"}
+              {pStats.bfactor != null ? `${pStats.bfactor} Å²` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiImage className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.pixel_size ? `${stats.pixel_size} Å` : "N/A"}
+              {pStats.pixelSize ? `${pStats.pixelSize} Å` : "N/A"}
             </span>
           </div>
         </div>
       </div>
-        );
-      })()}
 
       {/* 3D Visualization - Filtered Map with Resolution Coloring */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
@@ -272,10 +270,10 @@ const LocalResDashboard = () => {
             </h3>
 
             {/* Continuous resolution color scale legend */}
-            {colorMode === "colored" && hasLocresMap && results?.min_resolution && results?.max_resolution && (
+            {colorMode === "colored" && hasLocresMap && results?.minResolution && results?.maxResolution && (
               <ResolutionColorScale
-                minRes={results.min_resolution}
-                maxRes={results.max_resolution}
+                minRes={results.minResolution}
+                maxRes={results.maxResolution}
               />
             )}
           </div>
@@ -288,7 +286,7 @@ const LocalResDashboard = () => {
                   onClick={() => setColorMode("colored")}
                   className={`px-3 py-1 rounded transition-all ${
                     colorMode === "colored"
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-[var(--color-primary)] text-white shadow-sm"
                       : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-heading)]"
                   }`}
                   style={{ fontSize: "12px", fontWeight: 500 }}
@@ -299,7 +297,7 @@ const LocalResDashboard = () => {
                   onClick={() => setColorMode("uniform")}
                   className={`px-3 py-1 rounded transition-all ${
                     colorMode === "uniform"
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-[var(--color-primary)] text-white shadow-sm"
                       : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-heading)]"
                   }`}
                   style={{ fontSize: "12px", fontWeight: 500 }}
@@ -321,7 +319,7 @@ const LocalResDashboard = () => {
             {(hasFilteredMap || hasLocresMap) && (
               <button
                 onClick={() => handleDownload(hasFilteredMap ? "filtered" : "locres")}
-                className="flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
+                className="flex items-center gap-1 px-3 py-1 bg-[var(--color-info-bg)] hover:bg-[var(--color-info-bg)] text-[var(--color-info-text)] rounded-lg transition-colors"
                 style={{ fontSize: "12px" }}
                 title="Download local resolution map (.mrc)"
               >
@@ -344,8 +342,8 @@ const LocalResDashboard = () => {
                 apiEndpoint={hasFilteredMap ? "/localres/mrc/?type=filtered" : "/localres/mrc/?type=locres"}
                 colorByResolution={colorMode === "colored" && hasLocresMap}
                 colorVolumeEndpoint={colorMode === "colored" && hasLocresMap ? "/localres/mrc/?type=locres" : null}
-                minResolution={results?.min_resolution || null}
-                maxResolution={results?.max_resolution || null}
+                minResolution={results?.minResolution ?? null}
+                maxResolution={results?.maxResolution ?? null}
               />
             </div>
           </div>
@@ -356,7 +354,7 @@ const LocalResDashboard = () => {
             <p className="text-lg font-medium">No Local Resolution Map Yet</p>
             <p className="text-sm text-center mt-2">
               The local resolution map will appear here once calculation completes.
-              {selectedJob?.status === "running" && (
+              {status === "running" && (
                 <span className="block mt-2 text-amber-500">Job is currently running...</span>
               )}
             </p>

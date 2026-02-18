@@ -26,6 +26,10 @@ class SlurmMonitor extends EventEmitter {
     // After maxMissedPolls consecutive misses, mark the job as failed
     this.missedPollCounts = new Map(); // slurmJobId -> consecutive miss count
     this.maxMissedPolls = options.maxMissedPolls || 60; // ~10 min at 10s interval
+
+    // Progress tracking: snapshot of pipeline_stats for running jobs
+    // Used to detect changes and emit progressChange events
+    this.progressSnapshots = new Map(); // jobId -> { iterationCount, micrographCount }
   }
 
   start() {
@@ -147,6 +151,67 @@ class SlurmMonitor extends EventEmitter {
           this.missedPollCounts.delete(slurmId);
         }
       }
+    }
+
+    // Check for pipeline_stats progress changes on running jobs
+    this.checkProgressChanges(activeJobs);
+  }
+
+  /**
+   * Track pipeline_stats changes for running jobs and emit progressChange events.
+   * Compares current DB values against cached snapshots. Called every poll cycle.
+   * @param {Array} activeJobs - Jobs from the current poll (lean documents)
+   */
+  async checkProgressChanges(activeJobs) {
+    const runningJobs = activeJobs.filter(j => j.status === 'running');
+    const activeJobIds = new Set(runningJobs.map(j => j.id));
+
+    // Prune snapshots for jobs that are no longer running
+    for (const jobId of this.progressSnapshots.keys()) {
+      if (!activeJobIds.has(jobId)) {
+        this.progressSnapshots.delete(jobId);
+      }
+    }
+
+    // Re-read running jobs with fresh pipeline_stats from DB
+    // (the lean docs from checkRunningJobs may be slightly stale since
+    //  dashboard live-stats endpoints update pipeline_stats concurrently)
+    if (runningJobs.length === 0) return;
+
+    const freshJobs = await Job.find(
+      { id: { $in: runningJobs.map(j => j.id) }, status: 'running' },
+      { id: 1, project_id: 1, job_type: 1, pipeline_stats: 1 }
+    ).lean();
+
+    for (const job of freshJobs) {
+      const stats = job.pipeline_stats || {};
+      const current = {
+        iterationCount: stats.iteration_count || 0,
+        micrographCount: stats.micrograph_count || 0,
+        particleCount: stats.particle_count || 0,
+        totalIterations: stats.total_iterations || 0,
+      };
+
+      const prev = this.progressSnapshots.get(job.id);
+      const changed = !prev
+        || prev.iterationCount !== current.iterationCount
+        || prev.micrographCount !== current.micrographCount
+        || prev.particleCount !== current.particleCount;
+
+      if (changed && prev) {
+        // Only emit after we have a baseline (skip the first poll)
+        this.emit('progressChange', {
+          jobId: job.id,
+          projectId: job.project_id,
+          jobType: job.job_type,
+          ...current,
+          progressPercent: current.totalIterations > 0
+            ? Math.round((current.iterationCount / current.totalIterations) * 100)
+            : null,
+        });
+      }
+
+      this.progressSnapshots.set(job.id, current);
     }
   }
 

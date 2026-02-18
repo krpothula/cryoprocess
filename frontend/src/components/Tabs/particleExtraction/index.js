@@ -13,7 +13,7 @@ import { useFormValidation } from "../../../hooks/useFormValidation";
 import { mustBeEven, mustBePositive, conditionalEven } from "../../../utils/validationRules";
 
 const ParticleExtraction = () => {
-  const intitalFormData = {
+  const initialFormData = {
     // micrographStarFile: '',
     // inputCoordinates: '',
     reExtractRefinedParticles: "No",
@@ -36,7 +36,7 @@ const ParticleExtraction = () => {
     numAsymmetricalUnits: 1,
     helicalRise: 1,
     mpiProcs: 1,
-    minCoresPerNode: 1,
+    coresPerNode: 1,
 
     invertContrast: "Yes",
     normalizeParticles: "Yes",
@@ -47,14 +47,13 @@ const ParticleExtraction = () => {
     extractHelicalSegments: "No",
     submitToQueue: "Yes",
     queueName: "",
-    queueSubmitCommand: "",
     // submissionScript: '',
     useBimodalAngularPriors: "Yes",
     coordinatesStartEndOnly: "Yes",
     cutHelicalSegments: "Yes",
     additionalArguments: "",
   };
-  const [formData, setFormData] = useState(intitalFormData);
+  const [formData, setFormData] = useState(initialFormData);
   const [isLoading, setLoading] = useState(false);
   const [filePopupField, setFilePopup] = useState(""); // set field name for which file browser is open
   const [activeTab, setActiveTab] = useState("I/O");

@@ -82,16 +82,35 @@ const jobSchema = new mongoose.Schema({
     index: true
   },
 
-  /** Execution mode */
-  execution_mode: {
+  /** Execution method: how the command is launched
+   *  - 'direct' : spawned directly on the host (no queue manager)
+   *  - 'slurm'  : submitted via sbatch to SLURM scheduler
+   */
+  execution_method: {
     type: String,
     default: 'slurm',
-    enum: ['local', 'slurm']
+    enum: ['direct', 'slurm']
+  },
+
+  /** System type: where the job runs
+   *  - 'local'  : same machine as the web server
+   *  - 'remote' : remote cluster reached via SSH
+   */
+  system_type: {
+    type: String,
+    default: 'local',
+    enum: ['local', 'remote']
   },
 
   /** SLURM job ID (when submitted to cluster) */
   slurm_job_id: {
     type: String,
+    default: null
+  },
+
+  /** Local process ID (when execution_method is 'direct') */
+  local_pid: {
+    type: Number,
     default: null
   },
 

@@ -31,7 +31,7 @@ class CTFBuilder extends BaseJobBuilder {
    * CTFFIND4/5 is CPU-only.
    */
   get supportsGpu() {
-    return getBoolParam(this.data, ['use_gctf'], false);
+    return getBoolParam(this.data, ['useGctf', 'use_gctf'], false);
   }
 
   validate() {
@@ -64,7 +64,7 @@ class CTFBuilder extends BaseJobBuilder {
     const mpiProcs = getMpiProcs(data);
 
     // GPU is only used with Gctf, not CTFFIND
-    const gpuEnabled = getBoolParam(data, ['use_gctf'], false);
+    const gpuEnabled = getBoolParam(data, ['useGctf', 'use_gctf'], false);
 
     // Build command with MPI if requested (using configurable launcher)
     const cmd = this.buildMpiCommand('relion_run_ctffind', mpiProcs, gpuEnabled);
@@ -72,18 +72,18 @@ class CTFBuilder extends BaseJobBuilder {
     // Add required parameters
     cmd.push('--i', relInput);
     cmd.push('--o', relOutputDir + path.sep);
-    cmd.push('--dAst', String(getIntParam(data, ['dAst'], 100)));
+    cmd.push('--dAst', String(getIntParam(data, ['astigmatism', 'dAst'], 100)));
 
     // CTFFIND or Gctf executable
     if (gpuEnabled) {
       cmd.push('--use_gctf');
-      const gctfExe = getParam(data, ['gctf_exe'], settings.GCTF_EXE || '/usr/local/bin/gctf');
+      const gctfExe = getParam(data, ['gctfExecutable', 'gctf_exe'], settings.GCTF_EXE || '/usr/local/bin/gctf');
       if (!isPathSafe(gctfExe)) {
         throw new Error(`Invalid Gctf executable path: contains unsafe characters`);
       }
       cmd.push('--gctf_exe', gctfExe);
     } else {
-      const ctffindExe = getParam(data, ['ctffind_exe'], settings.CTFFIND_EXE || '/usr/local/bin/ctffind');
+      const ctffindExe = getParam(data, ['ctfFindExecutable', 'ctffindExecutable', 'ctffind_exe'], settings.CTFFIND_EXE || '/usr/local/bin/ctffind');
       if (!isPathSafe(ctffindExe)) {
         throw new Error(`Invalid CTFFIND executable path: contains unsafe characters`);
       }

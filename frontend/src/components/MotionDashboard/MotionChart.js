@@ -7,15 +7,15 @@ const MotionChart = ({ data = [], micrographs = [] }) => {
 
     return micrographs.slice(-30).map((m, i) => ({
       index: i,
-      total: m.total_motion,
-      early: m.early_motion,
-      late: m.late_motion,
+      total: m.totalMotion,
+      early: m.earlyMotion,
+      late: m.lateMotion,
     }));
   }, [data, micrographs]);
 
   if (chartData.length === 0) {
     return (
-      <div className="h-48 flex items-center justify-center text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-900 rounded">
+      <div className="h-48 flex items-center justify-center text-[var(--color-text-muted)] bg-[var(--color-bg)] rounded">
         <p>No motion data available yet</p>
       </div>
     );
@@ -146,15 +146,15 @@ const MotionChart = ({ data = [], micrographs = [] }) => {
       <div className="flex justify-center gap-6 mt-2">
         <div className="flex items-center gap-2">
           <div className="w-4 h-0.5 bg-blue-500" />
-          <span className="text-xs text-gray-600 dark:text-slate-300">Total Motion</span>
+          <span className="text-xs text-[var(--color-text-secondary)]">Total Motion</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-0.5 bg-purple-500 border-dashed border-t-2 border-purple-500" />
-          <span className="text-xs text-gray-600 dark:text-slate-300">Early Motion</span>
+          <span className="text-xs text-[var(--color-text-secondary)]">Early Motion</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-0.5 border-dotted border-t-2 border-orange-500" />
-          <span className="text-xs text-gray-600 dark:text-slate-300">Late Motion</span>
+          <span className="text-xs text-[var(--color-text-secondary)]">Late Motion</span>
         </div>
       </div>
     </div>

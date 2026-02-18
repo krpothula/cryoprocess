@@ -30,8 +30,8 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
       const response = await browseFolderApi(projectId, path, extensions);
       if (response?.data?.success) {
         setItems(response.data.data.items || []);
-        setCurrentPath(response.data.data.current_path || "");
-        setProjectRoot(response.data.data.project_root || "");
+        setCurrentPath(response.data.data.currentPath || "");
+        setProjectRoot(response.data.data.projectRoot || "");
       } else {
         setError(response?.data?.message || "Failed to load folder");
       }
@@ -48,7 +48,7 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
   }, [projectId]);
 
   const handleItemClick = (item) => {
-    if (item.is_dir) {
+    if (item.isDir) {
       // Navigate into folder
       loadFolder(item.path);
     } else {
@@ -166,10 +166,10 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
                   key={idx}
                   onClick={() => handleItemClick(item)}
                   className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer hover:bg-[var(--color-bg-hover)] ${
-                    item.is_dir ? "" : "hover:bg-[var(--color-info-bg)]"
+                    item.isDir ? "" : "hover:bg-[var(--color-info-bg)]"
                   }`}
                 >
-                  {item.is_dir ? (
+                  {item.isDir ? (
                     <FiFolder className="text-[var(--color-warning-text)] text-lg flex-shrink-0" />
                   ) : (
                     <FiFile className="text-[var(--color-text-muted)] text-lg flex-shrink-0" />
@@ -177,12 +177,12 @@ const FolderBrowserPopup = ({ onClose, onFileSelect, extensions = "", title = "B
                   <span className="flex-1 text-sm text-[var(--color-text-heading)] truncate">
                     {item.name}
                   </span>
-                  {!item.is_dir && item.size !== undefined && (
+                  {!item.isDir && item.size !== undefined && (
                     <span className="text-xs text-[var(--color-text-secondary)]">
                       {formatFileSize(item.size)}
                     </span>
                   )}
-                  {item.is_dir && (
+                  {item.isDir && (
                     <FiChevronRight className="text-[var(--color-text-muted)]" />
                   )}
                 </div>

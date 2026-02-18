@@ -10,27 +10,22 @@ import { useBuilder } from "../../../context/BuilderContext";
 
 const initialFormData = {
   calibratedPixelSize: -1,
-  numberOfMpiProcs: 1,
-  pValue: 0.05,
   highestResolution: 0,       // Highest resolution for auto-B fit (0 = Nyquist)
   lowestResolution: 10,       // Lowest resolution for auto-B fit (A)
-  resolutionStepSize: 1,
   bFactor: "Yes",             // Estimate B-factor automatically? (Yes/No dropdown)
-  minDedicatedcores: 1,
+  coresPerNode: 1,
   providedBFactor: 0,         // User-provided B-factor (negative for sharpening)
   adHoc: 5,                   // Ad-hoc low-pass filter (A) when FSC skipped
   originalDetector: 1,        // Original detector pixel size
   ownBfactor: "No",           // Use your own B-factor?
   skipFSC: "No",              // Skip FSC-weighting?
   submitToQueue: "No",
-  queuename: "",
-  queueSubmitCommand: "",
+  queueName: "",
   additionalArguments: "",
-  runningmpi: 1,
+  mpiProcs: 1,
   threads: 1,
   gres: 0,
-  clustername: "",
-  arguments: "",
+  clusterName: "",
 };
 
 const PostProcessing = () => {
@@ -72,9 +67,16 @@ const PostProcessing = () => {
         reader.readAsDataURL(file);
       }
     } else {
+      const updates = { [e.target.name]: e.target.value };
+      // B-factor options are mutually exclusive
+      if (e.target.name === "bFactor" && e.target.value === "Yes") {
+        updates.ownBfactor = "No";
+      } else if (e.target.name === "ownBfactor" && e.target.value === "Yes") {
+        updates.bFactor = "No";
+      }
       setFormData({
         ...formData,
-        [e.target.name]: e.target.value,
+        ...updates,
       });
     }
   };

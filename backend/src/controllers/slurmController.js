@@ -35,22 +35,22 @@ exports.getPartitions = async (req, res) => {
           if (!partitionMap[partName]) {
             partitionMap[partName] = {
               name: partName,
-              is_default: name.includes('*'),
+              isDefault: name.includes('*'),
               available: avail === 'up',
               timelimit: timelimit,
-              total_nodes: 0,
-              nodes_by_state: {},
-              cpus_per_node: parseInt(cpus) || 0,
-              memory_per_node: memory
+              totalNodes: 0,
+              nodesByState: {},
+              cpusPerNode: parseInt(cpus) || 0,
+              memoryPerNode: memory
             };
           }
 
           const nodeCount = parseInt(nodes) || 0;
-          partitionMap[partName].total_nodes += nodeCount;
+          partitionMap[partName].totalNodes += nodeCount;
 
           if (state) {
-            partitionMap[partName].nodes_by_state[state] =
-              (partitionMap[partName].nodes_by_state[state] || 0) + nodeCount;
+            partitionMap[partName].nodesByState[state] =
+              (partitionMap[partName].nodesByState[state] || 0) + nodeCount;
           }
         }
 
@@ -61,11 +61,7 @@ exports.getPartitions = async (req, res) => {
         return [];
       });
 
-    res.json({
-      success: true,
-      status: 'success',
-      partitions
-    });
+    return response.success(res, { partitions });
   } catch (error) {
     logger.error('[SLURM] getPartitions error:', error);
     return response.serverError(res, error.message);
@@ -87,7 +83,7 @@ exports.getNodes = async (req, res) => {
     const safePartition = sanitizePartition(partition);
     if (partition && !safePartition) {
       logger.warn(`[SLURM] Invalid partition parameter rejected: ${partition}`);
-      return res.json({ success: true, status: 'success', nodes: [] });
+      return response.success(res, { nodes: [] });
     }
     if (safePartition) {
       args.push(`--partition=${safePartition}`);
@@ -110,13 +106,13 @@ exports.getNodes = async (req, res) => {
             nodeMap[name] = {
               name,
               state: state.toUpperCase(),
-              cpus_total: cpusTotal,
-              cpus_alloc: 0,
-              memory_total: memDisplay,
+              cpusTotal: cpusTotal,
+              cpusAlloc: 0,
+              memoryTotal: memDisplay,
               gpus: '-',
               partitions: [],
               load: parseFloat(load) || 0,
-              free_memory: freeMem
+              freeMemory: freeMem
             };
           }
 
@@ -137,11 +133,11 @@ exports.getNodes = async (req, res) => {
           // Estimate CPU allocation from state
           const stateLower = state.toLowerCase();
           if (stateLower.includes('alloc') || stateLower === 'allocated') {
-            nodeMap[name].cpus_alloc = cpusTotal;
+            nodeMap[name].cpusAlloc = cpusTotal;
           } else if (stateLower.includes('mix')) {
-            nodeMap[name].cpus_alloc = Math.min(cpusTotal, Math.round(parseFloat(load) || 0));
+            nodeMap[name].cpusAlloc = Math.min(cpusTotal, Math.round(parseFloat(load) || 0));
           }
-          // idle state: cpus_alloc stays 0
+          // idle state: cpusAlloc stays 0
         }
 
         return Object.values(nodeMap);
@@ -151,11 +147,7 @@ exports.getNodes = async (req, res) => {
         return [];
       });
 
-    res.json({
-      success: true,
-      status: 'success',
-      nodes
-    });
+    return response.success(res, { nodes });
   } catch (error) {
     logger.error('[SLURM] getNodes error:', error);
     return response.serverError(res, error.message);
@@ -174,7 +166,7 @@ exports.getStatus = async (req, res) => {
       .catch(() => false);
 
     // Get node counts
-    let nodeStats = { total_nodes: 0, idle_nodes: 0, busy_nodes: 0, down_nodes: 0 };
+    let nodeStats = { totalNodes: 0, idleNodes: 0, busyNodes: 0, downNodes: 0 };
     if (slurmAvailable) {
       nodeStats = await execCommand('sinfo', ['--format=%T|%D', '--noheader'])
         .then(({ stdout }) => {
@@ -195,13 +187,13 @@ exports.getStatus = async (req, res) => {
             }
           }
 
-          return { total_nodes: total, idle_nodes: idle, busy_nodes: busy, down_nodes: down };
+          return { totalNodes: total, idleNodes: idle, busyNodes: busy, downNodes: down };
         })
-        .catch(() => ({ total_nodes: 0, idle_nodes: 0, busy_nodes: 0, down_nodes: 0 }));
+        .catch(() => ({ totalNodes: 0, idleNodes: 0, busyNodes: 0, downNodes: 0 }));
     }
 
     // Get job counts
-    let jobStats = { running_jobs: 0, pending_jobs: 0 };
+    let jobStats = { runningJobs: 0, pendingJobs: 0 };
     if (slurmAvailable) {
       jobStats = await execCommand('squeue', ['--format=%t', '--noheader'])
         .then(({ stdout }) => {
@@ -214,9 +206,9 @@ exports.getStatus = async (req, res) => {
             else if (state === 'PD') pending++;
           }
 
-          return { running_jobs: running, pending_jobs: pending };
+          return { runningJobs: running, pendingJobs: pending };
         })
-        .catch(() => ({ running_jobs: 0, pending_jobs: 0 }));
+        .catch(() => ({ runningJobs: 0, pendingJobs: 0 }));
     }
 
     // Get partitions list
@@ -229,15 +221,11 @@ exports.getStatus = async (req, res) => {
         .catch(() => []);
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      data: {
-        available: slurmAvailable,
-        ...nodeStats,
-        ...jobStats,
-        partitions
-      }
+    return response.successData(res, {
+      available: slurmAvailable,
+      ...nodeStats,
+      ...jobStats,
+      partitions
     });
   } catch (error) {
     logger.error('[SLURM] getStatus error:', error);
@@ -259,7 +247,7 @@ exports.getQueue = async (req, res) => {
     const safeUser = sanitizeUsername(user);
     if (user && !safeUser) {
       logger.warn(`[SLURM] Invalid user parameter rejected: ${user}`);
-      return res.json({ success: true, status: 'success', jobs: [] });
+      return response.success(res, { jobs: [] });
     }
 
     if (safeUser) {
@@ -279,12 +267,12 @@ exports.getQueue = async (req, res) => {
             line.split('|').map(s => s.trim());
 
           jobList.push({
-            slurm_job_id: id,
+            slurmJobId: id,
             name,
             user: queueUser,
             partition,
             state,
-            state_readable: state === 'R' ? 'Running' : state === 'PD' ? 'Pending' : state,
+            stateReadable: state === 'R' ? 'Running' : state === 'PD' ? 'Pending' : state,
             elapsed,
             timelimit,
             nodes: parseInt(nodes) || 1,
@@ -296,11 +284,7 @@ exports.getQueue = async (req, res) => {
       })
       .catch(() => []);
 
-    res.json({
-      success: true,
-      status: 'success',
-      jobs
-    });
+    return response.success(res, { jobs });
   } catch (error) {
     logger.error('[SLURM] getQueue error:', error);
     return response.serverError(res, error.message);
@@ -326,16 +310,12 @@ exports.getConnectionInfo = async (req, res) => {
 
     if (isSSHMode()) {
       const sshStatus = getSSHStatus();
-      connectionInfo.ssh_host = sshStatus.host;
-      connectionInfo.ssh_connected = sshStatus.connected;
-      connectionInfo.ssh_user = sshStatus.user;
+      connectionInfo.sshHost = sshStatus.host;
+      connectionInfo.sshConnected = sshStatus.connected;
+      connectionInfo.sshUser = sshStatus.user;
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      connection: connectionInfo
-    });
+    return response.success(res, { connection: connectionInfo });
   } catch (error) {
     logger.error('[SLURM] getConnectionInfo error:', error);
     return response.serverError(res, error.message);
@@ -392,10 +372,11 @@ exports.cancelJob = async (req, res) => {
       auditLog(req, 'job_cancel', { resourceType: 'job', resourceId: job_id || slurm_job_id });
     }
 
-    res.json({
-      success: cancelled,
-      message: cancelled ? 'Job cancelled' : 'Failed to cancel job'
-    });
+    if (cancelled) {
+      return response.success(res, { message: 'Job cancelled' });
+    } else {
+      return response.error(res, 'Failed to cancel job', 500);
+    }
   } catch (error) {
     logger.error('[SLURM] cancelJob error:', error);
     return response.serverError(res, error.message);
@@ -422,7 +403,7 @@ exports.cancelJobById = async (req, res) => {
 
     let cancelled = true;
     if (job.slurm_job_id) {
-      // Validate job ID from database (should be safe, but defense in depth)
+      // SLURM job: cancel via scancel
       const safeJobId = sanitizeSlurmJobId(job.slurm_job_id);
       if (safeJobId) {
         cancelled = await execCommand('scancel', [safeJobId])
@@ -432,6 +413,18 @@ exports.cancelJobById = async (req, res) => {
         logger.warn(`[SLURM] Invalid job ID in database: ${job.slurm_job_id}`);
         cancelled = false;
       }
+    } else if (job.local_pid) {
+      // Direct (local) job: kill the process
+      try {
+        process.kill(job.local_pid, 'SIGTERM');
+        logger.info(`[SLURM] Sent SIGTERM to local process ${job.local_pid} for job ${jobId}`);
+      } catch (killErr) {
+        // ESRCH = process already gone (finished or crashed) — that's fine
+        if (killErr.code !== 'ESRCH') {
+          logger.warn(`[SLURM] Failed to kill local process ${job.local_pid}: ${killErr.message}`);
+          cancelled = false;
+        }
+      }
     }
 
     await Job.findOneAndUpdate(
@@ -439,14 +432,16 @@ exports.cancelJobById = async (req, res) => {
       {
         status: JOB_STATUS.CANCELLED,
         end_time: new Date(),
-        updated_at: new Date()
+        updated_at: new Date(),
+        local_pid: null
       }
     );
 
-    res.json({
-      success: cancelled,
-      message: 'Job cancelled'
-    });
+    if (cancelled) {
+      return response.success(res, { message: 'Job cancelled' });
+    } else {
+      return response.error(res, 'Failed to cancel job', 500);
+    }
   } catch (error) {
     logger.error('[SLURM] cancelJobById error:', error);
     return response.serverError(res, error.message);
@@ -590,22 +585,18 @@ exports.getJobLogs = async (req, res) => {
 
     // Include job metadata for the frontend header
     const jobMeta = {
-      job_name: job.job_name,
-      job_type: job.job_type,
+      jobName: job.job_name,
+      jobType: job.job_type,
       status: job.status,
-      slurm_job_id: job.slurm_job_id || null,
-      error_message: job.error_message || null,
+      slurmJobId: job.slurm_job_id || null,
+      errorMessage: job.error_message || null,
       command: job.command || null,
-      start_time: job.start_time || null,
-      end_time: job.end_time || null,
-      output_file_path: job.output_file_path || null
+      startTime: job.start_time || null,
+      endTime: job.end_time || null,
+      outputFilePath: job.output_file_path || null
     };
 
-    res.json({
-      success: true,
-      logs,
-      job: jobMeta
-    });
+    return response.success(res, { logs, job: jobMeta });
   } catch (error) {
     logger.error('[SLURM] getJobLogs error:', error);
     return response.serverError(res, error.message);
@@ -640,12 +631,7 @@ exports.streamJobLogs = async (req, res) => {
 
     const isComplete = TERMINAL_STATUSES.includes(job.status);
 
-    res.json({
-      success: true,
-      content,
-      offset: newOffset,
-      complete: isComplete
-    });
+    return response.success(res, { content, offset: newOffset, complete: isComplete });
   } catch (error) {
     logger.error('[SLURM] streamJobLogs error:', error);
     return response.serverError(res, error.message);
@@ -688,12 +674,7 @@ exports.getJobIssues = async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      issues,
-      summary,
-      slurm
-    });
+    return response.success(res, { issues, summary, slurm });
   } catch (error) {
     logger.error('[SLURM] getJobIssues error:', error);
     return response.serverError(res, error.message);
@@ -715,11 +696,7 @@ exports.getJobDetails = async (req, res) => {
       return response.notFound(res, 'SLURM job not found');
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      job: details
-    });
+    return response.success(res, { job: details });
   } catch (error) {
     logger.error('[SLURM] getJobDetails error:', error);
     return response.serverError(res, error.message);
@@ -762,13 +739,7 @@ exports.validateResources = async (req, res) => {
       warnings.push('Requesting more than 8 GPUs may result in long queue times');
     }
 
-    res.json({
-      success: true,
-      status: 'success',
-      valid: errors.length === 0,
-      errors,
-      warnings
-    });
+    return response.success(res, { valid: errors.length === 0, errors, warnings });
   } catch (error) {
     logger.error('[SLURM] validateResources error:', error);
     return response.serverError(res, error.message);
@@ -794,10 +765,14 @@ exports.deleteJob = async (req, res) => {
     }
 
     // Cancel if still running
-    if (job.slurm_job_id && job.status === JOB_STATUS.RUNNING) {
-      const safeJobId = sanitizeSlurmJobId(job.slurm_job_id);
-      if (safeJobId) {
-        await execCommand('scancel', [safeJobId]).catch(() => {});
+    if (job.status === JOB_STATUS.RUNNING) {
+      if (job.slurm_job_id) {
+        const safeJobId = sanitizeSlurmJobId(job.slurm_job_id);
+        if (safeJobId) {
+          await execCommand('scancel', [safeJobId]).catch(() => {});
+        }
+      } else if (job.local_pid) {
+        try { process.kill(job.local_pid, 'SIGTERM'); } catch (_) {}
       }
     }
 
@@ -875,7 +850,7 @@ exports.toggleNotifyEmail = async (req, res) => {
     await job.save();
 
     return response.success(res, {
-      notify_email: job.notify_email,
+      notifyEmail: job.notify_email,
       message: job.notify_email ? 'Email notification enabled' : 'Email notification disabled'
     });
   } catch (error) {
@@ -894,13 +869,13 @@ exports.getResourceLimits = async (req, res) => {
     const sys = getSystemResources();
 
     return response.successData(res, {
-      total_cpus: sys.totalCpus,
-      available_cpus: sys.availableCpus,
-      reserved_cpus: sys.reservedCpus,
-      gpu_count: sys.gpuCount,
-      max_mpi: sys.availableCpus,
-      max_threads: sys.availableCpus,
-      max_gpus: sys.gpuCount,
+      totalCpus: sys.totalCpus,
+      availableCpus: sys.availableCpus,
+      reservedCpus: sys.reservedCpus,
+      gpuCount: sys.gpuCount,
+      maxMpi: sys.availableCpus,
+      maxThreads: sys.availableCpus,
+      maxGpus: sys.gpuCount,
     });
   } catch (error) {
     logger.error('[SLURM] getResourceLimits error:', error);

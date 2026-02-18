@@ -28,14 +28,14 @@ const CTFParameterHistogram = ({
     // Extract values for selected parameter (exclude null/undefined/NaN)
     const values = micrographs.map((m) => {
       if (paramKey === "astigmatism") {
-        const du = m.defocus_u;
-        const dv = m.defocus_v;
+        const du = m.defocusU;
+        const dv = m.defocusV;
         if (du == null || dv == null) return null;
         return Math.abs(du - dv);
       }
-      if (paramKey === "defocus_avg") {
-        const du = m.defocus_u;
-        const dv = m.defocus_v;
+      if (paramKey === "defocusAvg") {
+        const du = m.defocusU;
+        const dv = m.defocusV;
         if (du == null || dv == null) return null;
         return (du + dv) / 2;
       }
@@ -102,13 +102,13 @@ const CTFParameterHistogram = ({
     return micrographs.filter((m) => {
       let value;
       if (paramKey === "astigmatism") {
-        const du = m.defocus_u;
-        const dv = m.defocus_v;
+        const du = m.defocusU;
+        const dv = m.defocusV;
         if (du == null || dv == null) return false;
         value = Math.abs(du - dv);
-      } else if (paramKey === "defocus_avg") {
-        const du = m.defocus_u;
-        const dv = m.defocus_v;
+      } else if (paramKey === "defocusAvg") {
+        const du = m.defocusU;
+        const dv = m.defocusV;
         if (du == null || dv == null) return false;
         value = (du + dv) / 2;
       } else {
@@ -239,9 +239,9 @@ const CTFParameterHistogram = ({
 
   if (histogramData.bins.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] rounded-lg p-3 border border-[var(--color-border)]">
         <h4 style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-label)" }} className="mb-2">{title}</h4>
-        <div className="h-28 flex items-center justify-center text-gray-400 dark:text-slate-500" style={{ fontSize: "11px" }}>
+        <div className="h-28 flex items-center justify-center text-[var(--color-text-muted)]" style={{ fontSize: "11px" }}>
           No data
         </div>
       </div>
@@ -249,7 +249,7 @@ const CTFParameterHistogram = ({
   }
 
   const formatValue = (val) => {
-    if (paramKey === 'figure_of_merit' || paramKey === 'ctf_figure_of_merit') {
+    if (paramKey === 'figureOfMerit' || paramKey === 'ctfFigureOfMerit') {
       return val.toFixed(2);
     }
     if (Math.abs(val) >= 1000) {
@@ -299,7 +299,7 @@ const CTFParameterHistogram = ({
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-gray-200 dark:border-slate-700">
+    <div className="bg-[var(--color-bg-card)] rounded-lg p-3 border border-[var(--color-border)]">
       {/* Header */}
       <div className="flex justify-between items-center mb-1">
         <h4 style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-label)" }}>{title}</h4>
@@ -379,20 +379,20 @@ const CTFParameterHistogram = ({
           <line x1={0} y1={plotHeight} x2={plotWidth} y2={plotHeight} stroke="var(--color-border-hover)" strokeWidth={1} />
 
           {/* X-axis labels */}
-          <text x={0} y={plotHeight + 14} className="text-[9px] fill-gray-500">
+          <text x={0} y={plotHeight + 14} className="text-[9px] fill-[var(--color-text-secondary)]">
             {formatValue(histogramData.min)}
           </text>
-          <text x={plotWidth / 2} y={plotHeight + 14} textAnchor="middle" className="text-[9px] fill-gray-400">
+          <text x={plotWidth / 2} y={plotHeight + 14} textAnchor="middle" className="text-[9px] fill-[var(--color-text-muted)]">
             {unit}
           </text>
-          <text x={plotWidth} y={plotHeight + 14} textAnchor="end" className="text-[9px] fill-gray-500">
+          <text x={plotWidth} y={plotHeight + 14} textAnchor="end" className="text-[9px] fill-[var(--color-text-secondary)]">
             {formatValue(histogramData.max)}
           </text>
         </g>
       </svg>
 
       {/* Instructions */}
-      <div className="text-[10px] text-gray-400 dark:text-slate-500 text-center mt-1">
+      <div className="text-[10px] text-[var(--color-text-muted)] text-center mt-1">
         {hasAnyFilter ? (
           <span>Double-click to clear</span>
         ) : (

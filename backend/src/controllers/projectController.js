@@ -15,6 +15,7 @@ const LiveSession = require('../models/LiveSession');
 const settings = require('../config/settings');
 const response = require('../utils/responseHelper');
 const auditLog = require('../utils/auditLogger');
+const { mapKeys } = require('../utils/mapKeys');
 
 /**
  * Helper to get user display name
@@ -30,13 +31,38 @@ function getUserDisplayName(user) {
 }
 
 /**
+ * Transform a project DB document (.lean() or .toObject()) to camelCase API response
+ */
+function mapProject(p) {
+  if (!p) return p;
+  return {
+    id: p.id,
+    projectName: p.project_name,
+    description: p.description,
+    folderName: p.folder_name,
+    createdById: p.created_by_id,
+    creationDate: p.creation_date,
+    isArchived: p.is_archived || false,
+    webhookUrls: p.webhook_urls || [],
+    lastAccessedAt: p.last_accessed_at,
+    // Enriched fields (already camelCase from enrichment step)
+    role: p.role,
+    isOwner: p.isOwner,
+    jobCount: p.jobCount,
+    createdName: p.createdName,
+    liveSessionId: p.liveSessionId,
+    liveSessionStatus: p.liveSessionStatus,
+  };
+}
+
+/**
  * List all projects for current user (owned + shared)
  * Staff and Superusers see ALL projects
  * GET /api/projects
  */
 exports.listProjects = async (req, res) => {
   try {
-    const { include_archived = 'false' } = req.query;
+    const { includeArchived = 'false' } = req.query;
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const skip = Math.max(parseInt(req.query.skip) || 0, 0);
     const currentUserName = getUserDisplayName(req.user);
@@ -44,7 +70,7 @@ exports.listProjects = async (req, res) => {
     // Staff and Superusers see ALL projects
     if (req.user.is_staff || req.user.is_superuser) {
       const query = {};
-      if (include_archived !== 'true') {
+      if (includeArchived !== 'true') {
         query.is_archived = { $ne: true };
       }
 
@@ -81,28 +107,28 @@ exports.listProjects = async (req, res) => {
 
       // Enrich projects without N+1 queries
       for (const project of allProjects) {
-        project.is_owner = project.created_by_id === req.user.id || req.user.is_superuser;
+        project.isOwner = project.created_by_id === req.user.id || req.user.is_superuser;
         project.role = project.created_by_id === req.user.id ? 'owner' : (req.user.is_superuser ? 'admin' : 'editor');
-        project.job_count = jobCountMap[project.id] || 0;
-        project.created_name = project.created_by_id === req.user.id
+        project.jobCount = jobCountMap[project.id] || 0;
+        project.createdName = project.created_by_id === req.user.id
           ? currentUserName
           : getUserDisplayName(creatorMap[project.created_by_id]);
         const ls = liveSessionMap[project.id];
         if (ls) {
-          project.live_session_id = ls.id;
-          project.live_session_status = ls.status;
+          project.liveSessionId = ls.id;
+          project.liveSessionStatus = ls.status;
         }
       }
 
       return response.success(res, {
-        data: allProjects,
+        data: allProjects.map(mapProject),
         count: totalCount
       });
     }
 
     // Regular users: Get owned projects
     const ownedQuery = { created_by_id: req.user.id };
-    if (include_archived !== 'true') {
+    if (includeArchived !== 'true') {
       ownedQuery.is_archived = { $ne: true };
     }
 
@@ -116,7 +142,7 @@ exports.listProjects = async (req, res) => {
     const membershipMap = Object.fromEntries(memberships.map(m => [m.project_id, m.role]));
 
     const sharedQuery = { id: { $in: sharedProjectIds } };
-    if (include_archived !== 'true') {
+    if (includeArchived !== 'true') {
       sharedQuery.is_archived = { $ne: true };
     }
 
@@ -158,26 +184,26 @@ exports.listProjects = async (req, res) => {
     // Enrich owned projects
     for (const project of ownedProjects) {
       project.role = 'owner';
-      project.is_owner = true;
-      project.job_count = jobCountMap[project.id] || 0;
-      project.created_name = currentUserName;
+      project.isOwner = true;
+      project.jobCount = jobCountMap[project.id] || 0;
+      project.createdName = currentUserName;
       const ls = liveSessionMap[project.id];
       if (ls) {
-        project.live_session_id = ls.id;
-        project.live_session_status = ls.status;
+        project.liveSessionId = ls.id;
+        project.liveSessionStatus = ls.status;
       }
     }
 
     // Enrich shared projects
     for (const project of sharedProjects) {
       project.role = membershipMap[project.id] || 'viewer';
-      project.is_owner = false;
-      project.job_count = jobCountMap[project.id] || 0;
-      project.created_name = getUserDisplayName(creatorMap[project.created_by_id]);
+      project.isOwner = false;
+      project.jobCount = jobCountMap[project.id] || 0;
+      project.createdName = getUserDisplayName(creatorMap[project.created_by_id]);
       const ls = liveSessionMap[project.id];
       if (ls) {
-        project.live_session_id = ls.id;
-        project.live_session_status = ls.status;
+        project.liveSessionId = ls.id;
+        project.liveSessionStatus = ls.status;
       }
     }
 
@@ -188,7 +214,7 @@ exports.listProjects = async (req, res) => {
     const paginatedProjects = allProjects.slice(skip, skip + limit);
 
     return response.success(res, {
-      data: paginatedProjects,
+      data: paginatedProjects.map(mapProject),
       count: totalCount
     });
   } catch (error) {
@@ -203,14 +229,14 @@ exports.listProjects = async (req, res) => {
  */
 exports.createProject = async (req, res) => {
   try {
-    const { project_name, description = '', movie_directory } = req.body;
+    const { projectName, description = '', movieDirectory } = req.body;
 
-    if (!project_name || typeof project_name !== 'string') {
+    if (!projectName || typeof projectName !== 'string') {
       return response.badRequest(res, 'Project name is required');
     }
 
     // Validate project name
-    const trimmedName = project_name.trim();
+    const trimmedName = projectName.trim();
     if (trimmedName.length === 0) {
       return response.badRequest(res, 'Project name cannot be empty');
     }
@@ -237,11 +263,11 @@ exports.createProject = async (req, res) => {
     }
 
     // Validate movie directory before creating anything
-    if (movie_directory) {
-      if (!fs.existsSync(movie_directory)) {
-        return response.badRequest(res, `Movie directory does not exist: ${movie_directory}`, 'path_not_found');
+    if (movieDirectory) {
+      if (!fs.existsSync(movieDirectory)) {
+        return response.badRequest(res, `Movie directory does not exist: ${movieDirectory}`, 'path_not_found');
       }
-      const stat = fs.statSync(movie_directory);
+      const stat = fs.statSync(movieDirectory);
       if (!stat.isDirectory()) {
         return response.badRequest(res, 'Movie directory path is not a directory');
       }
@@ -251,11 +277,11 @@ exports.createProject = async (req, res) => {
     fs.mkdirSync(projectPath, { recursive: true, mode: 0o755 });
 
     // Create symlink to movie directory if provided
-    if (movie_directory) {
+    if (movieDirectory) {
       const moviesPath = path.join(projectPath, 'Movies');
       try {
-        fs.symlinkSync(movie_directory, moviesPath);
-        logger.info(`[Projects] Created symlink: ${moviesPath} -> ${movie_directory}`);
+        fs.symlinkSync(movieDirectory, moviesPath);
+        logger.info(`[Projects] Created symlink: ${moviesPath} -> ${movieDirectory}`);
       } catch (symlinkErr) {
         // Clean up project folder on symlink failure
         fs.rmSync(projectPath, { recursive: true, force: true });
@@ -268,16 +294,16 @@ exports.createProject = async (req, res) => {
     const projectId = Project.generateId();
     const project = await Project.create({
       id: projectId,
-      project_name,
+      project_name: projectName,
       description,
       folder_name: folderName,
       created_by_id: req.user.id
     });
 
-    logger.info(`[Projects] Created project: ${projectId} | name: ${project_name}${movie_directory ? ` | movies: ${movie_directory}` : ''}`);
-    auditLog(req, 'project_create', { resourceType: 'project', resourceId: projectId, details: project_name });
+    logger.info(`[Projects] Created project: ${projectId} | name: ${projectName}${movieDirectory ? ` | movies: ${movieDirectory}` : ''}`);
+    auditLog(req, 'project_create', { resourceType: 'project', resourceId: projectId, details: projectName });
 
-    return response.created(res, { data: project.toObject() });
+    return response.created(res, { data: mapProject(project.toObject()) });
   } catch (error) {
     logger.error('[Projects] createProject error:', error);
     return response.serverError(res, error.message);
@@ -324,9 +350,9 @@ exports.getProject = async (req, res) => {
     }
 
     // Add job count and role info
-    project.job_count = await Job.countDocuments({ project_id: projectId });
+    project.jobCount = await Job.countDocuments({ project_id: projectId });
     project.role = role;
-    project.is_owner = isOwner;
+    project.isOwner = isOwner;
 
     // Update last accessed
     await Project.findOneAndUpdate(
@@ -334,7 +360,7 @@ exports.getProject = async (req, res) => {
       { last_accessed_at: new Date() }
     );
 
-    return response.successData(res, project);
+    return response.successData(res, mapProject(project));
   } catch (error) {
     logger.error('[Projects] getProject error:', error);
     return response.serverError(res, error.message);
@@ -349,7 +375,7 @@ exports.getProject = async (req, res) => {
 exports.updateProject = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { project_name, description } = req.body;
+    const { projectName, description } = req.body;
 
     const project = await Project.findOne({ id: projectId });
     if (!project) {
@@ -369,8 +395,8 @@ exports.updateProject = async (req, res) => {
     }
 
     // Validate and update fields
-    if (project_name) {
-      const trimmedName = project_name.trim();
+    if (projectName) {
+      const trimmedName = projectName.trim();
       if (trimmedName.length === 0) {
         return response.badRequest(res, 'Project name cannot be empty');
       }
@@ -390,10 +416,10 @@ exports.updateProject = async (req, res) => {
     }
 
     // Webhook URLs
-    if (req.body.webhook_urls !== undefined) {
-      const urls = req.body.webhook_urls;
+    if (req.body.webhookUrls !== undefined) {
+      const urls = req.body.webhookUrls;
       if (!Array.isArray(urls) || urls.length > 5) {
-        return response.badRequest(res, 'webhook_urls must be an array of up to 5 URLs');
+        return response.badRequest(res, 'webhookUrls must be an array of up to 5 URLs');
       }
       for (const url of urls) {
         if (typeof url !== 'string' || !url.startsWith('https://')) {
@@ -406,7 +432,7 @@ exports.updateProject = async (req, res) => {
     await project.save();
     auditLog(req, 'project_update', { resourceType: 'project', resourceId: projectId, details: project.project_name });
 
-    return response.successData(res, project.toObject());
+    return response.successData(res, mapProject(project.toObject()));
   } catch (error) {
     logger.error('[Projects] updateProject error:', error);
     return response.serverError(res, error.message);
@@ -493,7 +519,7 @@ exports.getProjectJobs = async (req, res) => {
       .lean();
 
     return response.success(res, {
-      data: jobs,
+      data: jobs.map(mapKeys),
       count: jobs.length
     });
   } catch (error) {

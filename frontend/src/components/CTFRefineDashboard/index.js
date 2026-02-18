@@ -66,9 +66,9 @@ const CTFRefineDashboard = () => {
   const [showCommand, setShowCommand] = useState(false);
   const [commandCopied, setCommandCopied] = useState(false);
 
-  const copyCommand = () => {
-    if (selectedJob?.command) {
-      navigator.clipboard.writeText(selectedJob.command);
+  const copyCommand = (cmd) => {
+    if (cmd) {
+      navigator.clipboard.writeText(cmd);
       setCommandCopied(true);
       setTimeout(() => setCommandCopied(false), 2000);
     }
@@ -78,7 +78,7 @@ const CTFRefineDashboard = () => {
     const url = `${API_BASE_URL}/ctfrefine/pdf/?job_id=${selectedJob?.id}`;
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${selectedJob?.job_name || "ctfrefine"}_logfile.pdf`;
+    a.download = `${selectedJob?.jobName || "ctfrefine"}_logfile.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -163,8 +163,8 @@ const CTFRefineDashboard = () => {
   const CustomHistogramTooltip = ({ active, payload, unit }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white dark:bg-slate-800 p-2 rounded-lg shadow-lg dark:shadow-2xl border border-gray-200 dark:border-slate-700">
-          <p className="text-xs text-gray-500 dark:text-slate-400">
+        <div className="bg-[var(--color-bg-card)] p-2 rounded-lg shadow-lg border border-[var(--color-border)]">
+          <p className="text-xs text-[var(--color-text-secondary)]">
             {payload[0]?.payload?.value?.toFixed(2)} {unit}
           </p>
           <p className="text-sm font-medium text-[var(--color-text-heading)]">
@@ -180,80 +180,82 @@ const CTFRefineDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading CTF refinement results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 dark:bg-red-900/20 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 dark:text-red-400 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
 
-  // Derive flags and stats from pipeline_stats
-  const stats = selectedJob?.pipeline_stats || {};
-  const ctfFitting = stats.ctf_fitting || false;
-  const beamTiltEnabled = stats.beam_tilt_enabled || false;
-  const anisoMag = stats.aniso_mag || false;
+  // Derive flags and stats from pipelineStats
+  const ctfFitting = ["Yes", "yes", "true", true].includes(pStats.ctfFitting);
+  const beamTiltEnabled = ["Yes", "yes", "true", true].includes(pStats.beamTiltEnabled);
+  const anisoMag = ["Yes", "yes", "true", true].includes(pStats.anisoMag);
 
   // Calculate max values for Zernike bar charts
-  const oddMax = results?.odd_zernike?.length > 0
-    ? Math.max(...results.odd_zernike.map(Math.abs))
+  const oddMax = results?.oddZernike?.length > 0
+    ? Math.max(...results.oddZernike.map(Math.abs))
     : 1;
-  const evenMax = results?.even_zernike?.length > 0
-    ? Math.max(...results.even_zernike.map(Math.abs))
+  const evenMax = results?.evenZernike?.length > 0
+    ? Math.max(...results.evenZernike.map(Math.abs))
     : 1;
 
   // Prepare histogram data (only when CTF fitting was enabled)
-  const defocusChartData = ctfFitting ? buildChartData(results?.defocus_histogram) : [];
-  const astigChartData = ctfFitting ? buildChartData(results?.astigmatism_histogram) : [];
+  const defocusChartData = ctfFitting ? buildChartData(results?.defocusHistogram) : [];
+  const astigChartData = ctfFitting ? buildChartData(results?.astigmatismHistogram) : [];
 
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                CtfRefine/{selectedJob?.job_name || "Job"}
+                CtfRefine/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
 
           {/* PDF Download button */}
-          {results?.has_pdf && (
+          {results?.hasPdf && (
             <button
               onClick={handlePdfDownload}
-              className="flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg transition-colors"
+              className="flex items-center gap-1 px-3 py-1 bg-[var(--color-info-bg)] hover:bg-[var(--color-info-bg)] text-[var(--color-info-text)] rounded-lg transition-colors"
               style={{ fontSize: "12px" }}
               title="Download logfile PDF"
             >
@@ -264,7 +266,7 @@ const CTFRefineDashboard = () => {
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -278,9 +280,9 @@ const CTFRefineDashboard = () => {
                 <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
-            {showCommand && selectedJob?.command && (
+            {showCommand && command && (
               <button
-                onClick={copyCommand}
+                onClick={() => copyCommand(command)}
                 className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 title="Copy command"
               >
@@ -302,28 +304,28 @@ const CTFRefineDashboard = () => {
                 lineHeight: '1.4'
               }}
             >
-              {selectedJob?.command || "Command not available for this job"}
+              {command || "Command not available for this job"}
             </div>
           )}
         </div>
       </div>
 
       {/* Stats Card */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         {/* Row 1: Always shown */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FiUsers className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {(stats.particle_count || 0).toLocaleString()}
+              {(pStats.particleCount ?? 0).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiImage className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Micrographs:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {(stats.micrograph_count || 0).toLocaleString()}
+              {(pStats.micrographCount ?? 0).toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -343,9 +345,9 @@ const CTFRefineDashboard = () => {
             </div>
             {beamTiltEnabled && (
               <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "2px", paddingLeft: "22px" }}>
-                X: {formatBeamTilt(stats.beam_tilt_x)}
+                X: {formatBeamTilt(pStats.beamTiltX)}
                 {" / "}
-                Y: {formatBeamTilt(stats.beam_tilt_y)}
+                Y: {formatBeamTilt(pStats.beamTiltY)}
               </div>
             )}
           </div>
@@ -361,7 +363,7 @@ const CTFRefineDashboard = () => {
 
       {/* Distribution Charts — only when CTF Fitting is enabled */}
       {ctfFitting && (defocusChartData.length > 0 || astigChartData.length > 0) && (
-        <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+        <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
           <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiActivity className="text-blue-500" size={13} />
             Particle Distributions
@@ -427,8 +429,8 @@ const CTFRefineDashboard = () => {
       )}
 
       {/* Aberration Analysis - Odd Zernike (Asymmetric) — only when Beam Tilt is enabled */}
-      {beamTiltEnabled && results?.odd_zernike?.length > 0 && (
-        <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      {beamTiltEnabled && results?.oddZernike?.length > 0 && (
+        <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
           <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiCircle className="text-purple-500" size={13} />
             Asymmetric Aberrations (Odd Zernike)
@@ -437,14 +439,14 @@ const CTFRefineDashboard = () => {
             </span>
           </h3>
           <div className="space-y-2">
-            {results.odd_zernike.map((value, idx) => (
+            {results.oddZernike.map((value, idx) => (
               <div key={idx} className="flex items-center gap-3">
                 <div className="w-32 text-xs text-[var(--color-text-secondary)] truncate" title={ODD_ZERNIKE_NAMES[idx] || `Z${idx}`}>
                   {ODD_ZERNIKE_NAMES[idx] || `Coeff ${idx + 1}`}
                 </div>
                 <div className="flex-1 h-6 bg-[var(--color-bg-hover)] rounded relative overflow-hidden">
                   <div
-                    className={`h-full ${value >= 0 ? 'bg-blue-400 dark:bg-blue-500' : 'bg-red-400 dark:bg-red-500'} absolute`}
+                    className={`h-full ${value >= 0 ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-danger)]'} absolute`}
                     style={{
                       width: `${getBarWidth(value, oddMax)}%`,
                       left: value >= 0 ? '50%' : `${50 - getBarWidth(value, oddMax)}%`,
@@ -458,8 +460,8 @@ const CTFRefineDashboard = () => {
                   value === 0
                     ? 'bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)]'
                     : value > 0
-                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
-                    : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300'
+                    ? 'bg-[var(--color-info-bg)] text-[var(--color-info-text)]'
+                    : 'bg-[var(--color-danger-bg)] text-[var(--color-danger-text)]'
                 }`}>
                   {value.toFixed(2)}
                 </div>
@@ -470,8 +472,8 @@ const CTFRefineDashboard = () => {
       )}
 
       {/* Aberration Analysis - Even Zernike (Symmetric) */}
-      {results?.even_zernike?.length > 0 && (
-        <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      {results?.evenZernike?.length > 0 && (
+        <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
           <h3 className="font-bold text-[var(--color-text)] mb-4 flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiCircle className="text-blue-500" size={13} />
             Symmetric Aberrations (Even Zernike)
@@ -480,14 +482,14 @@ const CTFRefineDashboard = () => {
             </span>
           </h3>
           <div className="space-y-2">
-            {results.even_zernike.map((value, idx) => (
+            {results.evenZernike.map((value, idx) => (
               <div key={idx} className="flex items-center gap-3">
                 <div className="w-32 text-xs text-[var(--color-text-secondary)] truncate" title={EVEN_ZERNIKE_NAMES[idx] || `Z${idx}`}>
                   {EVEN_ZERNIKE_NAMES[idx] || `Coeff ${idx + 1}`}
                 </div>
                 <div className="flex-1 h-6 bg-[var(--color-bg-hover)] rounded relative overflow-hidden">
                   <div
-                    className={`h-full ${value >= 0 ? 'bg-blue-400 dark:bg-blue-500' : 'bg-red-400 dark:bg-red-500'} absolute`}
+                    className={`h-full ${value >= 0 ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-danger)]'} absolute`}
                     style={{
                       width: `${getBarWidth(value, evenMax)}%`,
                       left: value >= 0 ? '50%' : `${50 - getBarWidth(value, evenMax)}%`,
@@ -501,8 +503,8 @@ const CTFRefineDashboard = () => {
                   value === 0
                     ? 'bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)]'
                     : value > 0
-                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
-                    : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300'
+                    ? 'bg-[var(--color-info-bg)] text-[var(--color-info-text)]'
+                    : 'bg-[var(--color-danger-bg)] text-[var(--color-danger-text)]'
                 }`}>
                   {value.toFixed(2)}
                 </div>

@@ -52,8 +52,8 @@ const ManualSelect = () => {
 
       if (response.data.status === "success") {
         setClasses(response.data.data.classes);
-        setIs3D(response.data.data.is_3d || false);
-        setDataStarPath(response.data.data.data_star_path);
+        setIs3D(response.data.data.is3d || false);
+        setDataStarPath(response.data.data.dataStarPath);
         setViewingClass(null);
       } else {
         setError(response.data.message || "Failed to load classes");
@@ -122,7 +122,7 @@ const ManualSelect = () => {
 
       if (response.data.status === "success") {
         setMessage(
-          `Success! Saved ${response.data.data.num_particles} particles from ${response.data.data.selected_classes.length} classes to ${response.data.data.output_file}`
+          `Success! Saved ${response.data.data.numParticles} particles from ${response.data.data.selectedClasses.length} classes to ${response.data.data.outputFile}`
         );
         setTimeout(() => {
           onJobSuccess();
@@ -139,7 +139,7 @@ const ManualSelect = () => {
 
   const totalSelected = selectedClasses.size;
   const totalParticles = classes
-    .filter((c) => selectedClasses.has(c.class_number))
+    .filter((c) => selectedClasses.has(c.classNumber))
     .reduce((sum, c) => sum + (c.distribution || 0), 0);
 
   return (
@@ -195,17 +195,17 @@ const ManualSelect = () => {
                 {/* Same grid for both 2D and 3D */}
                 <div className="ms-class-grid">
                   {classes.map((cls) => {
-                    const pct = cls.particle_fraction ?? 0;
-                    const res = cls.estimated_resolution ?? 999;
+                    const pct = cls.particleFraction ?? 0;
+                    const res = cls.estimatedResolution ?? 999;
                     return (
                       <div
-                        key={cls.class_number}
-                        className={`ms-class-card ${selectedClasses.has(cls.class_number) ? "selected" : ""}`}
-                        onClick={() => toggleClass(cls.class_number)}
+                        key={cls.classNumber}
+                        className={`ms-class-card ${selectedClasses.has(cls.classNumber) ? "selected" : ""}`}
+                        onClick={() => toggleClass(cls.classNumber)}
                       >
-                        <img src={cls.image} alt={`Class ${cls.class_number}`} />
+                        <img src={cls.image} alt={`Class ${cls.classNumber}`} />
                         <div className="ms-class-info">
-                          <span style={{ color: "var(--color-text-heading)", fontWeight: "bold" }}>#{cls.class_number}</span>
+                          <span style={{ color: "var(--color-text-heading)", fontWeight: "bold" }}>#{cls.classNumber}</span>
                           <span style={{ color: "var(--color-success-text)" }}>{pct.toFixed(1)}%</span>
                           <span style={{ color: "var(--color-primary)" }}>
                             {res < 100 ? `${res.toFixed(1)}Å` : "-"}
@@ -214,18 +214,18 @@ const ManualSelect = () => {
                         <div className="ms-class-checkbox">
                           <input
                             type="checkbox"
-                            checked={selectedClasses.has(cls.class_number)}
+                            checked={selectedClasses.has(cls.classNumber)}
                             onChange={() => {}}
                           />
                         </div>
                         {/* 3D button - only for 3D classes */}
-                        {is3D && cls.mrc_path && (
+                        {is3D && cls.mrcPath && (
                           <div
                             className="ms-class-3d-btn"
                             onClick={(e) => {
                               e.stopPropagation();
                               setViewingClass(
-                                viewingClass?.class_number === cls.class_number ? null : cls
+                                viewingClass?.classNumber === cls.classNumber ? null : cls
                               );
                             }}
                             title="View 3D volume"
@@ -245,11 +245,11 @@ const ManualSelect = () => {
                     <div className="ms-molstar-toolbar">
                       <div className="ms-molstar-title">
                         <FiBox size={14} />
-                        <span>Class #{viewingClass.class_number}</span>
+                        <span>Class #{viewingClass.classNumber}</span>
                         <span className="ms-molstar-meta">
-                          {(viewingClass.particle_fraction ?? 0).toFixed(1)}%
-                          {(viewingClass.estimated_resolution ?? 999) < 100 && (
-                            <> | {viewingClass.estimated_resolution.toFixed(1)}&#x212B;</>
+                          {(viewingClass.particleFraction ?? 0).toFixed(1)}%
+                          {(viewingClass.estimatedResolution ?? 999) < 100 && (
+                            <> | {viewingClass.estimatedResolution.toFixed(1)}&#x212B;</>
                           )}
                         </span>
                       </div>
@@ -264,7 +264,7 @@ const ManualSelect = () => {
                     <div className="ms-molstar-viewer">
                       <MolstarViewer
                         jobId={null}
-                        mrcFilePath={viewingClass.mrc_path}
+                        mrcFilePath={viewingClass.mrcPath}
                         apiEndpoint="/initialmodel/mrc/"
                         isoValue={1.5}
                       />

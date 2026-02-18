@@ -30,22 +30,22 @@ const ExportModal = ({
   };
 
   const handleDownload = () => {
-    if (exportResult?.download_url) {
-      window.open(exportResult.download_url, "_blank");
+    if (exportResult?.data?.downloadUrl) {
+      window.open(exportResult.data.downloadUrl, "_blank");
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl dark:shadow-2xl w-full max-w-md mx-4">
+      <div className="bg-[var(--color-bg-card)] rounded-xl shadow-xl w-full max-w-md mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
+          <h3 className="text-lg font-semibold text-[var(--color-text-heading)]">
             {exportMode === "filtered" ? "Export Filtered Micrographs" : "Export Selected Micrographs"}
           </h3>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 rounded"
+            className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] rounded"
           >
             <FiX size={20} />
           </button>
@@ -57,21 +57,21 @@ const ExportModal = ({
           {exportResult?.status === "success" ? (
             <div className="text-center py-4">
               <FiCheckCircle className="text-green-500 text-4xl mx-auto mb-3" />
-              <h4 className="text-lg font-medium text-gray-800 dark:text-slate-200 mb-2">
+              <h4 className="text-lg font-medium text-[var(--color-text-heading)] mb-2">
                 Export Successful!
               </h4>
-              <p className="text-sm text-gray-600 dark:text-slate-300 mb-4">
-                Exported <strong>{exportResult.data?.selected_count}</strong> micrographs
+              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                Exported <strong>{exportResult.data?.selectedCount}</strong> micrographs
               </p>
-              <div className="bg-gray-50 dark:bg-slate-900 rounded-lg p-3 mb-4">
-                <p className="text-sm text-gray-500 dark:text-slate-400 mb-1">Filename:</p>
-                <p className="text-sm font-medium text-gray-700 dark:text-slate-200">
+              <div className="bg-[var(--color-bg)] rounded-lg p-3 mb-4">
+                <p className="text-sm text-[var(--color-text-secondary)] mb-1">Filename:</p>
+                <p className="text-sm font-medium text-[var(--color-text)]">
                   {exportResult.data?.filename}
                 </p>
               </div>
               <button
                 onClick={handleDownload}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-hover)] transition-colors"
               >
                 <FiDownload />
                 <span>Download STAR File</span>
@@ -80,17 +80,17 @@ const ExportModal = ({
           ) : exportResult?.status === "error" ? (
             <div className="text-center py-4">
               <FiAlertCircle className="text-red-500 text-4xl mx-auto mb-3" />
-              <h4 className="text-lg font-medium text-gray-800 dark:text-slate-200 mb-2">
+              <h4 className="text-lg font-medium text-[var(--color-text-heading)] mb-2">
                 Export Failed
               </h4>
-              <p className="text-sm text-red-600 dark:text-red-400">
+              <p className="text-sm text-[var(--color-danger-text)]">
                 {exportResult.message || "An error occurred during export"}
               </p>
             </div>
           ) : (
             <>
               {/* Selection Summary */}
-              <div className={`rounded-lg p-4 ${exportMode === "filtered" ? "bg-green-50 dark:bg-green-900/30" : "bg-blue-50 dark:bg-blue-900/30"}`}>
+              <div className={`rounded-lg p-4 ${exportMode === "filtered" ? "bg-[var(--color-success-bg)]" : "bg-[var(--color-info-bg)]"}`}>
                 <div className="flex items-center gap-3">
                   {exportMode === "filtered" ? (
                     <FiFilter className="text-green-500 text-2xl" />
@@ -98,10 +98,10 @@ const ExportModal = ({
                     <FiFile className="text-blue-500 text-2xl" />
                   )}
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-slate-200">
+                    <p className="font-medium text-[var(--color-text-heading)]">
                       {selectedCount} micrograph{selectedCount !== 1 ? "s" : ""} {exportMode === "filtered" ? "matching filters" : "selected"}
                     </p>
-                    <p className="text-sm text-gray-600 dark:text-slate-300">
+                    <p className="text-sm text-[var(--color-text-secondary)]">
                       Will be exported to STAR file
                     </p>
                   </div>
@@ -110,37 +110,37 @@ const ExportModal = ({
 
               {/* Filter Criteria Display (for filtered mode) */}
               {exportMode === "filtered" && (
-                <div className="bg-gray-50 dark:bg-slate-900 rounded-lg p-3">
-                  <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mb-2">APPLIED FILTER CRITERIA</p>
+                <div className="bg-[var(--color-bg)] rounded-lg p-3">
+                  <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-2">APPLIED FILTER CRITERIA</p>
                   <div className="space-y-1 text-sm">
                     {filters.maxResolution && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-slate-300">Max Resolution:</span>
-                        <span className="font-medium text-gray-800 dark:text-slate-200">≤ {filters.maxResolution} Å</span>
+                        <span className="text-[var(--color-text-secondary)]">Max Resolution:</span>
+                        <span className="font-medium text-[var(--color-text-heading)]">≤ {filters.maxResolution} Å</span>
                       </div>
                     )}
                     {filters.minFOM && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-slate-300">Min Figure of Merit:</span>
-                        <span className="font-medium text-gray-800 dark:text-slate-200">≥ {filters.minFOM}</span>
+                        <span className="text-[var(--color-text-secondary)]">Min Figure of Merit:</span>
+                        <span className="font-medium text-[var(--color-text-heading)]">≥ {filters.minFOM}</span>
                       </div>
                     )}
                     {filters.maxAstigmatism && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-slate-300">Max Astigmatism:</span>
-                        <span className="font-medium text-gray-800 dark:text-slate-200">≤ {filters.maxAstigmatism} Å</span>
+                        <span className="text-[var(--color-text-secondary)]">Max Astigmatism:</span>
+                        <span className="font-medium text-[var(--color-text-heading)]">≤ {filters.maxAstigmatism} Å</span>
                       </div>
                     )}
                     {(filters.minDefocus || filters.maxDefocus) && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-slate-300">Defocus Range:</span>
-                        <span className="font-medium text-gray-800 dark:text-slate-200">
+                        <span className="text-[var(--color-text-secondary)]">Defocus Range:</span>
+                        <span className="font-medium text-[var(--color-text-heading)]">
                           {filters.minDefocus || 0} - {filters.maxDefocus || "∞"} Å
                         </span>
                       </div>
                     )}
                     {!filters.maxResolution && !filters.minFOM && !filters.maxAstigmatism && !filters.minDefocus && !filters.maxDefocus && (
-                      <p className="text-gray-500 dark:text-slate-400 italic">No filters applied - exporting all micrographs</p>
+                      <p className="text-[var(--color-text-secondary)] italic">No filters applied - exporting all micrographs</p>
                     )}
                   </div>
                 </div>
@@ -149,15 +149,15 @@ const ExportModal = ({
               {/* Quality Summary */}
               {selectedStats.avgResolution && (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-50 dark:bg-slate-900 rounded-lg p-3">
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Avg Resolution</p>
-                    <p className="text-lg font-semibold text-gray-800 dark:text-slate-200">
+                  <div className="bg-[var(--color-bg)] rounded-lg p-3">
+                    <p className="text-xs text-[var(--color-text-secondary)] mb-1">Avg Resolution</p>
+                    <p className="text-lg font-semibold text-[var(--color-text-heading)]">
                       {selectedStats.avgResolution?.toFixed(2)} Å
                     </p>
                   </div>
-                  <div className="bg-gray-50 dark:bg-slate-900 rounded-lg p-3">
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mb-1">Avg Figure of Merit</p>
-                    <p className="text-lg font-semibold text-gray-800 dark:text-slate-200">
+                  <div className="bg-[var(--color-bg)] rounded-lg p-3">
+                    <p className="text-xs text-[var(--color-text-secondary)] mb-1">Avg Figure of Merit</p>
+                    <p className="text-lg font-semibold text-[var(--color-text-heading)]">
                       {selectedStats.avgFOM?.toFixed(3)}
                     </p>
                   </div>
@@ -166,7 +166,7 @@ const ExportModal = ({
 
               {/* Filename Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-1">
                   Filename
                 </label>
                 <div className="flex items-center">
@@ -174,10 +174,10 @@ const ExportModal = ({
                     type="text"
                     value={filename}
                     onChange={(e) => setFilename(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-l-lg focus:outline-none focus:border-blue-300"
+                    className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-l-lg focus:outline-none focus:border-[var(--color-border-focus)]"
                     placeholder="Enter filename"
                   />
-                  <span className="px-3 py-2 bg-gray-100 dark:bg-slate-800 border border-l-0 border-gray-200 dark:border-slate-700 rounded-r-lg text-gray-500 dark:text-slate-400">
+                  <span className="px-3 py-2 bg-[var(--color-bg-hover)] border border-l-0 border-[var(--color-border)] rounded-r-lg text-[var(--color-text-secondary)]">
                     .star
                   </span>
                 </div>
@@ -187,10 +187,10 @@ const ExportModal = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 p-4 border-t border-gray-200 dark:border-slate-700">
+        <div className="flex items-center justify-end gap-2 p-4 border-t border-[var(--color-border)]">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:text-gray-800 dark:hover:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-heading)] hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
           >
             {exportResult?.status === "success" ? "Close" : "Cancel"}
           </button>
@@ -200,8 +200,8 @@ const ExportModal = ({
               disabled={isExporting || selectedCount === 0}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 isExporting || selectedCount === 0
-                  ? "bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed"
-                  : "bg-blue-500 text-white hover:bg-blue-600"
+                  ? "bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] cursor-not-allowed"
+                  : "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]"
               }`}
             >
               {isExporting ? (

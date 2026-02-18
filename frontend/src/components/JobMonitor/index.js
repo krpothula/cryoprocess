@@ -6,7 +6,7 @@ import useProjectNotification from "../../hooks/useProjectNotification";
 import { isActiveStatus } from "../../utils/jobStatus";
 import { BiLoader } from "react-icons/bi";
 
-const POLL_INTERVAL_MS = 3000; // How often to poll for job status updates
+const POLL_INTERVAL_MS = 10000; // Fallback poll interval; WebSocket provides instant status updates
 
 const JobMonitor = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
   const [jobListData, setJobListData] = useState({});
@@ -224,17 +224,17 @@ const JobMonitor = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
     <div ref={boxRef} className="job-status-container">
       {isLoading ? (
         <div className="flex items-center justify-center">
-          <p className="font-medium items-center text-black dark:text-slate-100">
+          <p className="font-medium items-center text-[var(--color-text)]">
             <BiLoader className="mx-auto mb-2 text-2xl animate-spin" />
             Fetching all the jobs, please wait ..
           </p>
         </div>
       ) : !jobList ? (
         <div className="mt-6">
-          <h2 className="font-semibold text-center text-gray-700 dark:text-slate-200 mb-2">
+          <h2 className="font-semibold text-center text-[var(--color-text)] mb-2">
             No Jobs Found
           </h2>
-          <p className="text-gray-500 dark:text-slate-400 text-xs text-center font-medium mt-0">
+          <p className="text-[var(--color-text-secondary)] text-xs text-center font-medium mt-0">
             Try refreshing the page or check back later.
           </p>
         </div>
@@ -255,7 +255,7 @@ const JobMonitor = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
         />
       )}
       {moreJobsLoading ? (
-        <p className="flex gap-2 font-medium items-center text-sm text-black dark:text-slate-100 p-3">
+        <p className="flex gap-2 font-medium items-center text-sm text-[var(--color-text)] p-3">
           <BiLoader className="animate-spin" />
           Loading more jobs ..
         </p>

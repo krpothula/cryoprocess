@@ -1,5 +1,6 @@
 import React from "react";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
+import CustomDropdown from "../../common/Dropdown";
 
 const Mas = ({
   handleInputChange,
@@ -7,6 +8,8 @@ const Mas = ({
   handleRangeChange,
   dropdownOptions,
 }) => {
+  const isFillWithSpheres = formData.fillWithSpheres === "Yes";
+
   return (
     <div className="tab-content">
       <PixelSizeInput
@@ -64,6 +67,36 @@ const Mas = ({
         onChange={handleRangeChange}
         handleInputChange={handleInputChange}
         tooltipText="Add soft (cosine) edge of this width in pixels. Prevents sharp mask artifacts. Typical value: 3-6 pixels. Total mask padding = extend + soft edge."
+      />
+      <CustomDropdown
+        label="Invert mask?"
+        placeholder=""
+        options={dropdownOptions}
+        value={formData.invertMask}
+        name="invertMask"
+        onChange={handleInputChange}
+        tooltipText="Invert the final mask so that the protein region becomes 0 and the solvent becomes 1. Useful for creating solvent masks."
+      />
+      <CustomDropdown
+        label="Fill mask with spheres?"
+        placeholder=""
+        options={dropdownOptions}
+        value={formData.fillWithSpheres}
+        name="fillWithSpheres"
+        onChange={handleInputChange}
+        tooltipText="Fill the interior of the mask with overlapping spheres. Useful for helical reconstructions where the mask interior may have holes."
+      />
+      <PixelSizeInput
+        label="Sphere radius (pixels)"
+        placeholder=""
+        min={1}
+        max={50}
+        value={formData.sphereRadius}
+        name="sphereRadius"
+        onChange={handleRangeChange}
+        handleInputChange={handleInputChange}
+        tooltipText="Radius of the spheres used to fill the mask interior (in pixels)."
+        disabled={!isFillWithSpheres}
       />
     </div>
   );

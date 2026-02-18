@@ -47,15 +47,15 @@ const PostProcessDashboard = () => {
     const url = `${API_BASE_URL}/postprocess/mrc/?type=unmasked&job_id=${selectedJob?.id}`;
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${selectedJob?.job_name || 'postprocess'}.mrc`;
+    a.download = `${selectedJob?.jobName || 'postprocess'}.mrc`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
 
   const copyCommand = () => {
-    if (selectedJob?.command) {
-      navigator.clipboard.writeText(selectedJob.command);
+    if (command) {
+      navigator.clipboard.writeText(command);
       setCommandCopied(true);
       setTimeout(() => setCommandCopied(false), 2000);
     }
@@ -77,11 +77,11 @@ const PostProcessDashboard = () => {
         setError(null);
 
         // Fetch FSC data if available
-        if (response.data.data?.has_fsc) {
+        if (response.data.data?.hasFsc) {
           getPostProcessFscApi(selectedJob.id)
             .then((fscRes) => {
-              if (mountedRef.current && fscRes?.data?.data?.fsc_curve) {
-                setFscData(fscRes.data.data.fsc_curve);
+              if (mountedRef.current && fscRes?.data?.data?.fscCurve) {
+                setFscData(fscRes.data.data.fscCurve);
               }
             })
             .catch(() => {}); // FSC is optional — don't block on failure
@@ -131,18 +131,23 @@ const PostProcessDashboard = () => {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
         <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
           Loading post-processing results...
         </p>
       </div>
     );
   }
 
-  if (error) {
+  const pStats = selectedJob?.pipelineStats || {};
+  const params = selectedJob?.parameters || {};
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -150,41 +155,39 @@ const PostProcessDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                PostProcess/{selectedJob?.job_name || "Job"}
+                PostProcess/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -198,7 +201,7 @@ const PostProcessDashboard = () => {
                 <FiChevronDown className="text-[var(--color-text-muted)]" size={12} />
               )}
             </button>
-            {showCommand && selectedJob?.command && (
+            {showCommand && command && (
               <button
                 onClick={copyCommand}
                 className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--color-bg-hover)] rounded transition-colors"
@@ -222,34 +225,31 @@ const PostProcessDashboard = () => {
                 lineHeight: '1.4'
               }}
             >
-              {selectedJob?.command || "Command not available for this job"}
+              {command || "Command not available for this job"}
             </div>
           )}
         </div>
       </div>
 
       {/* Stats Card - Single Row */}
-      {(() => {
-        const stats = selectedJob?.pipeline_stats || {};
-        return (
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FiTarget className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Resolution:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
-              {stats.resolution ? `${stats.resolution.toFixed(2)} Å` : "N/A"}
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
+              {pStats.resolution != null ? `${pStats.resolution.toFixed(2)} Å` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiZap className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>B-factor:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.bfactor ? `${Math.abs(stats.bfactor).toFixed(0)} Å²` : "N/A"}
+              {pStats.bfactor != null ? `${Math.abs(pStats.bfactor).toFixed(0)} Å²` : "N/A"}
             </span>
-            {stats.bfactor && (
+            {pStats.bfactor != null && (
               <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                ({selectedJob?.parameters?.ownBfactor === "Yes" ? "manual" : "auto"})
+                ({["Yes", "yes", "true", true].includes(params.ownBfactor) ? "manual" : "auto"})
               </span>
             )}
           </div>
@@ -257,30 +257,28 @@ const PostProcessDashboard = () => {
             <FiBox className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Masked Map:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {selectedJob?.parameters?.solventMask ? "Yes" : "No"}
+              {params.solventMask ? "Yes" : "No"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiCrosshair className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Pixel Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.pixel_size ? `${stats.pixel_size.toFixed(3)} Å/px` : "N/A"}
+              {pStats.pixelSize != null ? `${pStats.pixelSize.toFixed(3)} Å/px` : "N/A"}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiGrid className="text-[var(--color-text-muted)] flex-shrink-0" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Box Size:</span>
             <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
-              {stats.box_size || 0} px
+              {pStats.boxSize ?? 0} px
             </span>
           </div>
         </div>
       </div>
-        );
-      })()}
 
       {/* 3D Visualization */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiBox className="text-blue-500" size={13} />
@@ -297,10 +295,10 @@ const PostProcessDashboard = () => {
               Refresh
             </button>
 
-            {results?.has_unmasked_map && (
+            {results?.hasUnmaskedMap && (
               <button
                 onClick={handleDownload}
-                className="flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
+                className="flex items-center gap-1 px-3 py-1 bg-[var(--color-info-bg)] hover:bg-[var(--color-primary-light)] text-[var(--color-primary)] rounded-lg transition-colors"
                 style={{ fontSize: "12px" }}
                 title="Download unmasked map (.mrc)"
               >
@@ -311,7 +309,7 @@ const PostProcessDashboard = () => {
           </div>
         </div>
 
-        {results?.has_unmasked_map ? (
+        {results?.hasUnmaskedMap ? (
           <MolstarViewer
             key={`${selectedJob?.id}-unmasked`}
             jobId={selectedJob?.id}
@@ -326,7 +324,7 @@ const PostProcessDashboard = () => {
             <p className="text-lg font-medium">No Volume Yet</p>
             <p className="text-sm text-center mt-2">
               The volume will appear here once post-processing completes.
-              {selectedJob?.status === "running" && (
+              {status === "running" && (
                 <span className="block mt-2 text-amber-500">Job is currently running...</span>
               )}
             </p>
@@ -335,21 +333,21 @@ const PostProcessDashboard = () => {
       </div>
 
       {/* FSC Curve */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-bold text-[var(--color-text)] flex items-center gap-2" style={{ fontSize: "12px" }}>
             <FiTrendingUp className="text-blue-500" size={13} />
             FSC Curve
           </h3>
-          {results?.final_resolution && (
+          {results?.finalResolution && (
             <span style={{ fontSize: "11px", color: "var(--color-success-text)", fontWeight: 600 }}>
-              Resolution at FSC=0.143: {results.final_resolution.toFixed(2)} Å
+              Resolution at FSC=0.143: {results.finalResolution.toFixed(2)} Å
             </span>
           )}
         </div>
         <FscChart
           data={fscData}
-          goldStdRes={results?.final_resolution}
+          goldStdRes={results?.finalResolution}
           height={320}
         />
       </div>

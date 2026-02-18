@@ -12,6 +12,7 @@ class WsNotifier {
     this.ws = null;
     this.listeners = new Map(); // jobId -> Set<callback>
     this.projectListeners = new Set(); // project-level callbacks (any job_update)
+    this.progressListeners = new Map(); // jobId -> Set<callback> (job_progress)
     this.projectId = null;
     this.reconnectTimer = null;
     this.connected = false;
@@ -70,6 +71,14 @@ class WsNotifier {
             for (const cb of this.projectListeners) {
               try { cb(data); } catch (_) { /* project callback error */ }
             }
+          } else if (data.type === 'job_progress' && data.id) {
+            // Per-job progress callbacks (dashboard stats cards)
+            const callbacks = this.progressListeners.get(data.id);
+            if (callbacks) {
+              for (const cb of callbacks) {
+                try { cb(data); } catch (_) { /* progress callback error */ }
+              }
+            }
           }
         } catch (_) { /* non-JSON message */ }
       };
@@ -106,6 +115,29 @@ class WsNotifier {
     if (set) {
       set.delete(callback);
       if (set.size === 0) this.listeners.delete(jobId);
+    }
+  }
+
+  /**
+   * Register a callback for job_progress messages targeting a specific job.
+   * Callback receives: { id, iterationCount, micrographCount, particleCount, ... }
+   */
+  subscribeProgress(jobId, callback) {
+    if (!jobId || !callback) return;
+    if (!this.progressListeners.has(jobId)) {
+      this.progressListeners.set(jobId, new Set());
+    }
+    this.progressListeners.get(jobId).add(callback);
+  }
+
+  /**
+   * Remove a previously registered progress callback.
+   */
+  unsubscribeProgress(jobId, callback) {
+    const set = this.progressListeners.get(jobId);
+    if (set) {
+      set.delete(callback);
+      if (set.size === 0) this.progressListeners.delete(jobId);
     }
   }
 

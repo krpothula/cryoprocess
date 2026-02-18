@@ -1,8 +1,4 @@
 import axiosInstance from "../../config";
-import {
-  getCachedStatsApi,
-  checkCachedDataAvailable,
-} from "../../cachedDashboard";
 
 const getPrevFilesApi = (projectId = "", jobId = "", type = 1) => {
   return axiosInstance.get(
@@ -39,10 +35,6 @@ const getMicrographShiftsApi = (jobId = "", micrograph = "") => {
   );
 };
 
-const getMotionLiveStatsApi = (jobId = "") => {
-  return axiosInstance.get(`/motion/live-stats/?job_id=${jobId}`);
-};
-
 // Get micrograph image as PNG (base64)
 // type: 'micrograph' or 'power_spectrum'
 const getMicrographImageApi = (jobId = "", micrograph = "", type = "micrograph") => {
@@ -65,38 +57,6 @@ const getMicrographImageWithCacheApi = async (jobId = "", micrograph = "", type 
   return getMicrographImageApi(jobId, micrograph, type);
 };
 
-/**
- * Get live stats with cached fallback.
- * Tries cached stats first, falls back to on-demand parsing.
- * @param {string} jobId - Job ID
- * @returns {Promise} - Response with stats
- */
-const getMotionLiveStatsWithCacheApi = async (jobId = "") => {
-  try {
-    // Try cached stats first
-    const cachedStatus = await checkCachedDataAvailable(jobId);
-
-    if (cachedStatus.statsAvailable) {
-      const cachedStats = await getCachedStatsApi(jobId);
-      // Transform cached stats to match expected format
-      if (cachedStats.data && cachedStats.data.motion_stats) {
-        return {
-          data: {
-            cached: true,
-            ...cachedStats.data,
-          }
-        };
-      }
-    }
-  } catch (error) {
-    // Cached stats not available, continue to fallback
-    console.debug("Cached stats not available, using on-demand:", error.message);
-  }
-
-  // Fall back to on-demand parsing
-  return getMotionLiveStatsApi(jobId);
-};
-
 export {
   getPrevFilesApi,
   motionCorrectionAPI,
@@ -104,9 +64,6 @@ export {
   getMotionLogsApi,
   getMotionResultsApi,
   getMicrographShiftsApi,
-  getMotionLiveStatsApi,
   getMicrographImageApi,
-  // Cached versions with fallback
   getMicrographImageWithCacheApi,
-  getMotionLiveStatsWithCacheApi,
 };

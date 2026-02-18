@@ -1,5 +1,5 @@
 import React from "react";
-import PixelSizeInput from "../../common/PixelSixeInput";
+import PixelSizeInput from "../../common/PixelSizeInput";
 
 import CustomDropdown from "../../common/Dropdown";
 import SimpleInput from "../../common/SimpleInput";
@@ -43,8 +43,8 @@ const Reference = ({
       <SimpleInput
         label="Symmetry:"
         placeholder=""
-        name="Symmetry"
-        value={formData.Symmetry}
+        name="symmetry"
+        value={formData.symmetry}
         onChange={handleInputChange}
         tooltipText="Point group symmetry (C1, C2, D2, etc.). Must match your reference map symmetry. Incorrect symmetry will produce artifacts."
       />

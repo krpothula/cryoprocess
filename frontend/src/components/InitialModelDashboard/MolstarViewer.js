@@ -339,10 +339,10 @@ const MolstarViewer = ({
       {/* Isosurface level slider - top bar */}
       {!loading && !error && (
         <div
-          className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-200 dark:border-slate-700"
+          className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--color-border)]"
           style={{ backgroundColor: "var(--color-bg)" }}
         >
-          <span className="text-gray-500 dark:text-slate-400 whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500 }}>
+          <span className="text-[var(--color-text-secondary)] whitespace-nowrap" style={{ fontSize: "10px", fontWeight: 500 }}>
             Iso Level
           </span>
           <input
@@ -357,7 +357,7 @@ const MolstarViewer = ({
               background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((currentIso - 0.1) / 4.9) * 100}%, var(--color-border) ${((currentIso - 0.1) / 4.9) * 100}%, var(--color-border) 100%)`,
             }}
           />
-          <span className="text-gray-500 dark:text-slate-400 font-mono" style={{ fontSize: "10px", minWidth: "32px", textAlign: "right" }}>
+          <span className="text-[var(--color-text-secondary)] font-mono" style={{ fontSize: "10px", minWidth: "32px", textAlign: "right" }}>
             {currentIso.toFixed(1)}σ
           </span>
         </div>
@@ -388,7 +388,7 @@ const MolstarViewer = ({
           <p className="text-white text-sm mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-white rounded-lg"
           >
             <FiRefreshCw />
             Retry

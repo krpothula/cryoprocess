@@ -32,12 +32,12 @@ const { getLiveOrchestrator } = require('../services/liveOrchestrator');
  * Health check / connection test
  * GET /api/smartscope/health
  *
- * Response: { "status": "ok", "slurm_partition": "gpu" }
+ * Response: { "status": "ok", "slurmPartition": "gpu" }
  */
 exports.health = async (req, res) => {
   return response.success(res, {
     status: 'ok',
-    slurm_partition: settings.SLURM_PARTITION
+    slurmPartition: settings.SLURM_PARTITION
   });
 };
 
@@ -49,7 +49,7 @@ exports.health = async (req, res) => {
  *   watch_dir, grid_name, output_dir, pixel_size, voltage, cs,
  *   amplitude_contrast, threads, gpus, n_processes
  * }
- * Response: { "session_id": "sess-abc-123" }
+ * Response: { "sessionId": "sess-abc-123" }
  */
 exports.startSession = async (req, res) => {
   try {
@@ -140,7 +140,7 @@ exports.startSession = async (req, res) => {
     const orchestrator = getLiveOrchestrator();
     await orchestrator.startSession(session.id);
 
-    return response.success(res, { session_id: session.id }, 201);
+    return response.success(res, { sessionId: session.id }, 201);
 
   } catch (err) {
     logger.error(`[SmartScope] Start error: ${err.message}`);
@@ -154,13 +154,13 @@ exports.startSession = async (req, res) => {
  *
  * Response: {
  *   "micrographs": [
- *     { "micrograph_name": "micrograph_001", "status": "completed", "defocus": 1.5, ... },
- *     { "micrograph_name": "micrograph_002", "status": "running" },
- *     { "micrograph_name": "micrograph_003", "status": "failed", "error": "..." }
+ *     { "micrographName": "micrograph_001", "status": "completed", "defocus": 1.5, ... },
+ *     { "micrographName": "micrograph_002", "status": "running" },
+ *     { "micrographName": "micrograph_003", "status": "failed", "error": "..." }
  *   ]
  * }
  *
- * micrograph_name = filename without extension
+ * micrographName = filename without extension
  * status = completed | running | queued | failed
  */
 exports.getResults = async (req, res) => {
@@ -229,17 +229,17 @@ exports.getResults = async (req, res) => {
       const ctfPng = await smartscopeService.mrcToPng(ctfImagePath, '_ctf');
 
       micrographs.push({
-        micrograph_name: micrographName,
+        micrographName: micrographName,
         status: 'completed',
         defocus: Math.round(defocus * 1000) / 1000,
         astig: Math.round(astig * 1000) / 1000,
         angast: Math.round(defocusAngle * 10) / 10,
         ctffit: Math.round(ctfFit * 1000) / 1000,
-        shape_x: imageX,
-        shape_y: imageY,
-        pixel_size: session.optics.pixel_size,
-        micrograph_png: micrographPng,
-        ctf_png: ctfPng
+        shapeX: imageX,
+        shapeY: imageY,
+        pixelSize: session.optics.pixel_size,
+        micrographPng: micrographPng,
+        ctfPng: ctfPng
       });
     }
 

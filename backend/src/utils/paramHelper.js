@@ -74,6 +74,7 @@ function getBoolParam(data, names, defaultValue = false) {
  */
 function getMpiProcs(data) {
   return Math.max(1, getIntParam(data, [
+    'mpiProcs',
     'runningmpi',
     'numberOfMpiProcs'
   ], DEFAULTS.MPI_PROCS));
@@ -93,13 +94,13 @@ function getThreads(data) {
 
 /**
  * Check if GPU acceleration is enabled
- * Checks GpuAcceleration/gpuAcceleration toggle, then useGPU/gpuToUse device IDs
+ * Checks gpuAcceleration/GpuAcceleration toggle, then useGPU/gpuToUse device IDs
  * @param {Object} data - Job data object
  * @returns {boolean}
  */
 function isGpuEnabled(data) {
   // First check explicit GPU acceleration toggle (primary method)
-  const gpuAccel = getParam(data, ['GpuAcceleration', 'gpuAcceleration'], null);
+  const gpuAccel = getParam(data, ['gpuAcceleration', 'GpuAcceleration'], null);
   if (gpuAccel !== null) {
     if (typeof gpuAccel === 'boolean') return gpuAccel;
     if (typeof gpuAccel === 'string') {
@@ -107,8 +108,8 @@ function isGpuEnabled(data) {
     }
   }
 
-  // Check if useGPU contains a valid GPU ID (number or comma-separated list)
-  const useGpu = getParam(data, ['useGPU', 'gpuToUse'], null);
+  // Check if gpuToUse contains a valid GPU ID (number or comma-separated list)
+  const useGpu = getParam(data, ['gpuToUse', 'useGPU'], null);
   if (useGpu !== null && useGpu !== '' && useGpu !== 'No') {
     if (/^[\d,]+$/.test(String(useGpu))) {
       return true;
@@ -128,8 +129,9 @@ function isGpuEnabled(data) {
  */
 function getGpuIds(data) {
   let gpuIds = getParam(data, [
+    'gpuToUse',
     'useGPU',
-    'gpuToUse'
+    'gpu'
   ], '0');
 
   // Handle 'Yes'/'No' values from frontend
@@ -208,8 +210,8 @@ function getIterations(data, defaultValue = 25) {
  */
 function getPooledParticles(data, defaultValue = DEFAULTS.POOL_SIZE) {
   return Math.max(1, getIntParam(data, [
-    'numberOfPooledParticle',
-    'pooledParticles'
+    'pooledParticles',
+    'numberOfPooledParticle'
   ], defaultValue));
 }
 
@@ -245,6 +247,7 @@ function getReference(data) {
  */
 function getSymmetry(data, defaultValue = 'C1') {
   return getParam(data, [
+    'symmetry',
     'Symmetry'
   ], defaultValue);
 }

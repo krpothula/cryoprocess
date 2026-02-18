@@ -55,16 +55,6 @@ const SubsetDashboard = () => {
     }
   }, [selectedJob?.id, fetchResults]);
 
-  // Copy command to clipboard
-  const copyCommand = () => {
-    const command = results?.command || selectedJob?.command;
-    if (command) {
-      navigator.clipboard.writeText(command);
-      setCommandCopied(true);
-      setTimeout(() => setCommandCopied(false), 2000);
-    }
-  };
-
   // Get status icon based on job status
   const getStatusIcon = (status) => {
     switch (status) {
@@ -80,12 +70,36 @@ const SubsetDashboard = () => {
     }
   };
 
-  // Determine operation type from parameters
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh]">
+        <BiLoader className="animate-spin text-primary text-4xl" />
+        <p className="text-lg text-[var(--color-text)] font-medium mt-4">
+          Loading subset results...
+        </p>
+      </div>
+    );
+  }
+
+  const pStats = selectedJob?.pipelineStats || {};
   const params = selectedJob?.parameters || {};
-  const isDuplicateRemoval = params.removeDuplicates === "Yes";
-  const isMetadataFilter = params.metaDataValues === "Yes";
-  const isRandomSubset = params.split === "Yes" || (params.subsetSize > 0 && params.subsetSize < 100);
-  const isRegrouping = params.regroupParticles === "Yes";
+  const status = selectedJob?.status;
+  const command = selectedJob?.command || "";
+
+  // Copy command to clipboard
+  const copyCommand = () => {
+    if (command) {
+      navigator.clipboard.writeText(command);
+      setCommandCopied(true);
+      setTimeout(() => setCommandCopied(false), 2000);
+    }
+  };
+
+  // Determine operation type from parameters
+  const isDuplicateRemoval = ["Yes", "yes", "true", true].includes(params.removeDuplicates);
+  const isMetadataFilter = ["Yes", "yes", "true", true].includes(params.metaDataValues);
+  const isRandomSubset = ["Yes", "yes", "true", true].includes(params.split) || (params.subsetSize > 0 && params.subsetSize < 100);
+  const isRegrouping = ["Yes", "yes", "true", true].includes(params.regroupParticles);
 
   // Get operation info
   const getOperationInfo = () => {
@@ -110,31 +124,17 @@ const SubsetDashboard = () => {
   const operationInfo = getOperationInfo();
 
   // Calculate stats from pipeline_stats
-  const stats = selectedJob?.pipeline_stats || {};
-  const particlesBefore = results?.particles_before || 0;
-  const particlesAfter = stats.particle_count || 0;
+  const particlesBefore = results?.particlesBefore ?? 0;
+  const particlesAfter = pStats.particleCount ?? 0;
   const particlesRemoved = particlesBefore - particlesAfter;
   const retentionPercent = particlesBefore > 0 ? ((particlesAfter / particlesBefore) * 100).toFixed(1) : 0;
   const removalPercent = particlesBefore > 0 ? ((particlesRemoved / particlesBefore) * 100).toFixed(1) : 0;
 
-  const command = results?.command || selectedJob?.command;
-
-  if (loading) {
+  if (error && status !== "running" && status !== "pending") {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh]">
-        <BiLoader className="animate-spin text-primary text-4xl" />
-        <p className="text-lg text-black dark:text-slate-100 font-medium mt-4">
-          Loading subset results...
-        </p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-red-50 m-4 rounded">
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-[var(--color-danger-bg)] m-4 rounded">
         <FiAlertCircle className="text-red-500 text-4xl" />
-        <p className="text-lg text-red-600 font-medium mt-4">{error}</p>
+        <p className="text-lg text-[var(--color-danger-text)] font-medium mt-4">{error}</p>
       </div>
     );
   }
@@ -142,41 +142,39 @@ const SubsetDashboard = () => {
   return (
     <div className="pb-4 bg-[var(--color-bg-card)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {getStatusIcon(selectedJob?.status)}
+            {getStatusIcon(status)}
             <div>
               <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
-                Select/{selectedJob?.job_name || "Job"}
+                Select/{selectedJob?.jobName || "Job"}
               </h2>
               <p style={{
                 fontSize: "12px",
                 fontWeight: 500,
-                color: selectedJob?.status === "success"
+                color: status === "success"
                   ? "var(--color-success-text)"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "var(--color-danger-text)"
-                  : selectedJob?.status === "running"
-                  ? "var(--color-warning)"
                   : "var(--color-warning)"
               }}>
-                {selectedJob?.status === "success"
+                {status === "success"
                   ? "Success"
-                  : selectedJob?.status === "running"
+                  : status === "running"
                   ? "Running..."
-                  : selectedJob?.status === "pending"
+                  : status === "pending"
                   ? "Pending"
-                  : selectedJob?.status === "failed"
+                  : status === "failed"
                   ? "Error"
-                  : selectedJob?.status}
+                  : status}
               </p>
             </div>
           </div>
         </div>
 
         {/* RELION Command Section */}
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 -mx-4 px-4">
+        <div className="mt-3 pt-3 border-t border-[var(--color-border)] -mx-4 px-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCommand(!showCommand)}
@@ -221,7 +219,7 @@ const SubsetDashboard = () => {
       </div>
 
       {/* Stats Card */}
-      <div className="bg-[var(--color-bg-card)] p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="bg-[var(--color-bg-card)] p-4 border-b border-[var(--color-border)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <operationInfo.icon className="text-[var(--color-text-muted)]" size={14} />
@@ -242,14 +240,14 @@ const SubsetDashboard = () => {
           <div className="flex items-center gap-2">
             <FiLayers className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Particles:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-success-text)" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {particlesAfter.toLocaleString()}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <FiTrash2 className="text-[var(--color-text-muted)]" size={14} />
             <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Removed:</span>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-danger-text)" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text-heading)" }}>
               {particlesBefore > 0 ? particlesRemoved.toLocaleString() : "—"}
             </span>
             {particlesBefore > 0 && (

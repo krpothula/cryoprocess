@@ -31,9 +31,9 @@ const AdminUsage = () => {
     try {
       setLoading(true);
       const resp = await getUsageReport({
-        group_by: groupBy,
-        start_date: new Date(startDate).toISOString(),
-        end_date: new Date(endDate + "T23:59:59").toISOString(),
+        groupBy,
+        startDate: new Date(startDate).toISOString(),
+        endDate: new Date(endDate + "T23:59:59").toISOString(),
       });
       setData(resp.data.data || resp.data);
     } catch (error) {
@@ -47,9 +47,9 @@ const AdminUsage = () => {
     try {
       setExporting(true);
       await downloadUsageCsv({
-        group_by: groupBy,
-        start_date: new Date(startDate).toISOString(),
-        end_date: new Date(endDate + "T23:59:59").toISOString(),
+        groupBy,
+        startDate: new Date(startDate).toISOString(),
+        endDate: new Date(endDate + "T23:59:59").toISOString(),
       });
       showToast("CSV downloaded", { type: "success" });
     } catch (error) {
@@ -64,9 +64,9 @@ const AdminUsage = () => {
 
   // Chart data
   const chartData = rows.map((row) => ({
-    name: groupBy === "user" ? row.username : groupBy === "project" ? row.project_name : row.label,
-    hours: row.total_hours,
-    jobs: row.total_jobs,
+    name: groupBy === "user" ? row.username : groupBy === "project" ? row.projectName : row.label,
+    hours: row.totalHours,
+    jobs: row.totalJobs,
   }));
 
   return (
@@ -114,19 +114,19 @@ const AdminUsage = () => {
           <div className="usage-summary">
             <div className="usage-card">
               <span className="usage-card-label">Total Compute</span>
-              <span className="usage-card-value">{totals.total_hours ?? 0}h</span>
+              <span className="usage-card-value">{totals.totalHours ?? 0}h</span>
             </div>
             <div className="usage-card">
               <span className="usage-card-label">Total Jobs</span>
-              <span className="usage-card-value">{totals.total_jobs ?? 0}</span>
+              <span className="usage-card-value">{totals.totalJobs ?? 0}</span>
             </div>
             <div className="usage-card">
               <span className="usage-card-label">Successful</span>
-              <span className="usage-card-value usage-success">{totals.successful_jobs ?? 0}</span>
+              <span className="usage-card-value usage-success">{totals.successfulJobs ?? 0}</span>
             </div>
             <div className="usage-card">
               <span className="usage-card-label">Failed</span>
-              <span className="usage-card-value usage-failed">{totals.failed_jobs ?? 0}</span>
+              <span className="usage-card-value usage-failed">{totals.failedJobs ?? 0}</span>
             </div>
           </div>
         )}
@@ -194,15 +194,15 @@ const AdminUsage = () => {
                       {groupBy === "user" ? (
                         <span>{row.name || row.username}</span>
                       ) : groupBy === "project" ? (
-                        <span>{row.project_name}</span>
+                        <span>{row.projectName}</span>
                       ) : (
                         <span>{row.label}</span>
                       )}
                     </td>
-                    <td>{row.total_jobs}</td>
-                    <td className="usage-success">{row.successful_jobs}</td>
-                    <td className="usage-failed">{row.failed_jobs}</td>
-                    <td><strong>{row.total_hours}h</strong></td>
+                    <td>{row.totalJobs}</td>
+                    <td className="usage-success">{row.successfulJobs}</td>
+                    <td className="usage-failed">{row.failedJobs}</td>
+                    <td><strong>{row.totalHours}h</strong></td>
                   </tr>
                 ))}
               </tbody>

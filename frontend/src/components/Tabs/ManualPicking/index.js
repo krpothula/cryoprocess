@@ -36,9 +36,7 @@ const ManualPicking = () => {
     blueRedColorParticles: "No",
     metadataLabel: "",
     submitToQueue: "Yes",
-    queueSubmitCommand: "",
     queueName: "",
-    arguments: "",
   };
 
   // Relion parameters state

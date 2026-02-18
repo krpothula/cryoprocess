@@ -6,9 +6,9 @@ import { useNavigate } from "react-router-dom";
 
 const ChangePassword = ({ isForced = false, onSuccess }) => {
   const [formData, setFormData] = useState({
-    current_password: "",
-    new_password: "",
-    confirm_password: ""
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
   });
   const [showPasswords, setShowPasswords] = useState({
     current: false,
@@ -31,11 +31,11 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
   };
 
   const validatePassword = () => {
-    if (formData.new_password.length < 8) {
+    if (formData.newPassword.length < 8) {
       setError("Password must be at least 8 characters");
       return false;
     }
-    if (formData.new_password !== formData.confirm_password) {
+    if (formData.newPassword !== formData.confirmPassword) {
       setError("Passwords do not match");
       return false;
     }
@@ -90,8 +90,8 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
             <div className="password-input">
               <input
                 type={showPasswords.current ? "text" : "password"}
-                name="current_password"
-                value={formData.current_password}
+                name="currentPassword"
+                value={formData.currentPassword}
                 onChange={handleChange}
                 required
               />
@@ -110,8 +110,8 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
             <div className="password-input">
               <input
                 type={showPasswords.new ? "text" : "password"}
-                name="new_password"
-                value={formData.new_password}
+                name="newPassword"
+                value={formData.newPassword}
                 onChange={handleChange}
                 required
               />
@@ -131,8 +131,8 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
             <div className="password-input">
               <input
                 type={showPasswords.confirm ? "text" : "password"}
-                name="confirm_password"
-                value={formData.confirm_password}
+                name="confirmPassword"
+                value={formData.confirmPassword}
                 onChange={handleChange}
                 required
               />
@@ -144,9 +144,9 @@ const ChangePassword = ({ isForced = false, onSuccess }) => {
                 {showPasswords.confirm ? <FiEyeOff /> : <FiEye />}
               </button>
             </div>
-            {formData.new_password && formData.confirm_password && (
-              <span className={`match-indicator ${formData.new_password === formData.confirm_password ? 'match' : 'no-match'}`}>
-                {formData.new_password === formData.confirm_password ? (
+            {formData.newPassword && formData.confirmPassword && (
+              <span className={`match-indicator ${formData.newPassword === formData.confirmPassword ? 'match' : 'no-match'}`}>
+                {formData.newPassword === formData.confirmPassword ? (
                   <><FiCheck /> Passwords match</>
                 ) : (
                   "Passwords do not match"

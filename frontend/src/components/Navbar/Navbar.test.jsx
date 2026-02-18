@@ -25,10 +25,10 @@ jest.mock('../../utils/session', () => ({
 const renderNavbar = (props = {}, userInfo = {}) => {
   localStorage.setItem('userInfo', JSON.stringify({
     username: 'testuser',
-    first_name: 'Test',
-    last_name: 'User',
-    is_superuser: false,
-    is_staff: false,
+    firstName: 'Test',
+    lastName: 'User',
+    isSuperuser: false,
+    isStaff: false,
     ...userInfo,
   }));
 
@@ -72,13 +72,13 @@ describe('Navbar', () => {
   });
 
   test('shows admin links for superuser', () => {
-    renderNavbar({}, { is_superuser: true });
+    renderNavbar({}, { isSuperuser: true });
     expect(screen.getByText('Users')).toBeInTheDocument();
     expect(screen.getByText('Usage')).toBeInTheDocument();
   });
 
   test('shows admin links for staff', () => {
-    renderNavbar({}, { is_staff: true });
+    renderNavbar({}, { isStaff: true });
     expect(screen.getByText('Users')).toBeInTheDocument();
     expect(screen.getByText('Usage')).toBeInTheDocument();
   });
@@ -100,7 +100,7 @@ describe('Navbar', () => {
   });
 
   test('shows role badge in dropdown', () => {
-    renderNavbar({}, { is_superuser: true });
+    renderNavbar({}, { isSuperuser: true });
     fireEvent.click(screen.getByLabelText('Open profile menu'));
     expect(screen.getByText('Superuser')).toBeInTheDocument();
   });
@@ -112,7 +112,7 @@ describe('Navbar', () => {
   });
 
   test('shows Staff role for staff user', () => {
-    renderNavbar({}, { is_staff: true });
+    renderNavbar({}, { isStaff: true });
     fireEvent.click(screen.getByLabelText('Open profile menu'));
     expect(screen.getByText('Staff')).toBeInTheDocument();
   });

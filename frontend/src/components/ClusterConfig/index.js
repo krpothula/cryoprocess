@@ -103,7 +103,7 @@ const ClusterConfig = () => {
               <span className="overview-value">
                 {connectionInfo ? (
                   connectionInfo.mode === "ssh"
-                    ? `SSH (${connectionInfo.ssh_user}@${connectionInfo.ssh_host})`
+                    ? `SSH (${connectionInfo.sshUser}@${connectionInfo.sshHost})`
                     : "Local"
                 ) : "—"}
               </span>
@@ -120,15 +120,15 @@ const ClusterConfig = () => {
           <div className="overview-row">
             <div className="overview-item">
               <span className="overview-label">Total Nodes</span>
-              <span className="overview-value">{slurmStatus.total_nodes}</span>
+              <span className="overview-value">{slurmStatus.totalNodes}</span>
             </div>
             <div className="overview-item">
               <span className="overview-label">Idle</span>
-              <span className="overview-value">{slurmStatus.idle_nodes}</span>
+              <span className="overview-value">{slurmStatus.idleNodes}</span>
             </div>
             <div className="overview-item">
               <span className="overview-label">Busy</span>
-              <span className="overview-value">{slurmStatus.busy_nodes}</span>
+              <span className="overview-value">{slurmStatus.busyNodes}</span>
             </div>
           </div>
 
@@ -136,11 +136,11 @@ const ClusterConfig = () => {
           <div className="overview-row">
             <div className="overview-item">
               <span className="overview-label">Running Jobs</span>
-              <span className="overview-value">{slurmStatus.running_jobs}</span>
+              <span className="overview-value">{slurmStatus.runningJobs}</span>
             </div>
             <div className="overview-item">
               <span className="overview-label">Pending Jobs</span>
-              <span className="overview-value">{slurmStatus.pending_jobs}</span>
+              <span className="overview-value">{slurmStatus.pendingJobs}</span>
             </div>
           </div>
         </div>
@@ -227,15 +227,15 @@ const ClusterConfig = () => {
                       <div
                         className="cpu-used"
                         style={{
-                          width: `${(node.cpus_alloc / node.cpus_total) * 100}%`,
+                          width: `${(node.cpusAlloc / node.cpusTotal) * 100}%`,
                         }}
                       />
                     </div>
                     <span className="cpu-text">
-                      {node.cpus_alloc}/{node.cpus_total}
+                      {node.cpusAlloc}/{node.cpusTotal}
                     </span>
                   </td>
-                  <td>{node.memory_total}</td>
+                  <td>{node.memoryTotal}</td>
                   <td>{node.gpus}</td>
                   <td>{node.partitions?.join(", ") || "-"}</td>
                 </tr>
@@ -269,8 +269,8 @@ const ClusterConfig = () => {
             </thead>
             <tbody>
               {slurmQueue.map((job) => (
-                <tr key={job.id} className={getJobStateClass(job.state)}>
-                  <td className="job-id">{job.id}</td>
+                <tr key={job.slurmJobId} className={getJobStateClass(job.state)}>
+                  <td className="job-id">{job.slurmJobId}</td>
                   <td className="job-name">{job.name}</td>
                   <td>{job.user}</td>
                   <td>{job.partition}</td>
@@ -279,9 +279,9 @@ const ClusterConfig = () => {
                       {job.state}
                     </span>
                   </td>
-                  <td>{job.time}</td>
+                  <td>{job.elapsed}</td>
                   <td>{job.nodes}</td>
-                  <td>{job.nodelist || "-"}</td>
+                  <td>{job.reason || "-"}</td>
                 </tr>
               ))}
             </tbody>

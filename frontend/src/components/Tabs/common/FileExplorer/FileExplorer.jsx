@@ -11,7 +11,7 @@ const FileExplorer = ({ data, onFileSelect, onClose, isLoading }) => {
       onClose={onClose}
       isLoading={isLoading}
     >
-      <div className="mx-auto bg-white dark:bg-slate-800 relative rounded h-full">
+      <div className="mx-auto bg-[var(--color-bg-card)] relative rounded h-full">
         <SearchBar />
         <Breadcrumb />
         <FileList />

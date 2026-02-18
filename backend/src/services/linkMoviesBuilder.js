@@ -22,7 +22,7 @@ class LinkMoviesBuilder extends BaseJobBuilder {
   }
 
   validate() {
-    const sourcePath = getParam(this.data, ['source_path'], null);
+    const sourcePath = getParam(this.data, ['sourcePath', 'source_path'], null);
 
     if (!sourcePath) {
       return { valid: false, error: 'Source path is required' };
@@ -62,7 +62,7 @@ class LinkMoviesBuilder extends BaseJobBuilder {
    * @returns {Object} Result with status
    */
   execute() {
-    const sourcePath = getParam(this.data, ['source_path'], null);
+    const sourcePath = getParam(this.data, ['sourcePath', 'source_path'], null);
     const moviesPath = path.join(this.projectPath, 'Movies');
 
     try {
