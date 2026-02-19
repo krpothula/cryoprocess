@@ -51,29 +51,8 @@ const server = http.createServer(app);
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      // Note: React build outputs use hashed script names, no inline scripts needed
-      // If inline scripts break, use nonces with helmet-csp-nonce package
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "ws:", "wss:"],
-      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"]
-    }
-  },
-  // Additional security headers
-  hsts: {
-    maxAge: 31536000, // 1 year
-    includeSubDomains: true,
-    preload: true
-  },
+  contentSecurityPolicy: false,
+  hsts: false,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   noSniff: true,
   xssFilter: true,
@@ -88,9 +67,8 @@ const parseCorsOrigins = (envValue) => {
   return origins.length === 1 ? origins[0] : origins;
 };
 
-const corsOrigin = process.env.NODE_ENV === 'production'
-  ? parseCorsOrigins(process.env.CORS_ORIGIN)
-  : (process.env.CORS_ORIGIN || 'http://localhost:3000');
+const corsOrigin = parseCorsOrigins(process.env.CORS_ORIGIN)
+  || (process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : null);
 
 if (!corsOrigin && process.env.NODE_ENV === 'production') {
   logger.error('[CORS] CORS_ORIGIN must be set to specific domain(s) in production. Wildcard "*" is not allowed.');

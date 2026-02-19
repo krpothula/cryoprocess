@@ -18,16 +18,14 @@ const { TIMING } = require('../config/constants');
 const { getEmailService } = require('../services/emailService');
 const auditLog = require('../utils/auditLogger');
 
-const AUTH_COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax',
-  maxAge: TIMING.SESSION_COOKIE_MAX_AGE,
-  path: '/'
-};
-
 const setAuthCookie = (res, token) => {
-  res.cookie('atoken', token, AUTH_COOKIE_OPTIONS);
+  res.cookie('atoken', token, {
+    httpOnly: true,
+    secure: res.req.secure || res.req.headers['x-forwarded-proto'] === 'https',
+    sameSite: 'lax',
+    maxAge: TIMING.SESSION_COOKIE_MAX_AGE,
+    path: '/'
+  });
 };
 
 /**
@@ -533,7 +531,7 @@ exports.logout = (req, res) => {
     auditLog(req, 'logout', { resourceType: 'user', resourceId: req.user?.id });
     res.clearCookie('atoken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
       sameSite: 'lax',
       path: '/'
     });
