@@ -168,8 +168,11 @@ write_env_file() {
 
 PORT=${OLD_PORT:-8001}
 NODE_ENV=${OLD_NODE_ENV:-production}
-CORS_ORIGIN=${OLD_CORS_ORIGIN:-*}
 LOG_LEVEL=${OLD_LOG_LEVEL:-info}
+
+# CORS: * allows any origin (default, works for LAN access)
+# Or restrict to specific origins: http://myserver:8001,http://localhost:8001
+CORS_ORIGIN=${OLD_CORS_ORIGIN:-*}
 
 # =============================================================================
 # 2. DATABASE
@@ -945,7 +948,7 @@ do_start() {
     log_step "Starting server on port $PORT..."
 
     cd "$BACKEND_DIR"
-    NODE_ENV=production nohup node src/server.js > "$LOG_FILE" 2>&1 &
+    nohup node src/server.js > "$LOG_FILE" 2>&1 &
     NODE_PID=$!
     echo $NODE_PID > "$PID_FILE"
     cd "$SCRIPT_DIR"

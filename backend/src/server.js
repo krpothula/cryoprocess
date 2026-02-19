@@ -58,25 +58,16 @@ app.use(helmet({
   xssFilter: true,
   frameguard: { action: 'deny' }
 }));
-// Parse comma-separated CORS origins from env
+// CORS: parse comma-separated origins from env, or allow any origin (default)
 const parseCorsOrigins = (envValue) => {
-  if (!envValue) return null;
+  if (!envValue || envValue.trim() === '*') return true; // reflect request origin
   const origins = envValue.split(',').map(o => o.trim()).filter(Boolean);
-  if (origins.length === 0) return null;
-  if (origins.length === 1 && origins[0] === '*') return null; // reject wildcard
+  if (origins.length === 0) return true;
   return origins.length === 1 ? origins[0] : origins;
 };
 
-const corsOrigin = parseCorsOrigins(process.env.CORS_ORIGIN)
-  || (process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : null);
-
-if (!corsOrigin && process.env.NODE_ENV === 'production') {
-  logger.error('[CORS] CORS_ORIGIN must be set to specific domain(s) in production. Wildcard "*" is not allowed.');
-  process.exit(1);
-}
-
 app.use(cors({
-  origin: corsOrigin || 'http://localhost:3000',
+  origin: parseCorsOrigins(process.env.CORS_ORIGIN),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
