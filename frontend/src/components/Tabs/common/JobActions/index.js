@@ -181,7 +181,6 @@ const JobActions = ({
   // Includes both stage names (AutoPick) and job_type values (auto_picking)
   const stageToUiJobName = {
     // Stage names (database job_type values)
-    "LinkMovies": "Link Movies",
     "Import": "Import",
     "MotionCorr": "Motion Correction",
     "CtfFind": "CTF Estimation",
@@ -205,7 +204,6 @@ const JobActions = ({
     "ModelAngelo": "ModelAngelo building",
     "ManualSelect": "Select Classes",
     // API job type values (used for submission)
-    "link_movies": "Link Movies",
     "import": "Import",
     "motion_correction": "Motion Correction",
     "ctf_estimation": "CTF Estimation",

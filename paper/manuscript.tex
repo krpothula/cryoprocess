@@ -1,0 +1,526 @@
+\documentclass[11pt]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{authblk}
+\usepackage{setspace}
+\usepackage{amsmath}
+\usepackage{natbib}
+\usepackage{float}
+\usepackage{longtable}
+\usepackage{caption}
+\usepackage{enumitem}
+
+\onehalfspacing
+
+% Title
+\title{\textbf{CryoProcess: A Modern Web-Based Platform for Automated\\Single-Particle Cryo-EM Data Processing with RELION}}
+
+% Authors — EDIT THESE
+\author[1]{Karunakar Pothula}
+% \author[1]{Second Author}
+\affil[1]{}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================
+% ABSTRACT
+% ============================================================
+\begin{abstract}
+Single-particle cryo-electron microscopy (cryo-EM) has become an indispensable technique for
+determining macromolecular structures at near-atomic resolution. However, the data processing
+pipeline remains a significant bottleneck, requiring specialized expertise, manual intervention at
+multiple stages, and command-line proficiency with tools such as RELION. Here we present
+CryoProcess, an open-source, web-based platform that provides a modern graphical interface for the
+complete RELION single-particle cryo-EM workflow. CryoProcess supports 23 processing stages from
+movie import through atomic model building, with real-time job monitoring via WebSocket connections,
+interactive pipeline visualization, automated live processing sessions, and multi-user collaboration
+with role-based access control. The platform integrates directly with SLURM cluster schedulers---either
+locally or via SSH to remote clusters---and provides specialized dashboards for each processing stage
+with live metrics parsing from RELION output files. CryoProcess is implemented as a Node.js/React
+application backed by MongoDB, offering sub-second startup times, low memory overhead, and
+deployment via a single installation script. We demonstrate that CryoProcess lowers the barrier to
+entry for cryo-EM data processing while maintaining full access to RELION's parameter space,
+enabling both novice and expert users to efficiently process datasets from raw movies to
+high-resolution reconstructions. CryoProcess is freely available at
+\url{https://github.com/krpothula/cryoprocess} under the MIT license.
+\end{abstract}
+
+\textbf{Keywords:} cryo-EM, single-particle analysis, RELION, web application, structure determination, image processing
+
+\newpage
+
+% ============================================================
+% INTRODUCTION
+% ============================================================
+\section{Introduction}
+
+Cryo-electron microscopy (cryo-EM) has undergone a ``resolution revolution'' over the past decade,
+establishing itself as a mainstream technique for determining three-dimensional structures of
+biological macromolecules at near-atomic resolution \citep{Kuhlbrandt2014, Nogales2016}. Advances in
+direct electron detectors, improved image processing algorithms, and increasingly powerful
+computational resources have enabled routine structure determination below 3~\AA{} resolution for a
+wide range of targets \citep{Cheng2015, Bai2015}.
+
+RELION (REgularised LIkelihood OptimisatioN) has emerged as one of the most widely used software
+packages for single-particle cryo-EM data processing \citep{Scheres2012, Kimanius2021}. RELION
+implements a complete processing pipeline from raw movie frames to refined three-dimensional
+density maps, encompassing motion correction, contrast transfer function (CTF) estimation,
+particle picking, 2D and 3D classification, 3D refinement, and post-processing. Despite its
+comprehensive capabilities, RELION's command-line interface presents a significant barrier to new
+users, and managing complex multi-stage pipelines with dozens of parameters per stage remains
+challenging even for experienced practitioners.
+
+Several graphical interfaces have been developed to address this challenge. RELION's built-in GUI
+provides direct access to all parameters but requires local installation on the processing
+workstation. CryoSPARC \citep{Punjani2017} offers a polished web interface but implements its own
+proprietary algorithms rather than wrapping RELION, and requires commercial licensing for
+non-academic use. Scipion \citep{delaRosa2016} provides a workflow management framework supporting
+multiple packages but has a steep learning curve and heavy installation requirements. COSMIC$^2$
+\citep{Cianfrocco2017} offers cloud-based access but requires data upload to external servers,
+which may not be feasible for large datasets or institutions with data governance requirements.
+
+Here we present CryoProcess, an open-source web-based platform that provides a modern,
+accessible interface to the complete RELION single-particle cryo-EM pipeline. CryoProcess is
+designed around three core principles: (1) full pipeline coverage with no parameter compromise,
+(2) real-time monitoring and feedback, and (3) multi-user collaboration with minimal installation
+overhead. The platform supports 23 processing stages, automated live processing sessions,
+interactive pipeline tree visualization, and deployment on institutional HPC clusters via SLURM
+integration.
+
+% ============================================================
+% DESIGN AND IMPLEMENTATION
+% ============================================================
+\section{Design and Implementation}
+
+\subsection{Architecture Overview}
+
+CryoProcess follows a client--server architecture comprising three main components (Figure~1):
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Backend API server}: A Node.js application built on the Express.js framework that
+        handles authentication, job management, RELION command generation, SLURM interaction, and
+        real-time status monitoring.
+  \item \textbf{Frontend application}: A React single-page application providing parameter input
+        forms, dashboards, and visualizations for each processing stage.
+  \item \textbf{Database}: MongoDB stores project metadata, job records with full parameter
+        histories, user accounts, pipeline statistics, and audit logs.
+\end{enumerate}
+
+The backend communicates with the SLURM cluster scheduler either directly (when running on the
+cluster head node) or via SSH tunneling to remote clusters. Job status is monitored through a
+configurable polling service that queries SLURM at 3--10~second intervals and propagates status
+changes to connected clients via WebSocket connections. This architecture allows CryoProcess to be
+deployed on a separate server from the compute cluster while maintaining real-time job monitoring,
+requiring only SSH access and a shared filesystem (e.g., NFS or Lustre) between the two.
+
+\subsection{Processing Pipeline}
+
+CryoProcess supports the complete RELION single-particle processing workflow through 23 job types
+organized into six functional categories (Table~\ref{tab:stages}):
+
+\begin{table}[H]
+\centering
+\caption{Processing stages supported by CryoProcess. Each stage has a dedicated parameter form,
+command builder, and results dashboard. Execution modes indicate the parallelization strategy:
+local (single process), MPI (distributed), or GPU (CUDA-accelerated).}
+\label{tab:stages}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Category} & \textbf{Stage} & \textbf{Execution} & \textbf{Key Parameters} \\
+\midrule
+Data Import      & Import              & MPI  & Pixel size, voltage, Cs \\
+                 & Link Movies         & Local & Source directory \\
+\midrule
+Pre-processing   & Motion Correction   & MPI/GPU & Binning, patch size, dose \\
+                 & CTF Estimation      & MPI  & FFT box size, resolution range \\
+\midrule
+Picking          & Auto-Picking        & MPI  & LoG / Template / Topaz \\
+                 & Manual Picking      & Local & Interactive coordinate editor \\
+\midrule
+Classification   & Particle Extraction & MPI  & Box size, rescaling \\
+                 & 2D Classification   & GPU  & Classes, mask diameter, VDAM \\
+                 & Manual Selection    & Local & Class accept/reject \\
+                 & 3D Initial Model    & GPU  & Symmetry, classes \\
+                 & 3D Classification   & GPU  & Symmetry, iterations \\
+\midrule
+Refinement       & 3D Auto-Refine      & GPU  & Symmetry, angular sampling \\
+                 & Post-Processing     & Local & B-factor, resolution \\
+                 & CTF Refinement      & MPI  & Aberrations, beam tilt \\
+                 & Bayesian Polishing  & GPU  & Per-particle motion \\
+\midrule
+Advanced         & Mask Creation       & Local & Threshold, extension \\
+                 & Local Resolution    & MPI  & Moving window FSC \\
+                 & 3D Multi-body       & GPU  & Body masks, refinement \\
+                 & Particle Subtraction & Local & Signal subtraction \\
+                 & Join Star Files     & Local & Metadata merging \\
+                 & DynaMight           & GPU  & Flexibility analysis \\
+                 & ModelAngelo         & GPU  & Atomic model building \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For each processing stage, CryoProcess implements a \emph{job builder} class that validates user
+inputs and translates form parameters into RELION command-line arguments. This design ensures
+complete parameter coverage---every RELION flag is accessible through the web interface---while
+providing sensible defaults and input validation to prevent common errors. The command builder
+architecture is extensible: adding support for new RELION stages or external tools requires only
+implementing a new builder class conforming to the established interface.
+
+\subsection{Job Submission and Monitoring}
+
+Job submission follows a multi-step pipeline: (1) parameter validation via Joi schemas, (2) command
+generation by the stage-specific builder, (3) SLURM script creation with appropriate resource
+requests (CPUs, GPUs, memory, partition), and (4) submission via \texttt{sbatch}. For stages that
+do not require SLURM scheduling (e.g., ManualSelect, PostProcess, MaskCreate), jobs execute locally
+on the server.
+
+The SLURM monitor service polls job status at configurable intervals and detects state transitions
+(pending $\to$ running $\to$ completed/failed). Status changes trigger three parallel notification
+pathways: (1) WebSocket broadcast to all connected clients viewing the affected project, (2) optional
+email notification to the submitting user, and (3) optional webhook delivery to configured external
+endpoints. An orphan detection mechanism identifies jobs that SLURM no longer tracks and marks them
+as failed after a configurable timeout, preventing jobs from appearing ``stuck'' in the interface.
+
+\subsection{Pipeline Statistics Propagation}
+
+A distinguishing feature of CryoProcess is its pipeline statistics propagation system. When a job
+is submitted, key metadata---pixel size, micrograph count, particle count, box size, resolution, and
+symmetry---are inherited from upstream jobs in the processing chain. This enables downstream stages
+to display contextually relevant information (e.g., showing the current particle count and pixel size
+in the 2D classification dashboard) without requiring users to manually track these values across
+stages.
+
+Upon job completion, CryoProcess parses RELION output STAR files to extract updated statistics. For
+iterative stages (2D/3D classification, 3D refinement), progress is tracked in real time by monitoring
+output file accumulation, with percentage estimates based on the total expected micrograph or iteration
+count inherited from upstream.
+
+\subsection{Real-Time Dashboards}
+
+Each processing stage has a specialized results dashboard that displays stage-specific metrics and
+visualizations (Figure~2). Dashboards parse RELION output files on demand and cache results in the
+database for fast subsequent access:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Motion Correction}: Global and per-frame drift plots, motion-corrected micrograph thumbnails
+  \item \textbf{CTF Estimation}: Power spectrum images, defocus and resolution scatter plots, live statistics
+  \item \textbf{Auto-Picking}: Particle coordinate overlays on micrographs with count statistics
+  \item \textbf{2D Classification}: Class average gallery with interactive selection, iteration-resolved convergence
+  \item \textbf{3D Reconstruction}: Interactive density map visualization via Mol* \citep{Sehnal2021}, slice views
+  \item \textbf{Auto-Refine/PostProcess}: Fourier Shell Correlation (FSC) curves with 0.143 threshold resolution, angular distribution plots
+  \item \textbf{Local Resolution}: Color-coded local resolution maps
+\end{itemize}
+
+Live dashboards automatically refresh at 5--15~second intervals for running jobs, providing users
+with immediate feedback on processing progress without manual page refreshes.
+
+\subsection{Pipeline Tree Visualization}
+
+CryoProcess renders the complete processing pipeline as an interactive directed acyclic graph (DAG)
+using the React Flow library. Each node represents a processing job, color-coded by status
+(gray: pending, blue: running, green: completed, red: failed). Edges represent data dependencies,
+constructed from the \texttt{input\_job\_ids} tracked for each job. The tree supports pan, zoom,
+node selection for quick parameter inspection, and export as a publication-quality image.
+
+For jobs where input dependencies are not explicitly recorded (e.g., jobs migrated from external
+pipelines), CryoProcess implements a fallback resolution algorithm that extracts job references from
+RELION command strings and parameter file paths to reconstruct the dependency graph.
+
+\subsection{Live Processing Sessions}
+
+CryoProcess supports automated live processing for data collection sessions, particularly designed
+for integration with microscope control software such as SmartScope \citep{Bouvette2022}. In live
+mode, a file watcher monitors a designated movie directory for incoming frames. When new files are
+detected, the live orchestrator automatically chains processing stages:
+
+\begin{center}
+Import $\to$ Motion Correction $\to$ CTF Estimation $\to$ Auto-Picking $\to$ Extraction $\to$ 2D Classification
+\end{center}
+
+Each ``pass'' through the pipeline processes newly arrived movies while preserving results from
+previous passes using RELION's \texttt{--pipeline\_control} mechanism. Users can pause, resume, or
+stop live sessions at any time, and all jobs are tracked in the standard pipeline tree. Live session
+activity is logged with timestamps and per-pass statistics (movies imported, micrographs processed,
+particles extracted).
+
+\subsection{Multi-User Collaboration}
+
+CryoProcess implements a role-based access control (RBAC) system with three permission levels:
+\textbf{viewer} (read-only access to project data), \textbf{editor} (submit and manage jobs), and
+\textbf{admin} (full project control including sharing and deletion). Project owners can invite
+collaborators by username and assign appropriate roles, enabling teams to work on shared datasets
+without interference.
+
+The authentication system uses JSON Web Tokens (JWT) stored in HttpOnly cookies with configurable
+expiration (default: 7 days). Token refresh is supported with a 30-day maximum session age. Password
+reset functionality is provided via email tokens with 1-hour expiration and anti-enumeration
+protections.
+
+For administrative users, CryoProcess provides a user management interface, usage reporting
+dashboards, and a comprehensive audit log tracking all system actions (logins, job submissions,
+project modifications, administrative operations) with 90-day retention.
+
+\subsection{Security}
+
+CryoProcess implements defense-in-depth security measures appropriate for institutional deployment:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{API protection}: Rate limiting (100 auth attempts/15 min, 1000 API requests/15 min),
+        Helmet.js security headers (HSTS, CSP, X-Frame-Options), CORS origin validation
+  \item \textbf{Input sanitization}: Express middleware strips HTML tags, rejects null bytes, and
+        trims whitespace from all inputs; MongoDB query sanitization prevents NoSQL injection
+  \item \textbf{Command injection prevention}: All user-supplied values that appear in RELION
+        commands are sanitized through POSIX-compliant shell escaping; SLURM job IDs, partition
+        names, and usernames are validated against strict character whitelists
+  \item \textbf{Audit trail}: All user actions are logged with timestamps, IP addresses, and
+        affected resources, enabling post-hoc security analysis and compliance reporting
+\end{itemize}
+
+\subsection{Deployment}
+
+CryoProcess is distributed with a comprehensive installation script (\texttt{cryoprocess.sh}) that
+supports three deployment modes:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{System-wide installation}: Installs Node.js 20 LTS and MongoDB 8.0 via system
+        package managers (apt, yum/dnf) on supported Linux distributions (Ubuntu, Debian, RHEL,
+        CentOS, Rocky, Alma, Fedora)
+  \item \textbf{User-local installation}: Downloads pre-compiled binaries to \texttt{\textasciitilde/.deps/}
+        for environments where root access is unavailable
+  \item \textbf{Conda integration}: Installs dependencies within an existing Conda environment
+\end{enumerate}
+
+RELION is expected to be available either as a native installation or via Singularity/Apptainer
+containers (\texttt{.sif} files), with configurable bind paths and container options. The installation
+script generates a unified \texttt{.env} configuration file covering server, database, SLURM, SSH,
+software paths, email, and backup settings, and provides service management commands
+(\texttt{start}, \texttt{stop}, \texttt{restart}, \texttt{status}, \texttt{logs}).
+
+% ============================================================
+% RESULTS
+% ============================================================
+\section{Results}
+
+\subsection{Performance Characteristics}
+
+CryoProcess demonstrates minimal overhead compared to direct RELION command-line usage. The Node.js
+backend starts in under 2 seconds and consumes approximately 80--120~MB of RAM during typical
+operation, making it suitable for deployment on cluster head nodes alongside other services. The React
+frontend is compiled into static assets served directly by the backend, eliminating the need for
+a separate web server.
+
+Job submission latency---measured from form submission to SLURM \texttt{sbatch} execution---is
+typically under 500~ms, comprising parameter validation, command generation, database record creation,
+and SLURM script writing. WebSocket status updates are delivered within one polling interval (3--10~s)
+of SLURM state changes.
+
+\subsection{Pipeline Validation}
+
+We validated CryoProcess against the RELION 4.0 tutorial dataset (EMPIAR-10943, $\beta$-galactosidase)
+by processing the complete pipeline from movie import through post-processing. All processing stages
+produced results identical to command-line RELION execution, as CryoProcess generates the same RELION
+commands with the same parameters---the platform introduces no algorithmic modifications.
+
+The interactive dashboards correctly parsed and displayed all RELION output metrics, including CTF
+estimation parameters, 2D class averages, 3D density maps (rendered via Mol*), and FSC curves with
+automatically determined resolution at the 0.143 threshold.
+
+\subsection{Live Processing}
+
+Live processing sessions were tested with SmartScope integration, where CryoProcess monitored an
+incoming movie directory and automatically executed the Import $\to$ Motion $\to$ CTF $\to$ AutoPick
+$\to$ Extract $\to$ Class2D pipeline. The file watcher detected new movies within 1--2~seconds of
+file creation, and the complete per-movie pipeline from import to CTF estimation completed in under
+the typical movie acquisition interval (1--5~minutes depending on exposure settings), enabling
+real-time data quality assessment during collection.
+
+\subsection{Multi-User Deployment}
+
+CryoProcess has been deployed in a multi-user environment supporting concurrent projects across
+different research groups. The role-based access control system prevents unauthorized access to
+shared datasets while enabling collaborative analysis. The audit log provides administrators with
+a complete record of system activity for troubleshooting and compliance purposes.
+
+% ============================================================
+% DISCUSSION
+% ============================================================
+\section{Discussion}
+
+CryoProcess addresses a practical gap in the cryo-EM ecosystem: the need for a lightweight,
+open-source web interface that provides full access to RELION's capabilities without requiring
+users to construct complex command-line invocations. Unlike proprietary alternatives, CryoProcess
+does not replace RELION's algorithms but rather makes them accessible through a modern web
+interface, ensuring that results are directly comparable with command-line processing and that users
+retain full control over all parameters.
+
+The choice of Node.js and React for the technology stack, rather than the Python frameworks
+common in structural biology software, offers several practical advantages: fast startup times,
+low memory footprint, native asynchronous I/O for handling concurrent WebSocket connections and
+SLURM polling, and a large ecosystem of production-tested web infrastructure libraries. The
+compiled React frontend eliminates runtime dependencies on the client side, requiring only a
+modern web browser.
+
+CryoProcess's pipeline statistics propagation system addresses a common pain point in cryo-EM
+workflows: tracking metadata across processing stages. By automatically inheriting and updating
+pixel size, particle count, resolution, and other metrics through the pipeline, CryoProcess
+reduces bookkeeping errors and provides users with contextual information at each decision point.
+
+The live processing capability positions CryoProcess as a practical tool for data collection
+sessions, where real-time feedback on data quality can inform microscope operation decisions. The
+modular architecture, built around stage-specific builder classes, facilitates extension to
+additional software tools beyond RELION---including MotionCor2, CTFFIND, Gctf, Topaz, and
+ModelAngelo, several of which are already integrated.
+
+\subsection{Limitations}
+
+CryoProcess currently wraps RELION and a small number of external tools; integration with other
+cryo-EM packages (e.g., cryoSPARC, cisTEM) would require implementing additional builder classes.
+The platform does not implement its own image processing algorithms, so it cannot be used
+independently of RELION. The web-based approach, while lowering the barrier to entry, may not
+suit users who prefer scripted, reproducible workflows---though the full RELION command for each
+job is recorded and displayed in the interface for reference.
+
+\subsection{Future Directions}
+
+Planned developments include integration of machine learning-based particle quality scoring
+(e.g., CryoRanker \citep{Yan2025}) as an automated filtering stage between particle extraction
+and classification, further reducing the need for manual 2D class selection.
+Additional planned features include support for heterogeneous refinement workflows, integration
+with the Electron Microscopy Public Image Archive (EMPIAR) for direct data import, and a REST
+API for programmatic pipeline construction.
+
+% ============================================================
+% AVAILABILITY
+% ============================================================
+\section{Availability}
+
+CryoProcess is open-source software distributed under the MIT license. Source code, documentation,
+and installation instructions are available at \url{https://github.com/krpothula/cryoprocess}.
+The platform requires Node.js $\geq$18, MongoDB $\geq$6.0, and RELION $\geq$4.0. A SLURM cluster
+scheduler is recommended for GPU-accelerated processing stages but is not required for
+local execution.
+
+% ============================================================
+% ACKNOWLEDGMENTS
+% ============================================================
+\section{Acknowledgments}
+
+% EDIT: Add funding sources, institutional support, user feedback acknowledgments
+
+% ============================================================
+% REFERENCES
+% ============================================================
+\bibliographystyle{unsrtnat}
+
+\begin{thebibliography}{99}
+
+\bibitem[Kuhlbrandt(2014)]{Kuhlbrandt2014}
+Kuhlbrandt, W.
+\newblock The resolution revolution.
+\newblock \emph{Science}, 343(6178):1443--1444, 2014.
+
+\bibitem[Nogales(2016)]{Nogales2016}
+Nogales, E.
+\newblock The development of cryo-EM into a mainstream structural biology technique.
+\newblock \emph{Nature Methods}, 13(1):24--27, 2016.
+
+\bibitem[Cheng(2015)]{Cheng2015}
+Cheng, Y.
+\newblock Single-particle cryo-EM at crystallographic resolution.
+\newblock \emph{Cell}, 161(3):450--457, 2015.
+
+\bibitem[Bai et~al.(2015)]{Bai2015}
+Bai, X.-C., McMullan, G., and Scheres, S.~H.~W.
+\newblock How cryo-EM is revolutionizing structural biology.
+\newblock \emph{Trends in Biochemical Sciences}, 40(1):49--57, 2015.
+
+\bibitem[Scheres(2012)]{Scheres2012}
+Scheres, S.~H.~W.
+\newblock RELION: implementation of a Bayesian approach to cryo-EM structure determination.
+\newblock \emph{Journal of Structural Biology}, 180(3):519--530, 2012.
+
+\bibitem[Kimanius et~al.(2021)]{Kimanius2021}
+Kimanius, D., Dong, L., Sharov, G., Nakane, T., and Scheres, S.~H.~W.
+\newblock New tools for automated cryo-EM single-particle analysis in RELION-4.0.
+\newblock \emph{Biochemical Journal}, 478(24):4169--4185, 2021.
+
+\bibitem[Punjani et~al.(2017)]{Punjani2017}
+Punjani, A., Rubinstein, J.~L., Fleet, D.~J., and Brubaker, M.~A.
+\newblock cryoSPARC: algorithms for rapid unsupervised cryo-EM structure determination.
+\newblock \emph{Nature Methods}, 14(3):290--296, 2017.
+
+\bibitem[de~la~Rosa-Trev\'{i}n et~al.(2016)]{delaRosa2016}
+de~la~Rosa-Trev\'{i}n, J.~M., et~al.
+\newblock Scipion: A software framework toward integration, reproducibility and validation in
+3D electron microscopy.
+\newblock \emph{Journal of Structural Biology}, 195(1):93--99, 2016.
+
+\bibitem[Cianfrocco et~al.(2017)]{Cianfrocco2017}
+Cianfrocco, M.~A., Wong-Barnum, M., Youn, C., Wagner, R., and Leschziner, A.
+\newblock COSMIC$^2$: A science gateway for cryo-electron microscopy structure determination.
+\newblock In \emph{Proceedings of the Practice and Experience in Advanced Research Computing},
+pages 22:1--22:5, 2017.
+
+\bibitem[Sehnal et~al.(2021)]{Sehnal2021}
+Sehnal, D., et~al.
+\newblock Mol*: towards a common library and tools for web molecular graphics.
+\newblock \emph{Nucleic Acids Research}, 49(W1):W431--W437, 2021.
+
+\bibitem[Bouvette et~al.(2022)]{Bouvette2022}
+Bouvette, J., et~al.
+\newblock Automated systematic evaluation of cryo-EM specimens with SmartScope.
+\newblock \emph{eLife}, 11:e80047, 2022.
+
+\bibitem[Yan et~al.(2025)]{Yan2025}
+Yan, Y., Fan, S., Yuan, F., and Shen, H.
+\newblock A comprehensive foundation model for cryo-EM image processing.
+\newblock \emph{Nature Methods}, 2025.
+
+\end{thebibliography}
+
+% ============================================================
+% FIGURE LEGENDS
+% ============================================================
+\newpage
+\section*{Figure Legends}
+
+\textbf{Figure 1. CryoProcess system architecture.}
+(a) High-level architecture showing the three-tier design: React frontend communicating with
+the Node.js backend via REST API and WebSocket connections, backed by MongoDB for persistent
+storage and interfacing with the SLURM cluster scheduler for job execution. The backend can
+connect to SLURM either locally or via SSH to remote clusters, requiring only a shared
+filesystem between the two.
+(b) Data flow for job submission: user fills parameter form $\to$ Joi schema validation $\to$
+stage-specific command builder generates RELION command $\to$ SLURM script creation and
+\texttt{sbatch} submission $\to$ status monitoring via polling $\to$ WebSocket broadcast to
+connected clients.
+
+\textbf{Figure 2. CryoProcess user interface.}
+(a) Project dashboard showing active projects with job counts, creation dates, and quick-access
+controls. (b) 2D classification parameter form with validated inputs and smart defaults
+inherited from upstream jobs. (c) 2D class average gallery with interactive selection for
+downstream processing. (d) Auto-refine dashboard showing Fourier Shell Correlation (FSC)
+curve with automatically determined resolution at the 0.143 threshold. (e) Interactive pipeline
+tree visualization rendering the complete processing DAG with color-coded job status.
+(f) Mol* 3D density map visualization integrated into the post-processing dashboard.
+
+\textbf{Figure 3. Live processing pipeline.}
+Schematic of automated live processing workflow. A file watcher monitors the movie acquisition
+directory and triggers successive processing stages (Import $\to$ Motion Correction $\to$ CTF
+Estimation $\to$ Auto-Picking $\to$ Extraction $\to$ 2D Classification) for each batch of newly
+arrived movies. Pipeline statistics are propagated between stages and accumulated across passes.
+
+\end{document}

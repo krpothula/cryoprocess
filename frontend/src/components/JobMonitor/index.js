@@ -189,8 +189,7 @@ const JobMonitor = ({ selectedTreeJob, refreshKey, onStatusChange }) => {
 
   useEffect(() => {
     if (selectedJob?.id && projectId) {
-      getLogsApi(projectId, selectedJob.id).catch(() => {
-      });
+      getLogsApi(projectId, selectedJob.id).catch((err) => console.warn('[JobMonitor] Failed to prefetch logs:', err.message));
     }
   }, [selectedJob, projectId]);
 

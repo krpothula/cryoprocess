@@ -122,9 +122,9 @@ const Io = ({
           value={formData.savePowerSpectra}
           name="savePowerSpectra"
           onChange={handleInputChange}
-          tooltipText={isMotionCor2 ? "Not available with MotionCor2" : "Save averaged power spectra for on-the-fly CTF estimation during data collection. Enables faster feedback."}
-          disabled={isMotionCor2}
-          disabledHint={isMotionCor2 ? "Not available with MotionCor2" : undefined}
+          tooltipText={isMotionCor2 ? "Not available with MotionCor2" : "Save averaged power spectra for on-the-fly CTF estimation during data collection. Required when writing float16 output (CTFFIND cannot read float16 micrographs)."}
+          disabled={isMotionCor2 || formData.float16Output === "Yes"}
+          disabledHint={isMotionCor2 ? "Not available with MotionCor2" : formData.float16Output === "Yes" ? "Required when float16 output is enabled" : undefined}
         />
         <PixelSizeInput
           label="Sum power spectra every (e/A²):"
@@ -136,7 +136,7 @@ const Io = ({
           onChange={handleRangeChange}
           handleInputChange={handleInputChange}
           tooltipText="Dose interval (in e/A²) at which to save summed power spectra. Lower values give more spectra for CTF estimation but increase disk usage."
-          disabled={formData.savePowerSpectra === "No" || isMotionCor2}
+          disabled={(formData.savePowerSpectra === "No" && formData.float16Output !== "Yes") || isMotionCor2}
           disabledHint={isMotionCor2 ? "Not available with MotionCor2" : "Enable 'Save sum of power spectra' first"}
         />
       </div>

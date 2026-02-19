@@ -149,7 +149,7 @@ const AutoPicker = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
-    autoPickerAPI({ ...(formData || {}), ...(slurmData || {}), project_id: projectId })
+    autoPickerAPI({ ...(formData || {}), ...(slurmData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -252,7 +252,7 @@ const AutoPicker = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

@@ -4,7 +4,7 @@ import { getJobDetailsApi, getJobsApi } from "../../services/builders/jobs";
 import { useBuilder } from "../../context/BuilderContext";
 
 // Parameters to hide from comparison (not meaningful to users)
-const HIDDEN_PARAMS = ["project_id"];
+const HIDDEN_PARAMS = ["projectId"];
 
 // Convert camelCase/PascalCase key to readable label
 // e.g. "writeFOMMaps" → "Write FOM Maps", "lowpassFilterReference" → "Lowpass Filter Reference"

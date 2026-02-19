@@ -107,7 +107,7 @@ export const BuilderContextProvider = ({ children, projectId, onJobSuccess }) =>
           setEmailNotificationsEnabled(true);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.warn('[BuilderContext] Failed to load data:', err.message));
   }, []);
 
   // Resource validation error (set by SlurmRunningConfig, displayed by SubmitButton)

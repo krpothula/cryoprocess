@@ -88,7 +88,7 @@ exports.createUser = async (req, res) => {
     const normalizedEmail = email.toLowerCase();
 
     // Staff cannot create staff/superuser accounts
-    if (!req.user.is_superuser && (isStaff || isSuperuser)) {
+    if (!req.user.isSuperuser && (isStaff || isSuperuser)) {
       return response.forbidden(res, 'Only superusers can create staff or superuser accounts');
     }
 
@@ -194,12 +194,12 @@ exports.updateUser = async (req, res) => {
     }
 
     // Staff cannot modify staff/superuser accounts
-    if (!req.user.is_superuser && (user.is_staff || user.is_superuser)) {
+    if (!req.user.isSuperuser && (user.is_staff || user.is_superuser)) {
       return response.forbidden(res, 'Only superusers can modify staff or superuser accounts');
     }
 
     // Staff cannot grant staff/superuser privileges
-    if (!req.user.is_superuser && (isStaff || isSuperuser)) {
+    if (!req.user.isSuperuser && (isStaff || isSuperuser)) {
       return response.forbidden(res, 'Only superusers can grant staff or superuser privileges');
     }
 
@@ -209,7 +209,7 @@ exports.updateUser = async (req, res) => {
     if (isActive !== undefined) user.is_active = isActive;
 
     // Only superuser can modify these
-    if (req.user.is_superuser) {
+    if (req.user.isSuperuser) {
       if (isStaff !== undefined) user.is_staff = isStaff;
       if (isSuperuser !== undefined) user.is_superuser = isSuperuser;
     }
@@ -251,7 +251,7 @@ exports.deleteUser = async (req, res) => {
     const userIdInt = parseInt(userId, 10);
 
     // Only superusers can delete users
-    if (!req.user.is_superuser) {
+    if (!req.user.isSuperuser) {
       return response.forbidden(res, 'Only superusers can delete users');
     }
 
@@ -295,7 +295,7 @@ exports.resetPassword = async (req, res) => {
     }
 
     // Staff cannot reset passwords for staff/superuser accounts
-    if (!req.user.is_superuser && (user.is_staff || user.is_superuser)) {
+    if (!req.user.isSuperuser && (user.is_staff || user.is_superuser)) {
       return response.forbidden(res, 'Only superusers can reset passwords for staff or superuser accounts');
     }
 
@@ -341,7 +341,7 @@ exports.generateApiKey = async (req, res) => {
     }
 
     // Staff cannot generate API keys for staff/superuser accounts
-    if (!req.user.is_superuser && (user.is_staff || user.is_superuser)) {
+    if (!req.user.isSuperuser && (user.is_staff || user.is_superuser)) {
       return response.forbidden(res, 'Only superusers can generate API keys for staff or superuser accounts');
     }
 
@@ -382,7 +382,7 @@ exports.revokeApiKey = async (req, res) => {
     }
 
     // Staff cannot revoke API keys for staff/superuser accounts
-    if (!req.user.is_superuser && (user.is_staff || user.is_superuser)) {
+    if (!req.user.isSuperuser && (user.is_staff || user.is_superuser)) {
       return response.forbidden(res, 'Only superusers can revoke API keys for staff or superuser accounts');
     }
 

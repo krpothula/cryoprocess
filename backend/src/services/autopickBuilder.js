@@ -99,7 +99,7 @@ class AutoPickBuilder extends BaseJobBuilder {
     if (getBoolParam(data, ['useTopaz'], false)) {
       // Topaz picking (using trained model)
       if (getBoolParam(data, ['performTopazPicking'], false)) {
-        const trainedModel = getParam(data, ['trainedTopazParticles', 'trainedTopazparticles'], null);
+        const trainedModel = getParam(data, ['trainedTopazParticles'], null);
         if (trainedModel) {
           cmd.push('--topaz_extract', '--topaz_model', trainedModel);
         } else {
@@ -172,7 +172,7 @@ class AutoPickBuilder extends BaseJobBuilder {
         cmd.push('--ref', relRef3d);
 
         // Symmetry for 3D reference
-        const sym = getParam(data, ['symmetry', 'Symmetry'], null);
+        const sym = getParam(data, ['symmetry'], null);
         if (sym && sym.trim()) {
           cmd.push('--sym', sym.trim());
         }

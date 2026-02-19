@@ -27,6 +27,7 @@ const { submitJobDirect } = require('./jobSubmission');
 const { getProjectPath } = require('../utils/pathUtils');
 const { JOB_STATUS } = require('../config/constants');
 const { getLiveWatcher } = require('./liveWatcher');
+const { mapKeys } = require('../utils/mapKeys');
 
 // Import builders directly to avoid circular dependency with job registry
 const ImportJobBuilder = require('./importBuilder');
@@ -83,6 +84,7 @@ class LiveOrchestrator extends EventEmitter {
     const watcher = getLiveWatcher();
     watcher.on('newFiles', (data) => this._onNewFiles(data));
     watcher.on('noFiles', (data) => this._onNoFiles(data));
+    watcher.on('error', (data) => this._onWatcherError(data));
 
     this._initialized = true;
     logger.info('[LiveOrchestrator] Initialized');
@@ -105,10 +107,23 @@ class LiveOrchestrator extends EventEmitter {
     // Create symlink from project directory to watch directory
     // RELION requires import paths to be relative to the project directory
     const projectPath = getProjectPath(project);
-    const symlinkName = 'movies_data';
+    const symlinkName = 'Movies';
     const symlinkPath = path.join(projectPath, symlinkName);
 
-    if (!fs.existsSync(symlinkPath)) {
+    if (fs.existsSync(symlinkPath)) {
+      // If Movies/ exists but is not a symlink (e.g. from a previous regular import),
+      // we cannot create the symlink. Fail early with a clear message.
+      if (!fs.lstatSync(symlinkPath).isSymbolicLink()) {
+        throw new Error(`${symlinkPath} already exists as a directory. Cannot create symlink for live processing. Use a different project or remove the existing Movies/ folder.`);
+      }
+      // Existing symlink — verify it points to the correct watch directory
+      const target = fs.readlinkSync(symlinkPath);
+      if (target !== session.watch_directory) {
+        fs.unlinkSync(symlinkPath);
+        fs.symlinkSync(session.watch_directory, symlinkPath, 'dir');
+        logger.info(`[LiveOrchestrator] Re-created symlink: ${symlinkPath} -> ${session.watch_directory} (was -> ${target})`);
+      }
+    } else {
       try {
         fs.symlinkSync(session.watch_directory, symlinkPath, 'dir');
         logger.info(`[LiveOrchestrator] Created symlink: ${symlinkPath} -> ${session.watch_directory}`);
@@ -134,11 +149,11 @@ class LiveOrchestrator extends EventEmitter {
     await session.addActivity('session_started', `Live session "${session.session_name}" started`, {
       level: 'success',
       context: {
-        input_mode: session.input_mode,
-        watch_directory: session.watch_directory,
-        file_pattern: session.file_pattern,
-        pixel_size: session.optics?.pixel_size,
-        enabled_stages: this._getEnabledStageNames(session)
+        inputMode: session.input_mode,
+        watchDirectory: session.watch_directory,
+        filePattern: session.file_pattern,
+        pixelSize: session.optics?.pixel_size,
+        enabledStages: this._getEnabledStageNames(session)
       }
     });
 
@@ -148,7 +163,7 @@ class LiveOrchestrator extends EventEmitter {
 
     // Broadcast via WebSocket
     this._broadcast(session.project_id, sessionId, 'session_started', {
-      session_name: session.session_name
+      sessionName: session.session_name
     }, 'success');
   }
 
@@ -178,6 +193,16 @@ class LiveOrchestrator extends EventEmitter {
         return;
       }
 
+      // Guard: skip pass if all detected files have already been imported
+      // New files = watcher found count > imported count. If equal, nothing new to process.
+      const found = session.state?.movies_found || 0;
+      const imported = session.state?.movies_imported || 0;
+      if (imported > 0 && found <= imported) {
+        sessionState.busy = false;
+        logger.info(`[LiveOrchestrator] Skipping pass: no new files (found=${found}, imported=${imported}) | session: ${session.session_name}`);
+        return;
+      }
+
       const project = await Project.findOne({ id: session.project_id });
       if (!project) {
         sessionState.busy = false;
@@ -199,11 +224,11 @@ class LiveOrchestrator extends EventEmitter {
 
       await session.addActivity('pipeline_pass', `Pipeline pass #${passNum} started`, {
         level: 'info',
-        pass_number: passNum,
+        passNumber: passNum,
         context: {
-          pass_number: passNum,
-          stages_to_run: this._getEnabledStageNames(session),
-          movies_found: session.state?.movies_found || 0
+          passNumber: passNum,
+          stagesToRun: this._getEnabledStageNames(session),
+          moviesFound: session.state?.movies_found || 0
         }
       });
 
@@ -215,8 +240,8 @@ class LiveOrchestrator extends EventEmitter {
         await session.addActivity('error', `Import failed: ${err.message}`, {
           level: 'error',
           stage: 'Import',
-          pass_number: passNum,
-          context: { error_message: err.message }
+          passNumber: passNum,
+          context: { errorMessage: err.message }
         });
         await this._handleStageError(sessionId, 'import', err);
       }
@@ -241,13 +266,22 @@ class LiveOrchestrator extends EventEmitter {
    */
   async _submitStage(sessionId, stageKey) {
     const session = await LiveSession.findOne({ id: sessionId });
-    if (!session || session.status !== 'running') return;
+    if (!session || session.status !== 'running') {
+      this._releaseBusy(sessionId);
+      return;
+    }
 
     const project = await Project.findOne({ id: session.project_id });
-    if (!project) return;
+    if (!project) {
+      this._releaseBusy(sessionId);
+      return;
+    }
 
     const stage = PIPELINE_STAGES.find(s => s.key === stageKey);
-    if (!stage) return;
+    if (!stage) {
+      this._releaseBusy(sessionId);
+      return;
+    }
 
     // Check if this stage is enabled
     if (!this._isStageEnabled(session, stageKey)) {
@@ -272,7 +306,7 @@ class LiveOrchestrator extends EventEmitter {
       await session.addActivity('stage_skipped', `${stage.type} skipped: ${validError}`, {
         level: 'warning',
         stage: stage.type,
-        context: { validation_error: validError }
+        context: { validationError: validError }
       });
       this._releaseBusy(sessionId);
       return;
@@ -305,6 +339,15 @@ class LiveOrchestrator extends EventEmitter {
       if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
         logger.warn(`[LiveOrchestrator] Recreated missing output dir for re-run: ${outputDir}`);
+      }
+
+      // Remove RELION marker files so --pipeline_control re-runs the job
+      // (RELION skips entirely if RELION_JOB_EXIT_SUCCESS exists)
+      for (const marker of ['RELION_JOB_EXIT_SUCCESS', 'RELION_JOB_EXIT_FAILURE', 'RELION_JOB_EXIT_ABORTED']) {
+        const markerPath = path.join(outputDir, marker);
+        if (fs.existsSync(markerPath)) {
+          fs.unlinkSync(markerPath);
+        }
       }
 
       logger.info(`[LiveOrchestrator] Re-running ${stage.type} (${jobName}) | reusing output dir for --pipeline_control dedup`);
@@ -411,30 +454,30 @@ class LiveOrchestrator extends EventEmitter {
         `${stage.type} ${jobName} submitted ${passLabel} (SLURM: ${result.slurm_job_id})`, {
         level: 'info',
         stage: stage.type,
-        job_name: jobName,
-        pass_number: session.state?.pass_count,
+        jobName: jobName,
+        passNumber: session.state?.pass_count,
         context: {
-          slurm_job_id: result.slurm_job_id,
-          is_rerun: isRerun,
-          command_preview: commandPreview,
-          slurm_params: {
+          slurmJobId: result.slurm_job_id,
+          isRerun: isRerun,
+          commandPreview: commandPreview,
+          slurmParams: {
             partition: slurmParams.queuename,
-            mpi_procs: slurmParams.runningmpi,
+            mpiProcs: slurmParams.mpiProcs,
             threads: slurmParams.threads,
             gpus: slurmParams.gres
           }
         }
       });
       this._broadcast(session.project_id, sessionId, 'stage_submitted', {
-        stage: stage.type, job_name: jobName, slurm_job_id: result.slurm_job_id
+        stage: stage.type, jobName: jobName, slurmJobId: result.slurm_job_id
       });
     } else {
       logger.error(`[LiveOrchestrator] ${stage.type} submission failed: ${result.error}`);
       await session.addActivity('error', `${stage.type} submission failed: ${result.error}`, {
         level: 'error',
         stage: stage.type,
-        job_name: jobName,
-        context: { error_message: result.error, is_rerun: isRerun }
+        jobName: jobName,
+        context: { errorMessage: result.error, isRerun: isRerun }
       });
       await this._handleStageError(sessionId, stageKey, new Error(result.error));
     }
@@ -506,17 +549,17 @@ class LiveOrchestrator extends EventEmitter {
       `${job.job_type} completed: ${job.job_name}${durationStr}`, {
       level: 'success',
       stage: job.job_type,
-      job_name: job.job_name,
-      pass_number: session.state?.pass_count,
+      jobName: job.job_name,
+      passNumber: session.state?.pass_count,
       context: {
-        slurm_job_id: job.slurm_job_id,
-        duration_ms: durationMs,
+        slurmJobId: job.slurm_job_id,
+        durationMs: durationMs,
         micrographCount: job.pipeline_stats?.micrograph_count ?? job.micrograph_count ?? null,
         particleCount: job.pipeline_stats?.particle_count ?? job.particle_count ?? null
       }
     });
     this._broadcast(session.project_id, sessionId, 'stage_complete', {
-      stage: job.job_type, job_name: job.job_name, state: session.state
+      stage: job.job_type, jobName: job.job_name, state: session.state
     }, 'success');
 
     // Class2D is not in PIPELINE_STAGES - handle its completion separately
@@ -585,7 +628,7 @@ class LiveOrchestrator extends EventEmitter {
           await session.addActivity('error', `${nextStage.type} failed: ${err.message}`, {
             level: 'error',
             stage: nextStage.type,
-            context: { error_message: err.message }
+            context: { errorMessage: err.message }
           });
         }
         await this._handleStageError(sessionId, nextStage.key, err);
@@ -612,16 +655,16 @@ class LiveOrchestrator extends EventEmitter {
     logger.info(`[LiveOrchestrator] Pipeline pass complete | session: ${session.session_name}`);
     await session.addActivity('pipeline_complete', `Pipeline pass #${session.state?.pass_count || '?'} completed`, {
       level: 'success',
-      pass_number: session.state?.pass_count,
+      passNumber: session.state?.pass_count,
       context: {
-        pass_number: session.state?.pass_count,
-        state_snapshot: {
-          movies_found: session.state?.movies_found,
-          movies_imported: session.state?.movies_imported,
-          movies_motion: session.state?.movies_motion,
-          movies_ctf: session.state?.movies_ctf,
-          movies_picked: session.state?.movies_picked,
-          particles_extracted: session.state?.particles_extracted
+        passNumber: session.state?.pass_count,
+        stateSnapshot: {
+          moviesFound: session.state?.movies_found,
+          moviesImported: session.state?.movies_imported,
+          moviesMotion: session.state?.movies_motion,
+          moviesCTF: session.state?.movies_ctf,
+          moviesPicked: session.state?.movies_picked,
+          particlesExtracted: session.state?.particles_extracted
         }
       }
     });
@@ -678,7 +721,7 @@ class LiveOrchestrator extends EventEmitter {
       logger.info(`[LiveOrchestrator] Count mismatch: imported=${imported} motion=${motionDone} - triggering re-run`);
       await session.addActivity('pipeline_rerun', `Re-running pipeline: ${imported - motionDone} movies still need processing`, {
         level: 'info',
-        context: { movies_imported: imported, movies_motion: motionDone, gap: imported - motionDone }
+        context: { moviesImported: imported, moviesMotion: motionDone, gap: imported - motionDone }
       });
       await this._runPipelinePass(sessionId);
       return;
@@ -729,13 +772,20 @@ class LiveOrchestrator extends EventEmitter {
     await session.addActivity('new_files', `${count} new movie file(s) detected`, {
       level: 'info',
       context: {
-        file_count: count,
-        total_found: totalFound,
-        sample_files: files.slice(0, 3).map(f => path.basename(f))
+        fileCount: count,
+        totalFound: totalFound,
+        sampleFiles: files.slice(0, 3).map(f => path.basename(f))
       }
     });
 
     this._broadcast(session.project_id, sessionId, 'new_files_detected', { count, total: totalFound });
+
+    // Check movie threshold — wait until enough movies before first pass
+    const movieThreshold = session.movie_threshold || 0;
+    if (movieThreshold > 0 && totalFound < movieThreshold) {
+      logger.info(`[LiveOrchestrator] Waiting for movie threshold (${totalFound}/${movieThreshold}) | session: ${session.session_name}`);
+      return;
+    }
 
     // Trigger pipeline pass
     await this._runPipelinePass(sessionId);
@@ -753,11 +803,31 @@ class LiveOrchestrator extends EventEmitter {
     logger.warn(`[LiveOrchestrator] No matching files in ${directory} | session: ${session.session_name}`);
     await session.addActivity('warning', `No matching files found in ${directory}`, {
       level: 'warning',
-      context: { directory, file_pattern: session.file_pattern }
+      context: { directory, filePattern: session.file_pattern }
     });
 
     // Mark as completed - nothing to process
     await this._markSessionCompleted(sessionId, session);
+  }
+
+  /**
+   * Handle watcher filesystem error - log to session activity
+   * @param {Object} data - { sessionId, error }
+   */
+  async _onWatcherError(data) {
+    const { sessionId, error: errorMsg } = data;
+    try {
+      const session = await LiveSession.findOne({ id: sessionId });
+      if (session) {
+        await session.addActivity('watcher_error', `File watcher error: ${errorMsg}`, {
+          level: 'error',
+          stage: 'Watcher',
+          context: { errorMessage: errorMsg }
+        });
+      }
+    } catch (err) {
+      logger.error(`[LiveOrchestrator] Failed to log watcher error: ${err.message}`);
+    }
   }
 
   /**
@@ -779,14 +849,14 @@ class LiveOrchestrator extends EventEmitter {
     const stage = PIPELINE_STAGES.find(s => s.key === stageKey);
     const stageName = stage?.type || stageKey;
     const jobId = session.jobs?.[stage?.jobField];
-    const errorContext = { error_message: error.message, stage_key: stageKey };
+    const errorContext = { errorMessage: error.message, stageKey };
 
     if (jobId) {
       const job = await Job.findOne({ id: jobId }).lean();
       if (job) {
-        errorContext.job_name = job.job_name;
-        errorContext.slurm_job_id = job.slurm_job_id;
-        errorContext.error_message = job.error_message || error.message;
+        errorContext.jobName = job.job_name;
+        errorContext.slurmJobId = job.slurm_job_id;
+        errorContext.errorMessage = job.error_message || error.message;
 
         // Get SLURM details (exit code, state) - best effort
         if (job.slurm_job_id) {
@@ -794,8 +864,8 @@ class LiveOrchestrator extends EventEmitter {
             const { getMonitor } = require('./slurmMonitor');
             const details = await getMonitor().getJobDetails(job.slurm_job_id);
             if (details) {
-              errorContext.slurm_state = details.state;
-              errorContext.exit_code = details.exitCode;
+              errorContext.slurmState = details.state;
+              errorContext.exitCode = details.exitCode;
               errorContext.elapsed = details.elapsed;
             }
           } catch (e) { /* non-fatal */ }
@@ -808,8 +878,8 @@ class LiveOrchestrator extends EventEmitter {
             if (fs.existsSync(errFile)) {
               const content = this._readFileTail(errFile, 8192); // Last 8KB
               const lines = content.trim().split('\n');
-              errorContext.stderr_preview = lines.slice(-20).join('\n');
-              errorContext.log_file_path = errFile;
+              errorContext.stderrPreview = lines.slice(-20).join('\n');
+              errorContext.logFilePath = errFile;
             }
           } catch (e) { /* non-fatal */ }
 
@@ -823,7 +893,7 @@ class LiveOrchestrator extends EventEmitter {
                 /error|ERROR|FATAL|Segmentation|killed|OOM/i.test(l)
               ).slice(-10);
               if (errorLines.length > 0) {
-                errorContext.relion_errors = errorLines.join('\n');
+                errorContext.relionErrors = errorLines.join('\n');
               }
             }
           } catch (e) { /* non-fatal */ }
@@ -831,18 +901,18 @@ class LiveOrchestrator extends EventEmitter {
 
         // Duration
         if (job.start_time) {
-          errorContext.duration_ms = (job.end_time ? new Date(job.end_time) : new Date()).getTime()
+          errorContext.durationMs = (job.end_time ? new Date(job.end_time) : new Date()).getTime()
             - new Date(job.start_time).getTime();
         }
       }
     }
 
     // Build descriptive human-readable message
-    const jobLabel = errorContext.job_name ? ` (${errorContext.job_name})` : '';
-    const slurmLabel = errorContext.slurm_job_id ? ` [SLURM: ${errorContext.slurm_job_id}]` : '';
-    const exitLabel = errorContext.exit_code && errorContext.exit_code !== '0:0' ? ` exit=${errorContext.exit_code}` : '';
-    const stateLabel = errorContext.slurm_state ? ` state=${errorContext.slurm_state}` : '';
-    const message = `${stageName}${jobLabel} failed${slurmLabel}${stateLabel}${exitLabel}: ${errorContext.error_message}`;
+    const jobLabel = errorContext.jobName ? ` (${errorContext.jobName})` : '';
+    const slurmLabel = errorContext.slurmJobId ? ` [SLURM: ${errorContext.slurmJobId}]` : '';
+    const exitLabel = errorContext.exitCode && errorContext.exitCode !== '0:0' ? ` exit=${errorContext.exitCode}` : '';
+    const stateLabel = errorContext.slurmState ? ` state=${errorContext.slurmState}` : '';
+    const message = `${stageName}${jobLabel} failed${slurmLabel}${stateLabel}${exitLabel}: ${errorContext.errorMessage}`;
 
     logger.error(`[LiveOrchestrator] ${message} | session: ${session.session_name}`);
 
@@ -863,8 +933,8 @@ class LiveOrchestrator extends EventEmitter {
     await session.addActivity('error', message, {
       level: 'error',
       stage: stageName,
-      job_name: errorContext.job_name || null,
-      pass_number: session.state?.pass_count,
+      jobName: errorContext.jobName || null,
+      passNumber: session.state?.pass_count,
       context: errorContext
     });
 
@@ -892,7 +962,7 @@ class LiveOrchestrator extends EventEmitter {
     if (session) {
       await session.addActivity('session_paused', 'Session paused by user', {
         level: 'warning',
-        context: { current_stage: session.state?.current_stage }
+        context: { currentStage: session.state?.current_stage }
       });
       this._broadcast(session.project_id, sessionId, 'session_paused', {}, 'warning');
     }
@@ -928,19 +998,29 @@ class LiveOrchestrator extends EventEmitter {
       if (!watcher.isWatching(sessionId)) {
         watcher.start(sessionId, session.watch_directory, session.file_pattern, session.input_mode);
       }
+
+      // Sync movies_found from watcher — files may have arrived during pause
+      // (watcher kept running but _onNewFiles returned early while paused)
+      const currentFileCount = watcher.getFileCount(sessionId);
+      if (currentFileCount > 0) {
+        await LiveSession.findOneAndUpdate(
+          { id: sessionId },
+          { $max: { 'state.movies_found': currentFileCount } }
+        );
+      }
     }
 
     const resumeFrom = session.state?.resume_from;
     await session.addActivity('session_resumed', `Session resumed by user${resumeFrom ? ` (resuming from ${resumeFrom})` : ''}`, {
       level: 'info',
       context: {
-        resume_from: resumeFrom || null,
-        input_mode: session.input_mode,
-        state_snapshot: {
-          movies_found: session.state?.movies_found || 0,
-          movies_motion: session.state?.movies_motion || 0,
-          movies_ctf: session.state?.movies_ctf || 0,
-          pass_count: session.state?.pass_count || 0
+        resumeFrom: resumeFrom || null,
+        inputMode: session.input_mode,
+        stateSnapshot: {
+          moviesFound: session.state?.movies_found || 0,
+          moviesMotion: session.state?.movies_motion || 0,
+          moviesCTF: session.state?.movies_ctf || 0,
+          passCount: session.state?.pass_count || 0
         }
       }
     });
@@ -1027,7 +1107,7 @@ class LiveOrchestrator extends EventEmitter {
         const project = await Project.findOne({ id: session.project_id });
         if (project) {
           const projectPath = getProjectPath(project);
-          const symlinkPath = path.join(projectPath, 'movies_data');
+          const symlinkPath = path.join(projectPath, 'Movies');
           if (fs.existsSync(symlinkPath) && fs.lstatSync(symlinkPath).isSymbolicLink()) {
             fs.unlinkSync(symlinkPath);
             logger.info(`[LiveOrchestrator] Cleaned up symlink: ${symlinkPath}`);
@@ -1057,21 +1137,21 @@ class LiveOrchestrator extends EventEmitter {
           status: JOB_STATUS.CANCELLED
         }).select('job_name slurm_job_id job_type').lean();
         cancelledDocs.forEach(j => cancelledJobs.push({
-          job_name: j.job_name, slurm_job_id: j.slurm_job_id, job_type: j.job_type
+          jobName: j.job_name, slurmJobId: j.slurm_job_id, jobType: j.job_type
         }));
       }
 
       await session.addActivity('session_stopped', 'Session stopped by user', {
         level: 'warning',
         context: {
-          cancelled_jobs: cancelledJobs.length > 0 ? cancelledJobs : null,
-          cancelled_count: cancelledJobs.length,
-          state_snapshot: {
-            movies_found: session.state?.movies_found || 0,
-            movies_motion: session.state?.movies_motion || 0,
-            movies_ctf: session.state?.movies_ctf || 0,
-            particles_extracted: session.state?.particles_extracted || 0,
-            pass_count: session.state?.pass_count || 0
+          cancelledJobs: cancelledJobs.length > 0 ? cancelledJobs : null,
+          cancelledCount: cancelledJobs.length,
+          stateSnapshot: {
+            moviesFound: session.state?.movies_found || 0,
+            moviesMotion: session.state?.movies_motion || 0,
+            moviesCTF: session.state?.movies_ctf || 0,
+            particlesExtracted: session.state?.particles_extracted || 0,
+            passCount: session.state?.pass_count || 0
           }
         }
       });
@@ -1173,43 +1253,48 @@ class LiveOrchestrator extends EventEmitter {
     const mpiProcs = this._getMpiProcs(session, stageKey);
 
     // Common params for all stages - submitToQueue tells builders to use MPI command format
-    const common = { project_id: session.project_id, submitToQueue: 'Yes' };
+    const common = { projectId: session.project_id, submitToQueue: 'Yes' };
 
     switch (stageKey) {
       case 'import':
         return {
           ...common,
           // Use relative symlink path (RELION requires relative import paths)
-          input_files: `movies_data/${session.file_pattern}`,
-          multiframemovies: true,
+          inputFiles: `Movies/${session.file_pattern}`,
+          rawMovies: 'Yes',
+          multiFrameMovies: 'Yes',
           angpix: optics.pixel_size,
           kV: optics.voltage,
-          Cs: optics.cs,
-          Q0: optics.amplitude_contrast,
-          optics_group_name: optics.optics_group_name || 'opticsGroup1'
+          spherical: optics.cs,
+          amplitudeContrast: optics.amplitude_contrast,
+          opticsGroupName: optics.optics_group_name || 'opticsGroup1'
         };
 
       case 'motion': {
         const mc = session.motion_config;
         const importJobName = await this._getJobName(session, 'import_id');
-        // GPU mode: use MotionCor2 if use_gpu is set, otherwise RELION's own (CPU)
         const useGpu = mc.use_gpu === true;
         const params = {
           ...common,
           inputMovies: importJobName ? `Import/${importJobName}/movies.star` : null,
           binningFactor: mc.bin_factor || 1,
           dosePerFrame: mc.dose_per_frame || 1.0,
+          doseWeighting: 'Yes',
           patchesX: mc.patch_x || 5,
           patchesY: mc.patch_y || 5,
+          firstFrame: 1,
+          lastFrame: -1,
+          bfactor: 150,
+          float16Output: useGpu ? 'No' : 'Yes',       // float16 not supported by MotionCor2
+          savePowerSpectra: useGpu ? 'No' : 'Yes',     // power spectra not supported by MotionCor2
+          sumPowerSpectra: 4,
           threads,
-          numberOfMpiProcs: mpiProcs
+          mpiProcs
         };
         if (useGpu) {
-          // MotionCor2 mode with GPU
-          params.useRelionImplementation = false;
-          params.useGPU = mc.gpu_ids || '0';
+          params.useRelionImplementation = 'No';
+          params.gpuToUse = mc.gpu_ids || '0';
         } else {
-          // RELION's own CPU-based implementation
           params.useRelionImplementation = 'Yes';
         }
         return params;
@@ -1220,13 +1305,15 @@ class LiveOrchestrator extends EventEmitter {
         const motionJobName = await this._getJobName(session, 'motion_id');
         return {
           ...common,
-          // ctfBuilder uses getInputStarFile() which checks: inputStarFile, input_star_file
           inputStarFile: motionJobName ? `MotionCorr/${motionJobName}/corrected_micrographs.star` : null,
-          defocusMin: ctf.defocus_min || 5000,
-          defocusMax: ctf.defocus_max || 50000,
-          defocusStep: ctf.defocus_step || 500,
+          minDefocus: ctf.defocus_min || 5000,
+          maxDefocus: ctf.defocus_max || 50000,
+          defocusStepSize: ctf.defocus_step || 500,
+          fftBoxSize: 512,
+          usePowerSpectraFromMotionCorr: 'Yes',
+          useExhaustiveSearch: 'No',
           threads,
-          numberOfMpiProcs: mpiProcs
+          mpiProcs
         };
       }
 
@@ -1236,17 +1323,15 @@ class LiveOrchestrator extends EventEmitter {
         const isLoG = (pick.method || 'LoG') === 'LoG';
         return {
           ...common,
-          // autopickBuilder.validate() checks: inputMicrographs, input_star_file, inputStarFile
           inputMicrographs: ctfJobName ? `CtfFind/${ctfJobName}/micrographs_ctf.star` : null,
-          // LoG picking: builder checks getBoolParam('laplacianGaussian')
-          laplacianGaussian: isLoG,
-          templateMatching: !isLoG,
-          // LoG parameters: builder uses minDiameter, maxDiameter, defaultThreshold
+          laplacianGaussian: isLoG ? 'Yes' : 'No',
+          templateMatching: isLoG ? 'No' : 'Yes',
+          useTopaz: 'No',
           minDiameter: pick.min_diameter || 100,
           maxDiameter: pick.max_diameter || 200,
           defaultThreshold: pick.threshold || 0.0,
           threads,
-          numberOfMpiProcs: mpiProcs
+          mpiProcs
         };
       }
 
@@ -1256,17 +1341,15 @@ class LiveOrchestrator extends EventEmitter {
         const pickJobName = await this._getJobName(session, 'pick_id');
         return {
           ...common,
-          // extractBuilder.validate() checks: micrograph_star_file, micrographStarFile
           micrographStarFile: ctfJobName ? `CtfFind/${ctfJobName}/micrographs_ctf.star` : null,
-          // extractBuilder checks: inputCoordinates, coords_star_file, coordsStarFile
           inputCoordinates: pickJobName ? `AutoPick/${pickJobName}/autopick.star` : null,
           particleBoxSize: ext.box_size || 256,
-          rescaleParticles: ext.rescale || false,
+          rescaleParticles: ext.rescale ? 'Yes' : 'No',
           rescaledSize: ext.rescaled_size || 128,
-          normalizeParticles: true,
-          invertContrast: true,
+          normalizeParticles: 'Yes',
+          invertContrast: 'Yes',
           threads,
-          numberOfMpiProcs: mpiProcs
+          mpiProcs
         };
       }
 
@@ -1293,7 +1376,7 @@ class LiveOrchestrator extends EventEmitter {
     return {
       queuename: cfg.queue || null,
       queueSubmitCommand: 'sbatch',
-      runningmpi: mpiProcs,
+      mpiProcs,
       threads: cfg.threads || 4,
       gres: gpuCount
     };
@@ -1391,30 +1474,98 @@ class LiveOrchestrator extends EventEmitter {
    * Update processing counters after stage completion
    */
   async _updateCounters(sessionId, stageKey, job) {
-    const update = {};
+    const outputDir = job.output_file_path;
 
-    const ps = job.pipeline_stats || {};
-    switch (stageKey) {
-      case 'import':
-        // Track import count separately - movies_found is owned by the watcher
-        update['state.movies_imported'] = ps.micrograph_count ?? job.micrograph_count ?? 0;
-        break;
-      case 'motion':
-        update['state.movies_motion'] = ps.micrograph_count ?? job.micrograph_count ?? 0;
-        break;
-      case 'ctf':
-        update['state.movies_ctf'] = ps.micrograph_count ?? job.micrograph_count ?? 0;
-        break;
-      case 'pick':
-        update['state.movies_picked'] = ps.micrograph_count ?? job.micrograph_count ?? 0;
-        break;
-      case 'extract':
-        update['state.particles_extracted'] = ps.particle_count ?? job.particle_count ?? 0;
-        break;
+    // Map stage to its output STAR file and the session counter field
+    const STAGE_STAR_MAP = {
+      import:  { starFile: ['movies.star', 'micrographs.star'], field: 'state.movies_imported',    statsField: 'micrograph_count' },
+      motion:  { starFile: ['corrected_micrographs.star'],      field: 'state.movies_motion',      statsField: 'micrograph_count' },
+      ctf:     { starFile: ['micrographs_ctf.star'],            field: 'state.movies_ctf',         statsField: 'micrograph_count' },
+      pick:    { starFile: ['autopick.star'],                   field: 'state.movies_picked',      statsField: 'micrograph_count' },
+      extract: { starFile: ['particles.star'],                  field: 'state.particles_extracted', statsField: 'particle_count'   }
+    };
+
+    const mapping = STAGE_STAR_MAP[stageKey];
+    if (!mapping || !outputDir) return;
+
+    // Parse the actual RELION output STAR file to get the real count
+    let count = 0;
+    for (const starName of mapping.starFile) {
+      const starPath = path.join(outputDir, starName);
+      if (fs.existsSync(starPath)) {
+        count = await this._countStarDataRows(starPath);
+        if (count > 0) break;
+      }
     }
 
-    if (Object.keys(update).length > 0) {
-      await LiveSession.findOneAndUpdate({ id: sessionId }, update);
+    // Fallback to job.pipeline_stats if STAR file not found/empty
+    if (count === 0) {
+      const ps = job.pipeline_stats || {};
+      count = ps[mapping.statsField] ?? 0;
+    }
+
+    if (count > 0) {
+      // Update session counter
+      await LiveSession.findOneAndUpdate({ id: sessionId }, { [mapping.field]: count });
+
+      // Also update the Job's pipeline_stats so the dashboard stays in sync
+      await Job.findOneAndUpdate(
+        { id: job.id },
+        { [`pipeline_stats.${mapping.statsField}`]: count }
+      );
+
+      logger.debug(`[LiveOrchestrator] Counter update: ${stageKey} = ${count} (from STAR file)`);
+    }
+  }
+
+  /**
+   * Count data rows in a RELION STAR file (largest block).
+   * Lightweight — reads file and counts non-header lines.
+   * @param {string} starPath
+   * @returns {Promise<number>}
+   */
+  async _countStarDataRows(starPath) {
+    try {
+      const content = await fs.promises.readFile(starPath, 'utf-8');
+      const lines = content.split('\n');
+
+      let maxCount = 0;
+      let blockCount = 0;
+      let inLoop = false;
+      let pastHeaders = false;
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith('data_')) {
+          if (blockCount > maxCount) maxCount = blockCount;
+          blockCount = 0;
+          inLoop = false;
+          pastHeaders = false;
+          continue;
+        }
+        if (trimmed.startsWith('loop_')) {
+          inLoop = true;
+          pastHeaders = false;
+          continue;
+        }
+        if (inLoop && !pastHeaders && trimmed.startsWith('_')) continue;
+        if (inLoop && trimmed && !trimmed.startsWith('#')) {
+          pastHeaders = true;
+          blockCount++;
+        }
+        if (inLoop && pastHeaders && !trimmed) {
+          inLoop = false;
+        }
+      }
+
+      if (blockCount > maxCount) maxCount = blockCount;
+      return maxCount;
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        logger.warn(`[LiveOrchestrator] Failed to count STAR rows: ${starPath}: ${err.message}`);
+      }
+      return 0;
     }
   }
 
@@ -1426,15 +1577,15 @@ class LiveOrchestrator extends EventEmitter {
     if (!session || !session.class2d_config.enabled) return false;
 
     const threshold = session.class2d_config.particle_threshold || 5000;
-    const interval = session.class2d_config.batch_interval_ms || 3600000;
     const particles = session.state.particles_extracted || 0;
-    const lastRun = session.state.last_batch_2d;
+    const class2dRuns = session.jobs?.class2d_ids?.length || 0;
 
-    const enoughParticles = particles >= threshold;
-    const enoughTime = !lastRun || (Date.now() - new Date(lastRun).getTime() > interval);
+    // Threshold-based: trigger at N, 2N, 3N, 4N...
+    // e.g. threshold=50000 → 1st at 50K, 2nd at 100K, 3rd at 150K
+    const nextThreshold = threshold * (class2dRuns + 1);
 
-    if (enoughParticles && enoughTime) {
-      logger.info(`[LiveOrchestrator] Triggering 2D classification | particles: ${particles} | session: ${session.session_name}`);
+    if (particles >= nextThreshold) {
+      logger.info(`[LiveOrchestrator] Triggering 2D classification | particles: ${particles} | threshold: ${nextThreshold} (run #${class2dRuns + 1}) | session: ${session.session_name}`);
       return await this._submit2DClassification(sessionId);
     }
     return false;
@@ -1471,7 +1622,7 @@ class LiveOrchestrator extends EventEmitter {
     const defaultIter = useVDAM ? 200 : 25;
 
     const jobParams = {
-      project_id: session.project_id,
+      projectId: session.project_id,
       submitToQueue: 'Yes',
       inputStarFile: `Extract/${extractJob.job_name}/particles.star`,
       numberOfClasses: cfg.num_classes || 50,
@@ -1480,10 +1631,9 @@ class LiveOrchestrator extends EventEmitter {
       useVDAM: useVDAM ? 'Yes' : 'No',
       vdamMiniBatches: cfg.vdam_mini_batches || 200,
       threads: session.slurm_config?.threads || 4,
-      numberOfMpiProcs: class2dMpi,
-      // GPU acceleration for 2D classification
+      mpiProcs: class2dMpi,
       gpuAcceleration: 'Yes',
-      useGPU: gpuIds
+      gpuToUse: gpuIds
     };
 
     const builder = new Class2DBuilder(jobParams, project, { id: session.user_id });
@@ -1522,19 +1672,20 @@ class LiveOrchestrator extends EventEmitter {
       }
     });
 
-    // Add to session's class2d jobs array and record trigger time
+    // Add to session's class2d jobs array, record trigger time, and update current stage
     await LiveSession.findOneAndUpdate(
       { id: sessionId },
       {
         $push: { 'jobs.class2d_ids': jobId },
-        'state.last_batch_2d': new Date()
+        'state.last_batch_2d': new Date(),
+        'state.current_stage': 'Class2D'
       }
     );
 
     const slurmParams = {
       queuename: session.slurm_config?.queue || null,
       queueSubmitCommand: 'sbatch',
-      runningmpi: class2dMpi,
+      mpiProcs: class2dMpi,
       threads: session.slurm_config?.threads || 4,
       gres: session.slurm_config?.gpu_count || 1  // Always request GPU for Class2D
     };
@@ -1551,16 +1702,16 @@ class LiveOrchestrator extends EventEmitter {
     await session.addActivity('class2d_triggered', `2D Classification ${jobName} submitted (${session.state.particles_extracted} particles)`, {
       level: 'info',
       stage: 'Class2D',
-      job_name: jobName,
-      pass_number: session.state?.pass_count || null,
+      jobName: jobName,
+      passNumber: session.state?.pass_count || null,
       context: {
         particleCount: session.state.particles_extracted,
-        num_classes: session.class2d_config?.num_classes || 50,
-        batch_interval_ms: session.class2d_config?.batch_interval_ms || 3600000
+        numClasses: session.class2d_config?.num_classes || 50,
+        batchIntervalMs: session.class2d_config?.batch_interval_ms || 3600000
       }
     });
     this._broadcast(session.project_id, sessionId, 'class2d_triggered', {
-      job_name: jobName, particles: session.state.particles_extracted
+      jobName: jobName, particles: session.state.particles_extracted
     }, 'info');
 
     return true;
@@ -1583,13 +1734,13 @@ class LiveOrchestrator extends EventEmitter {
       await freshSession.addActivity('session_completed', `All processing completed${durationMs ? ` in ${formatDuration(durationMs)}` : ''}`, {
         level: 'success',
         context: {
-          total_passes: freshSession.state?.pass_count || 0,
-          movies_processed: freshSession.state?.movies_imported || freshSession.state?.movies_found || 0,
-          movies_motion: freshSession.state?.movies_motion || 0,
-          movies_ctf: freshSession.state?.movies_ctf || 0,
-          particles_extracted: freshSession.state?.particles_extracted || 0,
-          movies_rejected: freshSession.state?.movies_rejected || 0,
-          duration_ms: durationMs
+          totalPasses: freshSession.state?.pass_count || 0,
+          moviesProcessed: freshSession.state?.movies_imported || freshSession.state?.movies_found || 0,
+          moviesMotion: freshSession.state?.movies_motion || 0,
+          moviesCTF: freshSession.state?.movies_ctf || 0,
+          particlesExtracted: freshSession.state?.particles_extracted || 0,
+          moviesRejected: freshSession.state?.movies_rejected || 0,
+          durationMs: durationMs
         }
       });
     }
@@ -1612,7 +1763,9 @@ class LiveOrchestrator extends EventEmitter {
       state.busy = false;
       // Check for pending rerun
       if (state.pendingRerun && state.running) {
-        this._runPipelinePass(sessionId);
+        this._runPipelinePass(sessionId).catch(err => {
+          logger.error(`[LiveOrchestrator] Pending rerun failed after busy release: ${err.message}`);
+        });
       }
     }
   }
@@ -1629,7 +1782,7 @@ class LiveOrchestrator extends EventEmitter {
         sessionId: sessionId,
         event,
         level,
-        data,
+        data: mapKeys(data),
         timestamp: new Date().toISOString()
       });
     } catch (err) {

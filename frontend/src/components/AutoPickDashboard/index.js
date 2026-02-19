@@ -179,7 +179,7 @@ const AutoPickDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -224,6 +224,7 @@ const AutoPickDashboard = () => {
                 fontWeight: 500,
                 color: status === "success" ? "var(--color-success-text)"
                   : status === "failed" ? "var(--color-danger-text)"
+                  : status === "pending" ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success" ? "Success"

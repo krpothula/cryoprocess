@@ -120,7 +120,7 @@ const ManualPicking = () => {
     e.preventDefault();
 
     setLoading(true);
-    manualPickingAPI({ ...(formData || {}), project_id: projectId })
+    manualPickingAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -139,21 +139,6 @@ const ManualPicking = () => {
         setLoading(false);
       });
 
-    // console.log(formData, "formData");
-    // setFormData(initialFormData);
-
-    // const combinedData = {
-    //   relion: formData,
-    //   slurm: slurmData,
-    // };
-
-    // try {
-    //   const response = await axios.post("/api/manualpicker/", combinedData);
-    //   setFormData(initialFormData);
-    //   console.log("Success:", response.data);
-    // } catch (error) {
-    //   console.error("Error submitting the form:", error);
-    // }
   };
 
   return (
@@ -186,7 +171,7 @@ const ManualPicking = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

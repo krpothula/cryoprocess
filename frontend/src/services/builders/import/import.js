@@ -14,7 +14,7 @@ export const getImportResultsApi = (jobId) => {
  */
 export const getMovieInfoApi = (moviePath, jobId) => {
   return axiosInstance.get(`/api/import/movie-frame/`, {
-    params: { path: moviePath, job_id: jobId, info: true }
+    params: { path: moviePath, jobId, info: true }
   });
 };
 
@@ -26,7 +26,7 @@ export const getMovieInfoApi = (moviePath, jobId) => {
  */
 export const getMovieFrameApi = (moviePath, frameIndex = 0, jobId = null) => {
   return axiosInstance.get(`/api/import/movie-frame/`, {
-    params: { path: moviePath, frame: frameIndex, job_id: jobId },
+    params: { path: moviePath, frame: frameIndex, jobId },
     responseType: 'blob'
   });
 };
@@ -38,7 +38,7 @@ export const getMovieFrameApi = (moviePath, frameIndex = 0, jobId = null) => {
  */
 export const getMovieAverageApi = (moviePath, jobId) => {
   return axiosInstance.get(`/api/import/movie-frame/`, {
-    params: { path: moviePath, job_id: jobId, average: true },
+    params: { path: moviePath, jobId, average: true },
     responseType: 'blob'
   });
 };
@@ -52,7 +52,7 @@ export const getMovieAverageApi = (moviePath, jobId) => {
  */
 export const getMovieAllFramesApi = (moviePath, maxFrames = 50, size = 256, jobId = null) => {
   return axiosInstance.get(`/api/import/movie-frames/`, {
-    params: { path: moviePath, max_frames: maxFrames, size, job_id: jobId }
+    params: { path: moviePath, maxFrames, size, jobId }
   });
 };
 

@@ -98,7 +98,7 @@ const Dynamight = () => {
     e.preventDefault();
     setLoading(true);
 
-    dynamightFlexibilityAPI({ ...(formData || {}), project_id: projectId })
+    dynamightFlexibilityAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -150,7 +150,7 @@ const Dynamight = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}
@@ -334,7 +334,7 @@ const Dynamight = () => {
       </div>
 
       
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

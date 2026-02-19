@@ -13,27 +13,27 @@ const ctfRefinementAPI = (payload = {}) => {
 // CTF results visualization APIs
 // Request all micrographs - no limit for accurate statistics
 const getCTFResultsApi = (jobId = "", page = 1, pageSize = 100000) => {
-  return axiosInstance.get(`/ctf/results/?job_id=${jobId}&page=${page}&page_size=${pageSize}`);
+  return axiosInstance.get(`/ctf/results/?jobId=${jobId}&page=${page}&pageSize=${pageSize}`);
 };
 
 const getCTFImageApi = (jobId = "", micrograph = "") => {
   return axiosInstance.get(
-    `/ctf/image/?job_id=${jobId}&micrograph=${micrograph}`
+    `/ctf/image/?jobId=${jobId}&micrograph=${micrograph}`
   );
 };
 
 // Get the micrograph image (from the motion correction job or input)
 const getMicrographImageApi = (jobId = "", micrograph = "") => {
   return axiosInstance.get(
-    `/ctf/micrograph-image/?job_id=${jobId}&micrograph=${micrograph}`
+    `/ctf/micrograph-image/?jobId=${jobId}&micrograph=${micrograph}`
   );
 };
 
 // Export selected micrographs to a new STAR file
 const exportCTFSelectionApi = (jobId = "", micrographNames = [], filename = "selected_micrographs_ctf.star") => {
   return axiosInstance.post(`/ctf/export-selection/`, {
-    job_id: jobId,
-    micrograph_names: micrographNames,
+    jobId,
+    micrographNames: micrographNames,
     filename: filename,
   });
 };

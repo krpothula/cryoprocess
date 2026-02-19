@@ -248,7 +248,7 @@ const submitToSlurm = async (options) => {
       projectPath,
       command: cmd,
       partition: sanitizeSlurmParam(slurmParams.queuename, 'partition'),
-      mpiProcs: Math.min(Math.max(parseInt(slurmParams.runningmpi) || 1, 1), 128),
+      mpiProcs: Math.min(Math.max(parseInt(slurmParams.mpiProcs) || 1, 1), 128),
       threads: Math.min(Math.max(parseInt(slurmParams.threads) || 1, 1), 256),
       gpus: Math.min(Math.max(parseInt(slurmParams.gres) || 0, 0), 16),
       additionalArgs: sanitizeSlurmParam(slurmParams.arguments, 'arguments', /^[\w\-.,:/\s=]+$/, 512)

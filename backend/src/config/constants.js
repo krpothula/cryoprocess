@@ -36,11 +36,11 @@ const IMPORT_TYPE = {
 // Import "other" node type info — single source of truth
 // Used by pipelineMetadata, dashboardController, importController
 const IMPORT_NODE_TYPES = {
-  ref3d:   { label: '3D Reference',          output_file: 'ref3d.mrc' },
-  mask:    { label: '3D Mask',               output_file: 'mask.mrc' },
-  halfmap: { label: 'Unfiltered Half-map',   output_file: 'halfmap.mrc' },
-  refs2d:  { label: '2D References',         output_file: 'class_averages.star' },
-  coords:  { label: 'Particle Coordinates',  output_file: 'coords_suffix_autopick.star' }
+  ref3d:   { label: '3D Reference',          outputFile: 'ref3d.mrc' },
+  mask:    { label: '3D Mask',               outputFile: 'mask.mrc' },
+  halfmap: { label: 'Unfiltered Half-map',   outputFile: 'halfmap.mrc' },
+  refs2d:  { label: '2D References',         outputFile: 'class_averages.star' },
+  coords:  { label: 'Particle Coordinates',  outputFile: 'coords_suffix_autopick.star' }
 };
 
 // Stage definitions - single source of truth for job types
@@ -49,10 +49,6 @@ const STAGES = {
     name: 'Import',
     aliases: ['import'],
     hasValidator: true
-  },
-  link_movies: {
-    name: 'LinkMovies',
-    aliases: ['link_movies', 'linkmovies']
   },
   motion_correction: {
     name: 'MotionCorr',
@@ -274,9 +270,6 @@ const STAGE_OUTPUT_CATALOG = {
   MotionCorr: [
     { role: 'micrographsStar', pattern: 'corrected_micrographs.star', fileType: 'star' },
   ],
-  LinkMovies: [
-    { role: 'micrographsStar', pattern: 'movies.star', fileType: 'star' },
-  ],
   CtfFind: [
     { role: 'micrographsCtfStar', pattern: 'micrographs_ctf.star', fileType: 'star' },
     { role: 'micrographsCtfStar', pattern: 'filtered_micrographs_ctf_*.star', fileType: 'star' },
@@ -385,9 +378,6 @@ const DOWNSTREAM_INPUT_MAP = {
     { downstream: 'Mask creation', field: 'inputMap', role: 'referenceMrc' },
     { downstream: 'Local resolution', field: 'halfMap', role: 'halfMapMrc' },
     { downstream: 'Local resolution', field: 'solventMask', role: 'maskMrc' },
-  ],
-  LinkMovies: [
-    { downstream: 'Motion Correction', field: 'inputMovies', role: 'micrographsStar' },
   ],
   MotionCorr: [
     { downstream: 'CTF Estimation', field: 'inputStarFile', role: 'micrographsStar' },

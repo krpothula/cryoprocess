@@ -12,6 +12,10 @@ function snakeToCamel(str) {
   return str.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase());
 }
 
+function camelToSnake(str) {
+  return str.replace(/([A-Z])/g, '_$1').toLowerCase();
+}
+
 function mapKeys(obj) {
   if (Array.isArray(obj)) return obj.map(mapKeys);
   if (obj && typeof obj === 'object' && !(obj instanceof Date) && !Buffer.isBuffer(obj)) {
@@ -24,4 +28,20 @@ function mapKeys(obj) {
   return obj;
 }
 
-module.exports = { snakeToCamel, mapKeys };
+/**
+ * Recursively convert all camelCase object keys to snake_case.
+ * Used at the API boundary to transform incoming camelCase request data
+ * into snake_case for MongoDB storage.
+ */
+function mapKeysToSnake(obj) {
+  if (Array.isArray(obj)) return obj.map(mapKeysToSnake);
+  if (obj && typeof obj === 'object' && !(obj instanceof Date) && !Buffer.isBuffer(obj)) {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .map(([k, v]) => [camelToSnake(k), mapKeysToSnake(v)])
+    );
+  }
+  return obj;
+}
+
+module.exports = { snakeToCamel, camelToSnake, mapKeys, mapKeysToSnake };

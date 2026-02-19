@@ -1,269 +1,348 @@
-/**
- * Exhaustive CTF Refine Builder Tests
- * Tests all 81 fit_mode permutations + flag combos
- */
+jest.mock('../../utils/logger');
+jest.mock('fs');
 
-// Suppress logger
-const logger = require('../../utils/logger');
-logger.info = () => {};
-logger.warn = () => {};
-logger.debug = () => {};
-
+const fs = require('fs');
 const CTFRefineBuilder = require('../ctfRefineBuilder');
+const { buildCommand, createBuilder } = require('./helpers/builderFactory');
+const { expectFlag, expectNoFlag } = require('./helpers/commandAssertions');
 
-const project = {
-  project_name: 'trail1_20260212',
-  folder_name: 'trail1_20260212',
+const BASE_DATA = {
+  particlesStar: 'AutoRefine/Job011/_data.star',
+  postProcessStar: 'PostProcess/Job014/postprocess.star',
+  submitToQueue: 'Yes',
 };
-const user = { id: 1 };
-const baseData = {
-  particlesStar: '/shared/data/trail1_20260212/AutoRefine/Job011/_data.star',
-  postProcessStar: '/shared/data/trail1_20260212/PostProcess/Job014/postprocess.star',
-  numberOfMpiProcs: 1,
-  threads: 1,
-};
-const outputDir = '/shared/data/trail1_20260212/CtfRefine/Job099';
 
-const modes = ['No', 'Per-micrograph', 'Per-particle'];
-const modeChar = (v) => v === 'Per-particle' ? 'p' : v === 'Per-micrograph' ? 'm' : 'f';
+beforeEach(() => {
+  fs.readFileSync.mockReturnValue('_rlnMaskName some_mask.mrc\n_rlnFourierShellCorrelationCorrected');
+  fs.existsSync.mockReturnValue(true);
+  fs.mkdirSync.mockReturnValue(undefined);
+});
 
-function buildCmd(data) {
-  const builder = new CTFRefineBuilder(data, project, user);
-  return builder.buildCommand(outputDir, 'Job099').join(' ');
-}
+afterEach(() => jest.restoreAllMocks());
 
-let passed = 0;
-let failed = 0;
+// ─── fit_mode permutations (81 combinations: 3^4) ──────────────────
 
-// ─── Test 1: All 81 fit_mode combinations (3^4) ───
-console.log('=== TEST 1: All 81 fit_mode combinations (ctfParameter=Yes) ===\n');
+describe('CTFRefineBuilder — fit_mode permutations', () => {
+  const modes = ['No', 'Per-micrograph', 'Per-particle'];
+  const modeChar = (v) => {
+    if (v === 'Per-particle') return 'p';
+    if (v === 'Per-micrograph') return 'm';
+    return 'f';
+  };
 
-for (const phase of modes) {
-  for (const defocus of modes) {
-    for (const astig of modes) {
-      for (const bfac of modes) {
-        const expected = modeChar(phase) + modeChar(defocus) + modeChar(astig) + 'f' + modeChar(bfac);
-
-        const data = {
-          ...baseData,
-          ctfParameter: 'Yes',
-          fitPhaseShift: phase,
-          fitDefocus: defocus,
-          fitAstigmatism: astig,
-          fitBFactor: bfac,
-        };
-
-        try {
-          const cmdStr = buildCmd(data);
-          const match = cmdStr.match(/--fit_mode\s+(\S+)/);
-          const actual = match ? match[1] : null;
-
-          if (actual !== expected) {
-            console.log('FAIL phase=' + phase + ' def=' + defocus + ' astig=' + astig + ' bfac=' + bfac);
-            console.log('  expected=' + expected + ' actual=' + actual);
-            failed++;
-          } else {
-            const validChars = [...actual].every(c => 'fmp'.includes(c));
-            if (actual.length !== 5 || actual[3] !== 'f' || !validChars) {
-              console.log('FAIL FORMAT: ' + actual);
-              failed++;
-            } else {
-              passed++;
-            }
-          }
-        } catch (e) {
-          console.log('ERROR: ' + e.message);
-          failed++;
+  const permutations = [];
+  for (const phase of modes) {
+    for (const defocus of modes) {
+      for (const astig of modes) {
+        for (const bfac of modes) {
+          const expected = modeChar(phase) + modeChar(defocus) + modeChar(astig) + 'f' + modeChar(bfac);
+          permutations.push([phase, defocus, astig, bfac, expected]);
         }
       }
     }
   }
-}
 
-console.log('fit_mode: ' + passed + '/81 passed\n');
+  it.each(permutations)(
+    'phase=%s defocus=%s astig=%s bfac=%s → fit_mode=%s',
+    (phase, defocus, astig, bfac, expected) => {
+      const cmd = buildCommand(CTFRefineBuilder, {
+        ...BASE_DATA,
+        ctfParameter: 'Yes',
+        fitPhaseShift: phase,
+        fitDefocus: defocus,
+        fitAstigmatism: astig,
+        fitBFactor: bfac,
+      });
+      expectFlag(cmd, '--fit_mode', expected);
 
-// ─── Test 2: ctfParameter=No ───
-console.log('=== TEST 2: ctfParameter=No ===\n');
-
-try {
-  const cmdStr = buildCmd({ ...baseData, ctfParameter: 'No' });
-  const hasFitDefocus = cmdStr.includes('--fit_defocus');
-  const hasFitMode = cmdStr.includes('--fit_mode');
-  if (!hasFitDefocus && !hasFitMode) {
-    console.log('PASS: No --fit_defocus or --fit_mode');
-    passed++;
-  } else {
-    console.log('FAIL: --fit_defocus=' + hasFitDefocus + ' --fit_mode=' + hasFitMode);
-    failed++;
-  }
-} catch (e) { console.log('ERROR: ' + e.message); failed++; }
-
-// ─── Test 3: Beam tilt + trefoil ───
-console.log('\n=== TEST 3: Beam tilt + trefoil ===\n');
-
-const btCases = [
-  { bt: 'No',  tf: 'No',  expectBT: false, expectTF: false, name: 'both off' },
-  { bt: 'Yes', tf: 'No',  expectBT: true,  expectTF: false, name: 'beamtilt only' },
-  { bt: 'Yes', tf: 'Yes', expectBT: true,  expectTF: true,  name: 'beamtilt + trefoil' },
-  { bt: 'No',  tf: 'Yes', expectBT: false, expectTF: false, name: 'trefoil without beamtilt (ignored)' },
-];
-
-for (const tc of btCases) {
-  try {
-    const cmdStr = buildCmd({ ...baseData, ctfParameter: 'No', estimateBeamtilt: tc.bt, estimateTreFoil: tc.tf });
-    const hasBT = cmdStr.includes('--fit_beamtilt');
-    const hasTF = cmdStr.includes('--odd_aberr_max_n');
-    if (hasBT === tc.expectBT && hasTF === tc.expectTF) {
-      console.log('PASS: ' + tc.name + ' -> beamtilt=' + hasBT + ' trefoil=' + hasTF);
-      passed++;
-    } else {
-      console.log('FAIL: ' + tc.name + ' -> bt=' + hasBT + '(exp ' + tc.expectBT + ') tf=' + hasTF + '(exp ' + tc.expectTF + ')');
-      failed++;
+      expect(expected).toHaveLength(5);
+      expect(expected[3]).toBe('f');
+      expect([...expected].every(c => 'fmp'.includes(c))).toBe(true);
     }
-  } catch (e) { console.log('ERROR ' + tc.name + ': ' + e.message); failed++; }
-}
+  );
+});
 
-// ─── Test 4: 4th order aberrations ───
-console.log('\n=== TEST 4: 4th order aberrations ===\n');
+// ─── CTF parameter on/off ───────────────────────────────────────────
 
-for (const aberr of ['Yes', 'No']) {
-  try {
-    const cmdStr = buildCmd({ ...baseData, ctfParameter: 'No', aberrations: aberr });
-    const has = cmdStr.includes('--fit_aberr');
-    const expected = aberr === 'Yes';
-    if (has === expected) {
-      console.log('PASS: aberrations=' + aberr + ' -> --fit_aberr=' + has);
-      passed++;
-    } else {
-      console.log('FAIL: aberrations=' + aberr + ' -> ' + has + ' (expected ' + expected + ')');
-      failed++;
-    }
-  } catch (e) { console.log('ERROR: ' + e.message); failed++; }
-}
+describe('CTFRefineBuilder — ctfParameter toggle', () => {
+  it('omits --fit_defocus and --fit_mode when ctfParameter off', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      estimateBeamtilt: 'Yes',
+    });
+    expectNoFlag(cmd, '--fit_defocus');
+    expectNoFlag(cmd, '--fit_mode');
+  });
 
-// ─── Test 5: Anisotropic magnification ───
-console.log('\n=== TEST 5: Anisotropic magnification ===\n');
+  it('includes --fit_defocus and --fit_mode when ctfParameter on', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+      fitDefocus: 'Per-particle',
+    });
+    expectFlag(cmd, '--fit_defocus');
+    expectFlag(cmd, '--fit_mode');
+  });
+});
 
-for (const mag of ['Yes', 'No']) {
-  try {
-    const cmdStr = buildCmd({ ...baseData, ctfParameter: 'No', estimateMagnification: mag });
-    const hasAniso = cmdStr.includes('--fit_aniso');
-    const hasKmin = cmdStr.includes('--kmin_mag');
-    const expected = mag === 'Yes';
-    if (hasAniso === expected && hasKmin === expected) {
-      console.log('PASS: mag=' + mag + ' -> --fit_aniso=' + hasAniso + ' --kmin_mag=' + hasKmin);
-      passed++;
-    } else {
-      console.log('FAIL: mag=' + mag + ' -> aniso=' + hasAniso + ' kmin=' + hasKmin);
-      failed++;
-    }
-  } catch (e) { console.log('ERROR: ' + e.message); failed++; }
-}
+// ─── Beam tilt + trefoil ────────────────────────────────────────────
 
-// ─── Test 6: MPI launcher ───
-console.log('\n=== TEST 6: MPI launcher ===\n');
+describe('CTFRefineBuilder — beam tilt and trefoil', () => {
+  it('omits --fit_beamtilt when disabled', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+    });
+    expectNoFlag(cmd, '--fit_beamtilt');
+  });
 
-for (const mpi of [1, 4]) {
-  try {
-    const cmdStr = buildCmd({ ...baseData, ctfParameter: 'No', numberOfMpiProcs: mpi });
-    const hasMpi = cmdStr.includes('mpirun') || cmdStr.includes('srun');
-    const expected = mpi > 1;
-    if (hasMpi === expected) {
-      console.log('PASS: mpi=' + mpi + ' -> launcher=' + hasMpi);
-      passed++;
-    } else {
-      console.log('FAIL: mpi=' + mpi + ' -> launcher=' + hasMpi + ' (expected ' + expected + ')');
-      failed++;
-    }
-  } catch (e) { console.log('ERROR: ' + e.message); failed++; }
-}
+  it('adds --fit_beamtilt when enabled', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      estimateBeamtilt: 'Yes',
+    });
+    expectFlag(cmd, '--fit_beamtilt');
+    expectFlag(cmd, '--kmin_tilt');
+  });
 
-// ─── Test 7: Min resolution propagation ───
-console.log('\n=== TEST 7: Min resolution propagation ===\n');
+  it('adds --odd_aberr_max_n 3 when trefoil enabled with beamtilt', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      estimateBeamtilt: 'Yes',
+      estimateTreFoil: 'Yes',
+    });
+    expectFlag(cmd, '--odd_aberr_max_n', '3');
+  });
 
-for (const minRes of [20, 30, 50]) {
-  try {
-    const cmdStr = buildCmd({
-      ...baseData,
-      ctfParameter: 'Yes', fitDefocus: 'Per-particle',
+  it('ignores trefoil when beamtilt disabled', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      estimateBeamtilt: 'No',
+      estimateTreFoil: 'Yes',
+      ctfParameter: 'Yes',
+    });
+    expectNoFlag(cmd, '--odd_aberr_max_n');
+    expectNoFlag(cmd, '--fit_beamtilt');
+  });
+});
+
+// ─── 4th order aberrations ──────────────────────────────────────────
+
+describe('CTFRefineBuilder — aberrations', () => {
+  it('adds --fit_aberr when enabled', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      aberrations: 'Yes',
+    });
+    expectFlag(cmd, '--fit_aberr');
+  });
+
+  it('omits --fit_aberr when disabled', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+    });
+    expectNoFlag(cmd, '--fit_aberr');
+  });
+});
+
+// ─── Anisotropic magnification ──────────────────────────────────────
+
+describe('CTFRefineBuilder — magnification', () => {
+  it('adds --fit_aniso and --kmin_mag when enabled', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      estimateMagnification: 'Yes',
+    });
+    expectFlag(cmd, '--fit_aniso');
+    expectFlag(cmd, '--kmin_mag');
+  });
+
+  it('omits --fit_aniso when disabled', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+    });
+    expectNoFlag(cmd, '--fit_aniso');
+  });
+});
+
+// ─── Min resolution propagation ────────────────────────────────────
+
+describe('CTFRefineBuilder — min resolution', () => {
+  it.each([20, 30, 50])('propagates minResolutionFits=%d to all kmin flags', (minRes) => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+      fitDefocus: 'Per-particle',
       estimateBeamtilt: 'Yes',
       estimateMagnification: 'Yes',
       minResolutionFits: minRes,
     });
-    const defMatch = cmdStr.match(/--kmin_defocus\s+(\S+)/);
-    const tiltMatch = cmdStr.match(/--kmin_tilt\s+(\S+)/);
-    const magMatch = cmdStr.match(/--kmin_mag\s+(\S+)/);
-    const ok = defMatch && defMatch[1] === String(minRes)
-            && tiltMatch && tiltMatch[1] === String(minRes)
-            && magMatch && magMatch[1] === String(minRes);
-    if (ok) {
-      console.log('PASS: minRes=' + minRes + ' -> defocus=' + defMatch[1] + ' tilt=' + tiltMatch[1] + ' mag=' + magMatch[1]);
-      passed++;
-    } else {
-      console.log('FAIL: minRes=' + minRes + ' -> def=' + (defMatch && defMatch[1]) + ' tilt=' + (tiltMatch && tiltMatch[1]) + ' mag=' + (magMatch && magMatch[1]));
-      failed++;
-    }
-  } catch (e) { console.log('ERROR: ' + e.message); failed++; }
-}
-
-// ─── Test 8: All flags combined ───
-console.log('\n=== TEST 8: All flags enabled together ===\n');
-
-try {
-  const cmdStr = buildCmd({
-    ...baseData,
-    ctfParameter: 'Yes',
-    fitDefocus: 'Per-particle',
-    fitAstigmatism: 'Per-micrograph',
-    fitBFactor: 'Per-particle',
-    fitPhaseShift: 'No',
-    estimateBeamtilt: 'Yes',
-    estimateTreFoil: 'Yes',
-    aberrations: 'Yes',
-    estimateMagnification: 'Yes',
-    numberOfMpiProcs: 4,
-    threads: 6,
-    minResolutionFits: 25,
+    expectFlag(cmd, '--kmin_defocus', String(minRes));
+    expectFlag(cmd, '--kmin_tilt', String(minRes));
+    expectFlag(cmd, '--kmin_mag', String(minRes));
   });
 
-  const checks = [
-    ['--fit_defocus', true],
-    ['--fit_mode fpmfp', true],
-    ['--kmin_defocus 25', true],
-    ['--fit_beamtilt', true],
-    ['--kmin_tilt 25', true],
-    ['--odd_aberr_max_n 3', true],
-    ['--fit_aberr', true],
-    ['--fit_aniso', true],
-    ['--kmin_mag 25', true],
-    ['--j 6', true],
-  ];
+  it('uses default min resolution of 30', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+      fitDefocus: 'Per-particle',
+    });
+    expectFlag(cmd, '--kmin_defocus', '30');
+  });
+});
 
-  let allOk = true;
-  for (const [flag, expected] of checks) {
-    const has = cmdStr.includes(flag);
-    if (has !== expected) {
-      console.log('FAIL: ' + flag + ' -> ' + has + ' (expected ' + expected + ')');
-      allOk = false;
-    }
-  }
+// ─── MPI ────────────────────────────────────────────────────────────
 
-  if (allOk) {
-    console.log('PASS: All flags present in combined command');
-    console.log('  cmd: ' + cmdStr);
-    passed++;
-  } else {
-    console.log('  cmd: ' + cmdStr);
-    failed++;
-  }
-} catch (e) { console.log('ERROR: ' + e.message); failed++; }
+describe('CTFRefineBuilder — MPI', () => {
+  it('uses relion_ctf_refine (no _mpi) for single process', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+      mpiProcs: 1,
+    });
+    expect(cmd[0]).toBe('relion_ctf_refine');
+  });
 
-// ─── Summary ───
-console.log('\n' + '='.repeat(70));
-console.log('TOTAL: ' + passed + ' passed, ' + failed + ' failed out of ' + (passed + failed));
-if (failed === 0) {
-  console.log('ALL ' + passed + ' TESTS PASSED');
-} else {
-  console.log(failed + ' FAILURES');
-  process.exit(1);
-}
+  it('uses relion_ctf_refine_mpi for multi-process', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+      mpiProcs: 4,
+    });
+    expect(cmd[0]).toBe('relion_ctf_refine_mpi');
+  });
+});
+
+// ─── GPU (always disabled) ──────────────────────────────────────────
+
+describe('CTFRefineBuilder — GPU', () => {
+  it('never includes --gpu (CPU only)', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+      gpuAcceleration: 'Yes',
+      gpuToUse: '0',
+    });
+    expectNoFlag(cmd, '--gpu');
+  });
+
+  it('supportsGpu returns false', () => {
+    const builder = createBuilder(CTFRefineBuilder, BASE_DATA);
+    expect(builder.supportsGpu).toBe(false);
+  });
+});
+
+// ─── Standard flags ─────────────────────────────────────────────────
+
+describe('CTFRefineBuilder — standard flags', () => {
+  it('includes input/output/postprocess paths', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+    });
+    expectFlag(cmd, '--i');
+    expectFlag(cmd, '--o');
+    expectFlag(cmd, '--f');
+    expectFlag(cmd, '--pipeline_control');
+  });
+
+  it('includes threads', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+      numberOfThreads: 6,
+    });
+    expectFlag(cmd, '--j', '6');
+  });
+});
+
+// ─── All flags combined ─────────────────────────────────────────────
+
+describe('CTFRefineBuilder — all flags enabled', () => {
+  it('includes all refinement flags in a single command', () => {
+    const cmd = buildCommand(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+      fitDefocus: 'Per-particle',
+      fitAstigmatism: 'Per-micrograph',
+      fitBFactor: 'Per-particle',
+      fitPhaseShift: 'No',
+      estimateBeamtilt: 'Yes',
+      estimateTreFoil: 'Yes',
+      aberrations: 'Yes',
+      estimateMagnification: 'Yes',
+      mpiProcs: 4,
+      numberOfThreads: 6,
+      minResolutionFits: 25,
+    });
+
+    expectFlag(cmd, '--fit_defocus');
+    expectFlag(cmd, '--fit_mode', 'fpmfp');
+    expectFlag(cmd, '--kmin_defocus', '25');
+    expectFlag(cmd, '--fit_beamtilt');
+    expectFlag(cmd, '--kmin_tilt', '25');
+    expectFlag(cmd, '--odd_aberr_max_n', '3');
+    expectFlag(cmd, '--fit_aberr');
+    expectFlag(cmd, '--fit_aniso');
+    expectFlag(cmd, '--kmin_mag', '25');
+    expectFlag(cmd, '--j', '6');
+  });
+});
+
+// ─── Validation ─────────────────────────────────────────────────────
+
+describe('CTFRefineBuilder — validation', () => {
+  it('fails without particles star file', () => {
+    const builder = createBuilder(CTFRefineBuilder, {
+      postProcessStar: 'PostProcess/Job014/postprocess.star',
+      ctfParameter: 'Yes',
+    });
+    const result = builder.validate();
+    expect(result.valid).toBe(false);
+  });
+
+  it('fails without postprocess star file', () => {
+    const builder = createBuilder(CTFRefineBuilder, {
+      particlesStar: 'AutoRefine/Job011/_data.star',
+      ctfParameter: 'Yes',
+    });
+    const result = builder.validate();
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/post-process/i);
+  });
+
+  it('fails when no refinement mode enabled', () => {
+    fs.readFileSync.mockReturnValue('_rlnMaskName some_mask.mrc');
+    const builder = createBuilder(CTFRefineBuilder, {
+      particlesStar: 'AutoRefine/Job011/_data.star',
+      postProcessStar: 'PostProcess/Job014/postprocess.star',
+    });
+    const result = builder.validate();
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/at least one/i);
+  });
+
+  it('fails when postprocess lacks mask', () => {
+    fs.readFileSync.mockReturnValue('data_general\n_rlnSomeField value\n');
+    const builder = createBuilder(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+    });
+    const result = builder.validate();
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/solvent mask/i);
+  });
+
+  it('passes with valid inputs and at least one mode enabled', () => {
+    fs.readFileSync.mockReturnValue('_rlnMaskName some_mask.mrc');
+    const builder = createBuilder(CTFRefineBuilder, {
+      ...BASE_DATA,
+      ctfParameter: 'Yes',
+    });
+    const result = builder.validate();
+    expect(result.valid).toBe(true);
+  });
+});

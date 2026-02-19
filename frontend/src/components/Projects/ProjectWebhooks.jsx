@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FiX, FiPlus, FiTrash2, FiLoader, FiLink, FiSend } from "react-icons/fi";
-import { getProjectApi, updateProjectApi } from "../../services/projects/projects";
+import { getProjectByIdApi, updateProjectApi } from "../../services/projects/projects";
 import useToast from "../../hooks/useToast";
 
 const MAX_URLS = 5;
@@ -14,7 +14,7 @@ const ProjectWebhooks = ({ projectId, projectName, onClose }) => {
   const showToast = useToast();
 
   useEffect(() => {
-    getProjectApi(projectId)
+    getProjectByIdApi(projectId)
       .then((resp) => {
         const project = resp?.data?.data || resp?.data;
         setUrls(project?.webhookUrls || []);
@@ -51,7 +51,7 @@ const ProjectWebhooks = ({ projectId, projectName, onClose }) => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await updateProjectApi(projectId, { webhook_urls: urls });
+      await updateProjectApi(projectId, { webhookUrls: urls });
       showToast("Webhook URLs saved", { type: "success" });
       onClose();
     } catch (error) {

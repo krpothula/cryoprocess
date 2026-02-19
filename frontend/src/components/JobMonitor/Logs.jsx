@@ -21,7 +21,6 @@ import ModelAngeloDashboard from "../ModelAngeloDashboard";
 import DynamightDashboard from "../DynamightDashboard";
 import ManualSelectDashboard from "../ManualSelectDashboard";
 import SubsetDashboard from "../SubsetDashboard";
-import LinkMoviesDashboard from "../LinkMoviesDashboard";
 import SubtractDashboard from "../SubtractDashboard";
 import JoinStarDashboard from "../JoinStarDashboard";
 import DashboardErrorBoundary from "../common/DashboardErrorBoundary";
@@ -54,12 +53,11 @@ const JobDashboard = () => {
   const isDynamightJob = jobType === "Dynamight";
   const isManualSelectJob = jobType === "ManualSelect";
   const isSubsetJob = jobType === "Subset";
-  const isLinkMoviesJob = jobType === "LinkMovies";
   const isSubtractJob = jobType === "Subtract";
   const isJoinStarJob = jobType === "JoinStar";
 
   // Check if this job type supports dashboard view
-  const hasDashboard = isMotionJob || isImportJob || isCtfJob || isAutoPickJob || isExtractJob || isClass2DJob || isInitialModelJob || isClass3DJob || isAutoRefineJob || isPostProcessJob || isPolishJob || isCTFRefineJob || isMaskCreateJob || isLocalResJob || isModelAngeloJob || isDynamightJob || isManualSelectJob || isSubsetJob || isLinkMoviesJob || isSubtractJob || isJoinStarJob;
+  const hasDashboard = isMotionJob || isImportJob || isCtfJob || isAutoPickJob || isExtractJob || isClass2DJob || isInitialModelJob || isClass3DJob || isAutoRefineJob || isPostProcessJob || isPolishJob || isCTFRefineJob || isMaskCreateJob || isLocalResJob || isModelAngeloJob || isDynamightJob || isManualSelectJob || isSubsetJob || isSubtractJob || isJoinStarJob;
 
   useEffect(() => {
     if (selectedJob?.id) {
@@ -204,9 +202,6 @@ const JobDashboard = () => {
       )}
       {isSubsetJob && viewMode === "dashboard" && (
         <DashboardErrorBoundary name="Subset Selection" key={`subset-${selectedJob?.id}`}><SubsetDashboard /></DashboardErrorBoundary>
-      )}
-      {isLinkMoviesJob && viewMode === "dashboard" && (
-        <DashboardErrorBoundary name="Link Movies" key={`linkmovies-${selectedJob?.id}`}><LinkMoviesDashboard /></DashboardErrorBoundary>
       )}
       {isSubtractJob && viewMode === "dashboard" && (
         <DashboardErrorBoundary name="Subtraction" key={`subtract-${selectedJob?.id}`}><SubtractDashboard /></DashboardErrorBoundary>

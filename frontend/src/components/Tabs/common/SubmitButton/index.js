@@ -18,7 +18,7 @@ const SubmitButton = ({ isLoading, handleSubmit, formData, activeTab, previewCom
     setNotifyEmail(checked);
     // Set directly on formData so it's included in the submission payload
     if (formData) {
-      formData.notify_email = checked;
+      formData.notifyEmail = checked;
     }
   };
 

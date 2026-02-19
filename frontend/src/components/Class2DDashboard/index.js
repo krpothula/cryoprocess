@@ -127,7 +127,7 @@ const Class2DDashboard = () => {
 
   // Polling for running jobs - every 5 seconds
   useEffect(() => {
-    if (selectedJob?.status === "running") {
+    if (selectedJob?.id && selectedJob?.status === "running") {
       const interval = setInterval(() => {
         fetchLiveStats();
         // Also refresh images if viewing latest iteration
@@ -138,7 +138,7 @@ const Class2DDashboard = () => {
 
       return () => clearInterval(interval);
     }
-  }, [selectedJob?.status, fetchLiveStats, fetchClassImages, selectedIteration]);
+  }, [selectedJob?.id, selectedJob?.status, fetchLiveStats, fetchClassImages, selectedIteration]);
 
   // Trigger immediate fetch on WebSocket job_update (supplements polling)
   useJobNotification(selectedJob?.id, fetchResults);
@@ -156,7 +156,7 @@ const Class2DDashboard = () => {
       case "failed":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -215,6 +215,8 @@ const Class2DDashboard = () => {
                   ? "var(--color-success-text)"
                   : status === "failed"
                   ? "var(--color-danger-text)"
+                  : status === "pending"
+                  ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success"

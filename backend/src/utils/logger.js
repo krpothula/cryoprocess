@@ -277,8 +277,6 @@ const getProjectLogger = (projectPath, projectId) => {
 // Job type display names
 const JOB_TYPE_NAMES = {
   'import': 'Import',
-  'link_movies': 'Link Movies',
-  'linkmovies': 'Link Movies',
   'motion_correction': 'Motion Correction',
   'motioncorr': 'Motion Correction',
   'ctf_estimation': 'CTF Estimation',

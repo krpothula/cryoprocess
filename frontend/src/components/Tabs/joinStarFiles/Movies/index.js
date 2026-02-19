@@ -2,7 +2,7 @@ import React from 'react'
 import CustomInput from '../../common/Input'
 import CustomDropdown from '../../common/Dropdown'
 
-const MOVIE_STAGES = "Import,LinkMovies";
+const MOVIE_STAGES = "Import";
 
 const Movies = ({
     handleInputChange,
@@ -24,7 +24,7 @@ const Movies = ({
       value={formData.combineMovies}
       name="combineMovies"
       onChange={handleInputChange}
-      tooltipText="Enable combining movie STAR files from multiple Import or Link Movies jobs into a single file."
+      tooltipText="Enable combining movie STAR files from multiple Import jobs into a single file."
     />
 
     <CustomInput
@@ -33,7 +33,7 @@ const Movies = ({
       name="movieStarFile1"
       label="Movie STAR file 1:"
       placeholder="Select movie STAR file"
-      tooltipText="First movie STAR file to combine. Select from Import or Link Movies jobs."
+      tooltipText="First movie STAR file to combine. Select from Import jobs."
       disabled={!movieEnable}
       value={formData.movieStarFile1}
     />

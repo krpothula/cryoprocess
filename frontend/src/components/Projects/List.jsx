@@ -31,7 +31,7 @@ const LoadingState = () => (
   </div>
 );
 
-const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
+const ProjectsList = ({ searchTerm = "", showArchived = false, archiveEnabled = false }) => {
   const [projects, setProjects] = useState([]);
   const [isLoading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -251,7 +251,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
                           <FiLink />
                           Webhooks
                         </button>
-                        {project.isArchived ? (
+                        {archiveEnabled && (project.isArchived ? (
                           <button
                             className="dropdown-item"
                             onClick={() => handleRestore(project)}
@@ -267,7 +267,7 @@ const ProjectsList = ({ searchTerm = "", showArchived = false }) => {
                             <FiArchive />
                             Archive
                           </button>
-                        )}
+                        ))}
                         <button
                           className="dropdown-item delete-item"
                           onClick={() => handleDelete(project)}

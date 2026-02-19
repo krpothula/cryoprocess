@@ -22,8 +22,8 @@ const MotionCorrection = () => {
     dosePerFrame: 1,
     preExposure: 0,
     eerFractionation: 32,
-    savePowerSpectra: "No",
-    sumPowerSpectra: "",
+    savePowerSpectra: "Yes",
+    sumPowerSpectra: 4,
     bfactor: 150,
     groupFrames: 1,
 
@@ -140,10 +140,21 @@ const MotionCorrection = () => {
         setFormData({
           ...formData,
           [name]: value,
-          float16Output: "No",      // MotionCor2 cannot write float16
-          savePowerSpectra: "No",   // MotionCor2 doesn't support power spectra
+          float16Output: "No",
+          savePowerSpectra: "No",
         });
-        showToast("Float16 output and power spectra have been disabled — not supported by MotionCor2", { autoClose: 4000 });
+        showToast("Float16 and power spectra disabled — not supported by MotionCor2", { autoClose: 4000 });
+        return;
+      }
+
+      // When enabling float16, auto-enable power spectra (CTFFIND cannot read float16 micrographs)
+      if (name === "float16Output" && value === "Yes") {
+        setFormData({
+          ...formData,
+          [name]: value,
+          savePowerSpectra: "Yes",
+        });
+        showToast("Power spectra enabled — required for CTF estimation with float16 output", { autoClose: 4000 });
         return;
       }
 
@@ -157,7 +168,7 @@ const MotionCorrection = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    motionCorrectionAPI({ ...(formData || {}), project_id: projectId })
+    motionCorrectionAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -176,24 +187,6 @@ const MotionCorrection = () => {
         setLoading(false);
       });
 
-    // try {
-    //   // API call for main form submission
-    //   const formResponse = await axios.post("api/motioncorrection/", formData);
-    //   setMessage(`Success: ${formResponse.data.message}`);
-
-    //   // API call for SLURM data submission
-    //   const slurmResponse = await axios.post(
-    //     "api/motioncorrection-slurm/",
-    //     slurmData
-    //   );
-    //   setMessage((prev) => `${prev} | ${slurmResponse.data.message}`);
-    //   setFormData(initialFormData);
-
-    //   // Resetting states
-    //   setFormData(initialFormData);
-    // } catch (error) {
-    //   // setMessage(`Error: ${error?.response?.data?.message}`);
-    // }
   };
 
   const handleTabChange = (tab) => {
@@ -239,7 +232,7 @@ const MotionCorrection = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content !h-auto">
+      <form onSubmit={handleSubmit} noValidate className="form-content !h-auto">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

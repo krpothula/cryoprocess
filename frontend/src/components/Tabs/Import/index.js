@@ -22,8 +22,8 @@ const Import = () => {
     kV: 300,
     spherical: 2.7,
     amplitudeContrast: 0.1,
-    beamtilt_x: 0,
-    beamtilt_y: 0,
+    beamtiltX: 0,
+    beamtiltY: 0,
 
     nodeType: "No",
     // otherInputFile: "",
@@ -131,7 +131,7 @@ const Import = () => {
 
     // Log what we're submitting for debugging
 
-    submitImport({ ...(formData || {}), project_id: projectId })
+    submitImport({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         // Reset form only after successful submission
@@ -187,7 +187,6 @@ const Import = () => {
       value: "Unfiltered half-map",
     },
   ];
-  // const isNodeTypeYes = formData.nodeType === "Yes";
   return (
     <div className="container">
       {/* Tabs */}
@@ -213,7 +212,7 @@ const Import = () => {
       </div>
 
       {/* Form content */}
-      <form onSubmit={handleSubmit} className="form-content !ml-0 !h-auto">
+      <form onSubmit={handleSubmit} noValidate className="form-content !ml-0 !h-auto">
         {activeTab === "Movies/Mics" && (
           <Movies
             formData={formData}

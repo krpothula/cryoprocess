@@ -18,9 +18,8 @@ const { checkProjectAccess } = require('./projectMemberController');
 
 // Stage configuration for file browsing
 const STAGE_CONFIG = {
-  0: { stage: 'LinkMovies', patterns: ['*.tif', '*.tiff', '*.mrc', '*.eer'] },
-  1: { stage: 'Import', patterns: ['*.tif', '*.tiff', '*.mrc', '*.eer'] },
-  2: { stage: 'Import', output: ['movies.star', 'micrographs.star'] },
+  0: { stage: 'Import', patterns: ['*.tif', '*.tiff', '*.mrc', '*.eer'] },
+  1: { stage: 'Import', output: ['movies.star', 'micrographs.star'] },
   3: { stage: 'MotionCorr', output: ['corrected_micrographs.star'] },
   4: { stage: 'CtfFind', output: ['micrographs_ctf.star'] },
   5: { stage: 'CtfFind', output: ['micrographs_ctf.star'] },
@@ -30,9 +29,9 @@ const STAGE_CONFIG = {
   9: { stages: ['Extract', 'Class2D', 'InitialModel', 'Select'], output: ['particles.star', '*_data.star'] },
   10: { stages: ['Class3D', 'InitialModel'], output: ['*_data.star', '*.mrc'] },
   // Extension-based browsing
-  'pdb': { browse_all: true, patterns: ['*.pdb', '*.ent'] },
-  'map': { browse_all: true, patterns: ['*.mrc', '*.map', '*.ccp4'] },
-  'ligand': { browse_all: true, patterns: ['*.sdf', '*.mol', '*.mol2', '*.smi', '*.smiles'] }
+  'pdb': { browseAll: true, patterns: ['*.pdb', '*.ent'] },
+  'map': { browseAll: true, patterns: ['*.mrc', '*.map', '*.ccp4'] },
+  'ligand': { browseAll: true, patterns: ['*.sdf', '*.mol', '*.mol2', '*.smi', '*.smiles'] }
 };
 
 const MAX_FILES = 5000;
@@ -44,10 +43,10 @@ const MAX_FILES = 5000;
 exports.browseFiles = async (req, res) => {
   try {
     const {
-      project_id: projectId,
+      projectId,
       type: jobTypeParam = '1',
       page = 1,
-      page_size: pageSize = 100
+      pageSize = 100
     } = req.query;
 
     if (!projectId) {
@@ -61,7 +60,7 @@ exports.browseFiles = async (req, res) => {
 
     // Verify access (owner, member, or staff/superuser)
     const access = await checkProjectAccess(projectId, req.user.id, 'viewer');
-    if (!access.hasAccess && !req.user.is_staff && !req.user.is_superuser) {
+    if (!access.hasAccess && !req.user.isStaff && !req.user.isSuperuser) {
       return response.forbidden(res, 'Access denied');
     }
 
@@ -81,7 +80,7 @@ exports.browseFiles = async (req, res) => {
     const parsedPageSize = Math.min(500, Math.max(1, parseInt(pageSize, 10) || 100));
 
     // Browse all (extension-based)
-    if (config.browse_all) {
+    if (config.browseAll) {
       const patterns = config.patterns || [];
       for (const pattern of patterns) {
         const matches = glob.sync(path.join(projectPath, '**', pattern));
@@ -222,10 +221,10 @@ exports.browseFiles = async (req, res) => {
  */
 exports.getFileInfo = async (req, res) => {
   try {
-    const { path: filePath, project_id: projectId } = req.query;
+    const { path: filePath, projectId } = req.query;
 
     if (!filePath || !projectId) {
-      return response.badRequest(res, 'path and project_id are required');
+      return response.badRequest(res, 'path and projectId are required');
     }
 
     const project = await Project.findOne({ id: projectId }).lean();
@@ -235,7 +234,7 @@ exports.getFileInfo = async (req, res) => {
 
     // Verify access (owner, member, or staff/superuser)
     const access = await checkProjectAccess(projectId, req.user.id, 'viewer');
-    if (!access.hasAccess && !req.user.is_staff && !req.user.is_superuser) {
+    if (!access.hasAccess && !req.user.isStaff && !req.user.isSuperuser) {
       return response.forbidden(res, 'Access denied');
     }
 
@@ -276,16 +275,16 @@ exports.getFileInfo = async (req, res) => {
 exports.browseFolder = async (req, res) => {
   try {
     const {
-      project_id: projectId,
+      projectId,
       path: browsePath = '',
+      showFiles = 'true',
       extensions = '',
-      show_files: showFiles = 'true',
       prefix = '',
       suffix = ''
     } = req.query;
 
     if (!projectId) {
-      return response.badRequest(res, 'project_id is required');
+      return response.badRequest(res, 'projectId is required');
     }
 
     const project = await Project.findOne({ id: projectId }).lean();
@@ -295,7 +294,7 @@ exports.browseFolder = async (req, res) => {
 
     // Verify access (owner, member, or staff/superuser)
     const access = await checkProjectAccess(projectId, req.user.id, 'viewer');
-    if (!access.hasAccess && !req.user.is_staff && !req.user.is_superuser) {
+    if (!access.hasAccess && !req.user.isStaff && !req.user.isSuperuser) {
       return response.forbidden(res, 'Access denied');
     }
 
@@ -434,7 +433,6 @@ exports.browseFolder = async (req, res) => {
 // Stage name to output file patterns mapping
 const STAGE_OUTPUT_FILES = {
   'Import': ['movies.star', 'micrographs.star'],
-  'LinkMovies': ['movies.star'],
   'MotionCorr': ['corrected_micrographs.star'],
   'CtfFind': ['micrographs_ctf.star', 'filtered_micrographs_ctf_*.star'],
   'AutoPick': ['autopick.star', 'coords_suffix_autopick.star'],
@@ -464,7 +462,7 @@ const STAGE_OUTPUT_FILES = {
  */
 exports.getStageStarFiles = async (req, res) => {
   try {
-    const { project_id: projectId, stage } = req.query;
+    const { projectId, stage } = req.query;
 
     if (!projectId || !stage) {
       return response.badRequest(res, 'project_id and stage are required');
@@ -475,18 +473,9 @@ exports.getStageStarFiles = async (req, res) => {
       return response.notFound(res, 'Project not found');
     }
 
-    // Check access (owner, member, staff, or superuser)
-    const ProjectMember = require('../models/ProjectMember');
-    const isMember = await ProjectMember.findOne({
-      project_id: projectId,
-      user_id: req.user.id
-    });
-    const hasAccess = project.created_by_id === req.user.id ||
-                      isMember ||
-                      req.user.is_staff ||
-                      req.user.is_superuser;
-
-    if (!hasAccess) {
+    // Verify access (owner, member, or staff/superuser)
+    const access = await checkProjectAccess(projectId, req.user.id, 'viewer');
+    if (!access.hasAccess && !req.user.isStaff && !req.user.isSuperuser) {
       return response.forbidden(res, 'Access denied');
     }
 
@@ -607,7 +596,7 @@ const STAGE_MRC_FILES = {
  */
 exports.getStageMrcFiles = async (req, res) => {
   try {
-    const { project_id: projectId, stage } = req.query;
+    const { projectId, stage } = req.query;
 
     if (!projectId || !stage) {
       return response.badRequest(res, 'project_id and stage are required');
@@ -618,18 +607,9 @@ exports.getStageMrcFiles = async (req, res) => {
       return response.notFound(res, 'Project not found');
     }
 
-    // Check access
-    const ProjectMember = require('../models/ProjectMember');
-    const isMember = await ProjectMember.findOne({
-      project_id: projectId,
-      user_id: req.user.id
-    });
-    const hasAccess = project.created_by_id === req.user.id ||
-                      isMember ||
-                      req.user.is_staff ||
-                      req.user.is_superuser;
-
-    if (!hasAccess) {
+    // Verify access (owner, member, or staff/superuser)
+    const access = await checkProjectAccess(projectId, req.user.id, 'viewer');
+    if (!access.hasAccess && !req.user.isStaff && !req.user.isSuperuser) {
       return response.forbidden(res, 'Access denied');
     }
 
@@ -711,7 +691,7 @@ exports.getStageMrcFiles = async (req, res) => {
  */
 exports.getStageOptimiserFiles = async (req, res) => {
   try {
-    const { project_id: projectId, stage } = req.query;
+    const { projectId, stage } = req.query;
 
     if (!projectId || !stage) {
       return response.badRequest(res, 'project_id and stage are required');
@@ -722,18 +702,9 @@ exports.getStageOptimiserFiles = async (req, res) => {
       return response.notFound(res, 'Project not found');
     }
 
-    // Check access
-    const ProjectMember = require('../models/ProjectMember');
-    const isMember = await ProjectMember.findOne({
-      project_id: projectId,
-      user_id: req.user.id
-    });
-    const hasAccess = project.created_by_id === req.user.id ||
-                      isMember ||
-                      req.user.is_staff ||
-                      req.user.is_superuser;
-
-    if (!hasAccess) {
+    // Verify access (owner, member, or staff/superuser)
+    const access = await checkProjectAccess(projectId, req.user.id, 'viewer');
+    if (!access.hasAccess && !req.user.isStaff && !req.user.isSuperuser) {
       return response.forbidden(res, 'Access denied');
     }
 

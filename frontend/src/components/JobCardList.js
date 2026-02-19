@@ -29,7 +29,6 @@ const getIcon = (status) => {
 
 // Map jobType (PascalCase) to display names
 const JOB_TYPE_DISPLAY_NAMES = {
-  LinkMovies: "Link Movies",
   Import: "Import",
   MotionCorr: "Motion Correction",
   CtfFind: "CTF Estimation",

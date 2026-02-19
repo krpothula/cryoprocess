@@ -7,12 +7,12 @@ const threeDClassificationAPI = (payload = {}) => {
 
 // Dashboard visualization APIs
 const getClass3DResultsApi = (jobId = "") => {
-  return axiosInstance.get(`/class3d/results/?job_id=${jobId}`);
+  return axiosInstance.get(`/class3d/results/?jobId=${jobId}`);
 };
 
 // Live stats for running jobs (iteration progress)
 const getClass3DLiveStatsApi = (jobId = "") => {
-  return axiosInstance.get(`/class3d/live-stats/?job_id=${jobId}`);
+  return axiosInstance.get(`/class3d/live-stats/?jobId=${jobId}`);
 };
 
 export {

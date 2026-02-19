@@ -93,7 +93,7 @@ const ProjectMembers = ({ projectId, projectName, isOwner, onClose }) => {
     try {
       setIsAdding(true);
       await addProjectMemberApi(projectId, {
-        user_id: selectedUser.id,
+        userId: selectedUser.id,
         role: selectedRole
       });
       showToast("Member added successfully", { type: "success" });

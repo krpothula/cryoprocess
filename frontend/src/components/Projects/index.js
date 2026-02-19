@@ -1,12 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ProjectsList from "./List";
 import { FiPlus, FiSearch, FiZap, FiArchive } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import { getSoftwareConfig } from "../../services/softwareConfig";
 
 const ProjectsHome = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [archiveEnabled, setArchiveEnabled] = useState(false);
+
+  useEffect(() => {
+    getSoftwareConfig()
+      .then((res) => setArchiveEnabled(!!res.data.archiveEnabled))
+      .catch(() => setArchiveEnabled(false));
+  }, []);
 
   return (
     <div className="projects-page">
@@ -27,14 +35,16 @@ const ProjectsHome = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button
-              className={`btn-archive-toggle ${showArchived ? "active" : ""}`}
-              onClick={() => setShowArchived(!showArchived)}
-              title={showArchived ? "Hide archived projects" : "Show archived projects"}
-            >
-              <FiArchive />
-              <span>Archived</span>
-            </button>
+            {archiveEnabled && (
+              <button
+                className={`btn-archive-toggle ${showArchived ? "active" : ""}`}
+                onClick={() => setShowArchived(!showArchived)}
+                title={showArchived ? "Hide archived projects" : "Show archived projects"}
+              >
+                <FiArchive />
+                <span>Archived</span>
+              </button>
+            )}
             <button
               className="btn-live-project"
               onClick={() => navigate("/projects/create-live")}
@@ -54,7 +64,7 @@ const ProjectsHome = () => {
 
         {/* Content */}
         <main className="projects-main">
-          <ProjectsList searchTerm={searchTerm} showArchived={showArchived} />
+          <ProjectsList searchTerm={searchTerm} showArchived={showArchived} archiveEnabled={archiveEnabled} />
         </main>
       </div>
 

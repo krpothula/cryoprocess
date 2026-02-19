@@ -1,12 +1,12 @@
 jest.mock('../../utils/logger');
 
 const MultibodyBuilder = require('../multibodyBuilder');
-const { buildCommand, createBuilder, MOCK_OUTPUT_DIR, MOCK_JOB_NAME } = require('./helpers/builderFactory');
+const { buildCommand, createBuilder } = require('./helpers/builderFactory');
 const { expectFlag, expectNoFlag, expectBinary } = require('./helpers/commandAssertions');
 
 const BASE_DATA = {
   refinementStarFile: 'Refine3D/Job010/run_it025_optimiser.star',
-  multibodyMasks: 'MultiBody/bodies.star',
+  bodyStarFile: 'MultiBody/bodies.star',
   submitToQueue: 'Yes',
 };
 
@@ -44,7 +44,7 @@ describe('MultibodyBuilder — multi-body specific flags', () => {
   it('omits --reconstruct_subtracted_bodies when disabled', () => {
     const cmd = buildCommand(MultibodyBuilder, {
       ...BASE_DATA,
-      reconstructSubtractedBodies: 'No',
+      reconstructSubtracted: 'No',
     });
     expectNoFlag(cmd, '--reconstruct_subtracted_bodies');
   });
@@ -67,7 +67,7 @@ describe('MultibodyBuilder — multi-body specific flags', () => {
 
 describe('MultibodyBuilder — standard refinement flags', () => {
   it('uses relion_refine binary', () => {
-    const cmd = buildCommand(MultibodyBuilder, { ...BASE_DATA, runningmpi: 1 });
+    const cmd = buildCommand(MultibodyBuilder, { ...BASE_DATA, mpiProcs: 1 });
     expectBinary(cmd, 'relion_refine');
   });
 
@@ -111,12 +111,12 @@ describe('MultibodyBuilder — standard refinement flags', () => {
 
 describe('MultibodyBuilder — MPI', () => {
   it('uses relion_refine for single process', () => {
-    const cmd = buildCommand(MultibodyBuilder, { ...BASE_DATA, runningmpi: 1 });
+    const cmd = buildCommand(MultibodyBuilder, { ...BASE_DATA, mpiProcs: 1 });
     expect(cmd[0]).toBe('relion_refine');
   });
 
   it('uses relion_refine_mpi for multi-process', () => {
-    const cmd = buildCommand(MultibodyBuilder, { ...BASE_DATA, runningmpi: 4 });
+    const cmd = buildCommand(MultibodyBuilder, { ...BASE_DATA, mpiProcs: 4 });
     expect(cmd[0]).toBe('relion_refine_mpi');
   });
 });
@@ -128,7 +128,7 @@ describe('MultibodyBuilder — GPU', () => {
     const cmd = buildCommand(MultibodyBuilder, {
       ...BASE_DATA,
       gpuAcceleration: 'Yes',
-      useGPU: '0,1',
+      gpuToUse: '0,1',
     });
     expectFlag(cmd, '--gpu', '0,1');
   });
@@ -145,10 +145,10 @@ describe('MultibodyBuilder — GPU', () => {
 // ─── Optional flags ─────────────────────────────────────────────────
 
 describe('MultibodyBuilder — optional flags', () => {
-  it('adds --blush when Blush regularisation enabled', () => {
+  it('adds --blush when blushRegularisation enabled', () => {
     const cmd = buildCommand(MultibodyBuilder, {
       ...BASE_DATA,
-      useBlushRegularisation: 'Yes',
+      blushRegularisation: 'Yes',
     });
     expectFlag(cmd, '--blush');
   });
@@ -165,6 +165,65 @@ describe('MultibodyBuilder — optional flags', () => {
     });
     expectFlag(cmd, '--no_parallel_disc_io');
   });
+
+  it('adds --preread_images when enabled', () => {
+    const cmd = buildCommand(MultibodyBuilder, {
+      ...BASE_DATA,
+      preReadAllParticles: 'Yes',
+    });
+    expectFlag(cmd, '--preread_images');
+  });
+
+  it('adds --scratch_dir when copyParticle set', () => {
+    const cmd = buildCommand(MultibodyBuilder, {
+      ...BASE_DATA,
+      copyParticle: '/scratch/user',
+    });
+    expectFlag(cmd, '--scratch_dir', '/scratch/user');
+  });
+
+  it('adds --skip_gridding when skipPadding enabled', () => {
+    const cmd = buildCommand(MultibodyBuilder, {
+      ...BASE_DATA,
+      skipPadding: 'Yes',
+    });
+    expectFlag(cmd, '--skip_gridding');
+  });
+});
+
+// ─── Flexibility analysis ───────────────────────────────────────────
+
+describe('MultibodyBuilder — flexibility analysis', () => {
+  it('chains relion_flex_analyse when runFlexibility enabled', () => {
+    const cmd = buildCommand(MultibodyBuilder, {
+      ...BASE_DATA,
+      runFlexibility: 'Yes',
+      numberOfEigenvectorMovies: 5,
+    });
+    expect(cmd).toContain('&&');
+    expect(cmd).toContain('relion_flex_analyse');
+    expectFlag(cmd, '--PCA_orient');
+    expectFlag(cmd, '--do_movies', '5');
+  });
+
+  it('includes eigenvalue selection when enabled', () => {
+    const cmd = buildCommand(MultibodyBuilder, {
+      ...BASE_DATA,
+      runFlexibility: 'Yes',
+      selectParticlesEigenValue: 'Yes',
+      eigenValue: 2,
+      minEigenValue: -5,
+      maxEigenValue: 5,
+    });
+    expectFlag(cmd, '--select_eigenvalue', '2');
+    expectFlag(cmd, '--select_eigenvalue_min', '-5');
+    expectFlag(cmd, '--select_eigenvalue_max', '5');
+  });
+
+  it('omits flexibility analysis by default', () => {
+    const cmd = buildCommand(MultibodyBuilder, BASE_DATA);
+    expect(cmd).not.toContain('relion_flex_analyse');
+  });
 });
 
 // ─── Validation ─────────────────────────────────────────────────────
@@ -172,7 +231,7 @@ describe('MultibodyBuilder — optional flags', () => {
 describe('MultibodyBuilder — validation', () => {
   it('fails when no refinement star file', () => {
     const builder = createBuilder(MultibodyBuilder, {
-      multibodyMasks: 'MultiBody/bodies.star',
+      bodyStarFile: 'MultiBody/bodies.star',
     });
     const result = builder.validate();
     expect(result.valid).toBe(false);

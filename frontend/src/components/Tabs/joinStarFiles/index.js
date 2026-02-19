@@ -110,7 +110,7 @@ const JoinStarFiles = ({ projectId: propProjectId, onJobSuccess: propOnJobSucces
     e.preventDefault();
     setLoading(true);
 
-    joinStarFilesAPI({ ...(formData || {}), project_id: projectId })
+    joinStarFilesAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -168,7 +168,7 @@ const JoinStarFiles = ({ projectId: propProjectId, onJobSuccess: propOnJobSucces
       </div>
 
       {/* Form content */}
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "Particles" && (
           <Particles
             formData={formData}
@@ -366,7 +366,7 @@ const JoinStarFiles = () => {
       </div>
 
       
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "Particles" && (
           <Particles
             formData={formData}

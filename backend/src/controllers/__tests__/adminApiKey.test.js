@@ -78,8 +78,8 @@ const mockRes = () => {
   return res;
 };
 
-const superUser = { id: 1, username: 'admin', is_superuser: true, is_staff: true };
-const staffUser = { id: 2, username: 'staff', is_superuser: false, is_staff: true };
+const superUser = { id: 1, username: 'admin', isSuperuser: true, isStaff: true };
+const staffUser = { id: 2, username: 'staff', isSuperuser: false, isStaff: true };
 
 const makeReq = (userId, user = superUser) => ({
   params: { userId: String(userId) },

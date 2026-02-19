@@ -2,13 +2,13 @@ import axiosInstance from "../../config";
 
 const getPrevFilesApi = (projectId = "", jobId = "", type = 1) => {
   return axiosInstance.get(
-    `/api/files/?project_id=${projectId}&job_id=${jobId}&type=${type}`
+    `/api/files/?projectId=${projectId}&jobId=${jobId}&type=${type}`
   );
 };
 
 const getMCFilesApi = (projectId = "", jobId = "") => {
   return axiosInstance.get(
-    `/api/download?project_id=${projectId}&job_id=${jobId}`
+    `/api/download?projectId=${projectId}&jobId=${jobId}`
   );
 };
 
@@ -19,19 +19,19 @@ const motionCorrectionAPI = (payload = {}) => {
 
 const getMotionLogsApi = (projectId = "", jobId = "") => {
   return axiosInstance.get(
-    `/motion/logs?project_id=${projectId}&job_id=${jobId}`
+    `/motion/logs?projectId=${projectId}&jobId=${jobId}`
   );
 };
 
 // Motion correction results visualization APIs
 // Supports pagination: offset (default 0), limit (default 100, max 500)
 const getMotionResultsApi = (jobId = "", offset = 0, limit = 100) => {
-  return axiosInstance.get(`/motion/results/?job_id=${jobId}&offset=${offset}&limit=${limit}`);
+  return axiosInstance.get(`/motion/results/?jobId=${jobId}&offset=${offset}&limit=${limit}`);
 };
 
 const getMicrographShiftsApi = (jobId = "", micrograph = "") => {
   return axiosInstance.get(
-    `/motion/shifts/?job_id=${jobId}&micrograph=${micrograph}`
+    `/motion/shifts/?jobId=${jobId}&micrograph=${micrograph}`
   );
 };
 
@@ -39,7 +39,7 @@ const getMicrographShiftsApi = (jobId = "", micrograph = "") => {
 // type: 'micrograph' or 'power_spectrum'
 const getMicrographImageApi = (jobId = "", micrograph = "", type = "micrograph") => {
   return axiosInstance.get(
-    `/motion/image/?job_id=${jobId}&micrograph=${micrograph}&type=${type}`
+    `/motion/image/?jobId=${jobId}&micrograph=${micrograph}&type=${type}`
   );
 };
 

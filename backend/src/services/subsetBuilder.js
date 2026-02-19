@@ -55,7 +55,7 @@ class SubsetBuilder extends BaseJobBuilder {
     // Input file
     const classInput = getParam(data, ['classFromJob'], null);
     const particlesInput = getParam(data, ['particlesStar'], null);
-    const micrographsInput = getParam(data, ['micrographsStar', 'microGraphsStar'], null);
+    const micrographsInput = getParam(data, ['micrographsStar'], null);
     const inputFile = classInput || particlesInput || micrographsInput;
 
     const outputFile = path.join(relOutputDir, 'particles.star');

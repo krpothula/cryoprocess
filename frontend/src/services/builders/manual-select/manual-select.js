@@ -5,7 +5,7 @@ import axiosInstance from "../../config";
  * @param {string} jobId - The job ID
  */
 const getManualSelectResultsApi = (jobId) => {
-  return axiosInstance.get(`/manualselect/results/?job_id=${jobId}`);
+  return axiosInstance.get(`/manualselect/results/?jobId=${jobId}`);
 };
 
 export { getManualSelectResultsApi };

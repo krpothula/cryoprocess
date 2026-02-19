@@ -51,7 +51,7 @@ class WsNotifier {
         if (this.projectId && this.ws.readyState === WebSocket.OPEN) {
           this.ws.send(JSON.stringify({
             type: 'subscribe',
-            project_id: this.projectId
+            projectId: this.projectId
           }));
         }
       };

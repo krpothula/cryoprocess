@@ -2,7 +2,6 @@
  * Import Job Validation Schema
  *
  * Joi schema for validating import job parameters.
- * Mirrors the Django ImportJobSerializer.
  */
 
 const Joi = require('joi');
@@ -20,89 +19,70 @@ const yesNoBool = Joi.alternatives().try(
  */
 const importJobSchema = Joi.object({
   // Required
-  project_id: Joi.string().required().messages({
+  projectId: Joi.string().required().messages({
     'any.required': 'Project ID is required'
   }),
 
   // Input job IDs (for pipeline connections)
-  input_job_ids: Joi.array().items(Joi.string()).default([]),
+  inputJobIds: Joi.array().items(Joi.string()).default([]),
 
   // Execution method: how the command is launched
-  execution_method: Joi.string().valid('direct', 'slurm').default('slurm'),
+  executionMethod: Joi.string().valid('direct', 'slurm').default('slurm'),
 
   // System type: where the job runs
-  system_type: Joi.string().valid('local', 'remote').default('local'),
+  systemType: Joi.string().valid('local', 'remote').default('local'),
 
   // For raw movies/micrographs import
-  input_files: Joi.string().allow('').default(''),
   inputFiles: Joi.string().allow('').default(''),
 
   // Movie options
   rawMovies: yesNoBool,
   multiFrameMovies: yesNoBool,
-  multiframemovies: yesNoBool,
 
   // MTF of the detector (STAR file path)
   mtf: Joi.string().allow('').default(''),
 
-  // Microscope settings
+  // Microscope settings (RELION params — keep original casing)
   angpix: Joi.number().positive().default(1.4),
   kV: Joi.number().integer().positive().default(300),
   spherical: Joi.number().default(2.7),
   amplitudeContrast: Joi.number().min(0).max(1).default(0.1),
-  beamtilt_x: Joi.number().default(0.0),
-  beamtilt_y: Joi.number().default(0.0),
+  beamtiltX: Joi.number().default(0.0),
+  beamtiltY: Joi.number().default(0.0),
 
   // Compute settings
   coresPerNode: Joi.number().integer().min(1).default(1),
 
   // Other node types import
   nodeType: Joi.string().valid('Yes', 'No').default('No'),
-  nodetype: Joi.string().valid('Yes', 'No').default('No'),
   otherNodeType: Joi.string().allow('').default(''),
   otherInputFile: Joi.string().allow('').default(''),
 
   // Optics
   renameOpticsGroup: Joi.string().allow('').default(''),
-  renameopticsgroup: Joi.string().allow('').default(''),
   opticsGroupName: Joi.string().allow('').default('opticsGroup1'),
-  opticsgroupname: Joi.string().allow('').default('opticsGroup1'),
-  optics_group_name: Joi.string().allow('').default('opticsGroup1'),
 
   // Queue submission
   submitToQueue: Joi.alternatives().try(
     Joi.boolean(),
     Joi.string().valid('Yes', 'No')
   ).default('No'),
-  SubmitToQueue: Joi.alternatives().try(
-    Joi.boolean(),
-    Joi.string().valid('Yes', 'No')
-  ).default('No'),
   queueName: Joi.string().allow('').default(''),
-  QueueName: Joi.string().allow('').default(''),
-  queuename: Joi.string().allow('').default(''),
   queueSubmitCommand: Joi.string().allow('').default('sbatch'),
-  QueueSubmitCommand: Joi.string().allow('').default('sbatch'),
   additionalArguments: Joi.string().allow('').default(''),
   argument: Joi.string().allow('').default(''),
   arguments: Joi.string().allow('').default(''),
 
   // MPI/threading
-  runningmpi: Joi.number().integer().min(1).default(1),
-  threads: Joi.number().integer().min(1).default(1),
+  mpiProcs: Joi.number().integer().min(1).default(1),
   numberOfMpiProcs: Joi.number().integer().min(1).default(1),
   numberOfThreads: Joi.number().integer().min(1).default(1),
   gres: Joi.number().integer().min(0).default(0),
   clusterName: Joi.string().allow('').default(''),
-  clustername: Joi.string().allow('').default(''),
-  slurmArguments: Joi.string().allow('').default(''),
-  AdditionalArguments: Joi.string().allow('').default('')
+  slurmArguments: Joi.string().allow('').default('')
 }).custom((value, helpers) => {
   // Custom validation based on import mode
-  const isOtherNodeType = value.nodeType === 'Yes' || value.nodetype === 'Yes';
-
-  if (isOtherNodeType) {
-    // Require otherInputFile for other node types
+  if (value.nodeType === 'Yes') {
     if (!value.otherInputFile) {
       return helpers.error('any.custom', {
         message: 'Input file is required for other node types'
@@ -114,8 +94,7 @@ const importJobSchema = Joi.object({
       });
     }
   } else {
-    // Require input_files for raw movies/micrographs
-    if (!value.inputFiles && !value.input_files) {
+    if (!value.inputFiles) {
       return helpers.error('any.custom', {
         message: 'Input files path is required for movies/micrographs import'
       });

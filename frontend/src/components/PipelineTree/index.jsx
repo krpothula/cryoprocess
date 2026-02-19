@@ -20,7 +20,6 @@ import { FiGitBranch, FiDownload } from "react-icons/fi";
 
 // Map job_type (PascalCase) to display names
 const JOB_TYPE_DISPLAY_NAMES = {
-  LinkMovies: "Link Movies",
   Import: "Import",
   MotionCorr: "Motion Correction",
   CtfFind: "CTF Estimation",

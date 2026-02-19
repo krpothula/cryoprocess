@@ -22,7 +22,6 @@ import {
   FiChevronDown,
   FiSearch,
   FiFilter,
-  FiExternalLink,
 } from "react-icons/fi";
 import * as liveApi from "../../services/liveSession";
 import { getClass2DIndividualImagesApi } from "../../services/builders/2d-classification/2d-classification";
@@ -410,10 +409,7 @@ const LiveDashboard = () => {
     );
   }
 
-  const pStats = session?.pipelineStats || {};
-  const params = session?.parameters || {};
   const status = session?.status;
-  const command = session?.command || "";
   const isTerminal = status === "stopped" || status === "completed";
 
   if (error && status !== "running" && status !== "pending") {
@@ -562,16 +558,15 @@ const LiveDashboard = () => {
                 }}
                 onClick={() => {
                   if (!isDisabled && tab.link) {
-                    window.open(tab.link, "_blank");
+                    navigate(tab.link);
                   }
                 }}
                 title={isDisabled ? "Job not created yet" : `Open ${tab.label} dashboard`}
-                aria-label={isDisabled ? `${tab.label} - job not created yet` : `Open ${tab.label} dashboard in new tab`}
+                aria-label={isDisabled ? `${tab.label} - job not created yet` : `Open ${tab.label} dashboard`}
                 aria-disabled={isDisabled}
               >
                 <TabIcon size={13} aria-hidden="true" />
                 {tab.label}
-                {!isDisabled && <FiExternalLink size={10} style={{ color: "var(--color-text-muted)" }} aria-hidden="true" />}
               </button>
             );
           }
@@ -672,7 +667,7 @@ const LiveDashboard = () => {
           {/* Stage boxes row */}
           <div style={styles.pipelineRow}>
             {PIPELINE_STAGES.map((stage, idx) => {
-              const status = stageStatus(idx);
+              const stageState = stageStatus(idx);
               const StageIcon = stage.icon;
               const isLast = idx === PIPELINE_STAGES.length - 1;
 
@@ -680,11 +675,11 @@ const LiveDashboard = () => {
               let boxBorder = "var(--color-border)";
               let textColor = "var(--color-text-muted)";
 
-              if (status === "completed") {
+              if (stageState === "completed") {
                 boxBg = "var(--color-success-bg)";
                 boxBorder = "#86efac";
                 textColor = "var(--color-success-text)";
-              } else if (status === "current") {
+              } else if (stageState === "current") {
                 boxBg = "var(--color-info-bg)";
                 boxBorder = "var(--color-info-border)";
                 textColor = "var(--color-warning-text)";
@@ -698,14 +693,14 @@ const LiveDashboard = () => {
                         ...styles.stageBox,
                         background: boxBg,
                         borderColor: boxBorder,
-                        ...(status === "current" ? { animation: "stagePulse 2s ease-in-out infinite" } : {}),
+                        ...(stageState === "current" ? { animation: "stagePulse 2s ease-in-out infinite" } : {}),
                       }}
                     >
                       <StageIcon size={16} style={{ color: textColor, marginBottom: 4 }} />
                       <span style={{ fontSize: 11, fontWeight: 600, color: textColor }}>
                         {stage.label}
                       </span>
-                      {status === "completed" && (
+                      {stageState === "completed" && (
                         <FiCheckCircle
                           size={10}
                           style={{ color: "var(--color-success-text)", position: "absolute", top: 4, right: 4 }}
@@ -718,7 +713,7 @@ const LiveDashboard = () => {
                       <FiChevronRight
                         size={16}
                         style={{
-                          color: status === "completed" || stageStatus(idx + 1) !== "future" ? "var(--color-success-text)" : "var(--color-border)",
+                          color: stageState === "completed" || stageStatus(idx + 1) !== "future" ? "var(--color-success-text)" : "var(--color-border)",
                         }}
                       />
                     </div>

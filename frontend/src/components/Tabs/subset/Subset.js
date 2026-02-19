@@ -112,7 +112,7 @@ const Subset = () => {
     e.preventDefault();
     setLoading(true);
     // Debug: log form data before submission
-    subsetSelectionAPI({ ...(formData || {}), project_id: projectId })
+    subsetSelectionAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -178,7 +178,7 @@ const Subset = () => {
       </div>
 
       {/* Form content */}
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

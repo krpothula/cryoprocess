@@ -118,7 +118,7 @@ exports.listMembers = async (req, res) => {
 exports.addMember = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { user_id, username, email, role = 'viewer' } = req.body;
+    const { userId, username, email, role = 'viewer' } = req.body;
 
     // Check access (need admin role to add members)
     const access = await checkProjectAccess(projectId, req.user.id, 'admin');
@@ -132,8 +132,8 @@ exports.addMember = async (req, res) => {
 
     // Find user to add
     let userToAdd;
-    if (user_id) {
-      userToAdd = await User.findOne({ id: user_id }).lean();
+    if (userId) {
+      userToAdd = await User.findOne({ id: userId }).lean();
     } else if (username) {
       userToAdd = await User.findOne({ username: username.toLowerCase() }).lean();
     } else if (email) {

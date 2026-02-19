@@ -4,7 +4,7 @@ const bayesianPolishingAPI = (payload = {}) => {
   // Map frontend field names to backend field names expected by PolishBuilder.
   // Also pass through SLURM fields from SlurmRunningConfig (mpiProcs, threads, etc.)
   const mappedPayload = {
-    project_id: payload.project_id,
+    projectId: payload.projectId,
     // Input files - keep both frontend and mapped names for paramHelper fallback
     particlesFile: payload.particlesFile || "",
     inputParticles: payload.particlesFile || "",

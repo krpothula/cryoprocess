@@ -47,7 +47,7 @@ const ManualSelect = () => {
     setError("");
 
     try {
-      const url = `/class2d/individual-images/?project_id=${projectId}&job_path=${encodeURIComponent(formData.classFromJob)}&iteration=latest`;
+      const url = `/class2d/individual-images/?projectId=${projectId}&jobPath=${encodeURIComponent(formData.classFromJob)}&iteration=latest`;
       const response = await axiosInstance.get(url);
 
       if (response.data.status === "success") {
@@ -114,10 +114,10 @@ const ManualSelect = () => {
 
     try {
       const response = await axiosInstance.post("/class2d/save-selection/", {
-        project_id: projectId,
-        data_star_path: dataStarPath,
-        selected_classes: Array.from(selectedClasses),
-        output_job_name: "ManualSelect",
+        projectId,
+        dataStarPath,
+        selectedClasses: Array.from(selectedClasses),
+        outputJobName: "ManualSelect",
       });
 
       if (response.data.status === "success") {
@@ -144,7 +144,7 @@ const ManualSelect = () => {
 
   return (
     <div className="manual-select-container">
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div style={{ marginBottom: 16 }}>
           <CustomInput
             stageStarFiles="Class2D,Class3D,InitialModel"

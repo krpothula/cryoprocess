@@ -18,6 +18,7 @@ const INITIAL_FORM_DATA = {
   inputMode: "watch",
   watchDirectory: "",
   filePattern: "*.tiff",
+  movieThreshold: 0,
   // Optics
   pixelSize: 1.0,
   voltage: 300,
@@ -157,6 +158,7 @@ const CreateLiveProject = () => {
         inputMode: formData.inputMode,
         watchDirectory: formData.watchDirectory,
         filePattern: formData.filePattern,
+        movieThreshold: parseInt(formData.movieThreshold) || 0,
         optics: {
           pixelSize: parseFloat(formData.pixelSize),
           voltage: parseFloat(formData.voltage),
@@ -338,7 +340,7 @@ const CreateLiveProject = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="lp-form">
+        <form onSubmit={handleSubmit} noValidate className="lp-form">
           {/* ── Section 1: Project & Data Source ── */}
           <div className="lp-section">
             {renderSectionHeader(
@@ -435,6 +437,25 @@ const CreateLiveProject = () => {
                     onChange={handleChange}
                     placeholder="*.tiff"
                   />
+                </div>
+
+                <div className="lp-form-group">
+                  <label htmlFor="movieThreshold">
+                    Min Movies Before Processing
+                  </label>
+                  <input
+                    type="number"
+                    id="movieThreshold"
+                    name="movieThreshold"
+                    value={formData.movieThreshold}
+                    onChange={handleChange}
+                    min="0"
+                    step="1"
+                  />
+                  <span className="lp-form-hint">
+                    Wait until this many movies are detected before starting the
+                    pipeline. Set to 0 to start immediately.
+                  </span>
                 </div>
               </div>
             )}
@@ -544,7 +565,7 @@ const CreateLiveProject = () => {
                       name="dosePerFrame"
                       value={formData.dosePerFrame}
                       onChange={handleChange}
-                      step="0.1"
+                      step="any"
                       min="0"
                       disabled={!formData.motionEnabled}
                     />
@@ -705,7 +726,7 @@ const CreateLiveProject = () => {
                     disabled={!formData.pickEnabled}
                   >
                     <option value="LoG">LoG</option>
-                    <option value="Template">Template</option>
+                    <option value="template">Template</option>
                   </select>
                 </div>
                 <div className="lp-form-row lp-form-row-3">
@@ -846,7 +867,7 @@ const CreateLiveProject = () => {
                   </div>
                   <div className="lp-form-group">
                     <label htmlFor="particleThreshold">
-                      Min Particles Before Running
+                      Particle Threshold per Run
                     </label>
                     <input
                       type="number"
@@ -858,6 +879,10 @@ const CreateLiveProject = () => {
                       step="100"
                       disabled={!formData.class2dEnabled}
                     />
+                    <span className="lp-form-hint">
+                      2D runs at N, 2N, 3N... cumulative particles (e.g. 5000
+                      triggers at 5K, 10K, 15K...)
+                    </span>
                   </div>
                 </div>
                 <div className="lp-form-row">

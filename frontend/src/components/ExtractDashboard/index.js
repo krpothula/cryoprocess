@@ -67,13 +67,6 @@ const ExtractDashboard = () => {
     }
   }, [selectedJob?.id, selectedJob?.status]);
 
-  // Initial load
-  useEffect(() => {
-    if (selectedJob?.id) {
-      fetchResults();
-    }
-  }, [selectedJob?.id, fetchResults]);
-
   // Fetch progress stats (for running jobs)
   const fetchLiveStats = useCallback(async () => {
     if (!selectedJob?.id) return;
@@ -87,18 +80,22 @@ const ExtractDashboard = () => {
     }
   }, [selectedJob?.id]);
 
-  // Polling for running jobs
+  // Initial load and polling for live updates
   useEffect(() => {
-    if (selectedJob?.status === "running") {
+    if (selectedJob?.id) {
+      fetchResults();
       fetchLiveStats();
+
+      // Poll for live stats if job is running
       const interval = setInterval(() => {
-        fetchResults();
-        fetchLiveStats();
+        if (selectedJob?.status === "running") {
+          fetchLiveStats();
+        }
       }, 5000);
 
       return () => clearInterval(interval);
     }
-  }, [selectedJob?.status, fetchResults, fetchLiveStats]);
+  }, [selectedJob?.id, selectedJob?.status, fetchResults, fetchLiveStats]);
 
   // Trigger immediate fetch on WebSocket job_update (supplements polling)
   useJobNotification(selectedJob?.id, fetchResults);
@@ -113,7 +110,7 @@ const ExtractDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -158,6 +155,7 @@ const ExtractDashboard = () => {
                 fontWeight: 500,
                 color: status === "success" ? "var(--color-success-text)"
                   : status === "failed" ? "var(--color-danger-text)"
+                  : status === "pending" ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success" ? "Success"

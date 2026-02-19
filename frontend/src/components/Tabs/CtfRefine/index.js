@@ -99,7 +99,7 @@ const CtfRefine = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
-    ctfRefinementAPI({ ...(formData || {}), project_id: projectId })
+    ctfRefinementAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -150,7 +150,7 @@ const CtfRefine = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

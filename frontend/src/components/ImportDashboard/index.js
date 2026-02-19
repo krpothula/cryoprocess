@@ -39,7 +39,7 @@ const getStatusIcon = (status) => {
     case "error":
       return <FiAlertCircle className="text-red-500 text-xl" />;
     default:
-      return <FiClock className="text-yellow-500 text-xl" />;
+      return <FiClock className="text-slate-400 text-xl" />;
   }
 };
 
@@ -162,8 +162,10 @@ const ImportDashboard = () => {
   useEffect(() => {
     if (selectedJob?.id) {
       fetchResults();
+
+      // Poll for updates if job is running
       const interval = setInterval(() => {
-        if (selectedJob?.status === "running" || selectedJob?.status === "pending") fetchResults();
+        if (selectedJob?.status === "running") fetchResults();
       }, 5000);
       return () => clearInterval(interval);
     }
@@ -216,7 +218,10 @@ const ImportDashboard = () => {
   }
 
   // ── Movies / Micrographs ──
-  const importType = ["Yes", "yes", "true", true].includes(params.rawMovies) ? "movies" : "micrographs";
+  // Determine import type: check rawMovies first, then multiFrameMovies
+  const isMovies = ["Yes", "yes", "true", true].includes(params.rawMovies)
+    || ["Yes", "yes", "true", true].includes(params.multiFrameMovies);
+  const importType = isMovies ? "movies" : "micrographs";
   const totalImported = importType === "movies"
     ? (pStats.movieCount ?? pStats.micrographCount ?? 0)
     : (pStats.micrographCount ?? 0);
@@ -248,7 +253,7 @@ const ImportDashboard = () => {
           <Stat icon={importType === "movies" ? FiFilm : FiImage} label={importType === "movies" ? "Movies:" : "Micrographs:"} value={totalImported} />
           <Stat icon={FiMaximize2} label="Pixel Size:" value={pixelSize ? `${parseFloat(pixelSize).toFixed(3)} Å/px` : "N/A"} />
           <Stat icon={FiZap} label="Voltage:" value={params.kV ? `${params.kV} kV` : "N/A"} />
-          <Stat icon={FiTarget} label="Cs:" value={params.spherical ? `${params.spherical} mm` : "N/A"} />
+          <Stat icon={FiTarget} label="Cs:" value={params.spherical || params.Cs ? `${params.spherical || params.Cs} mm` : "N/A"} />
         </div>
       </div>
 

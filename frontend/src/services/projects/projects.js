@@ -37,11 +37,6 @@ const deleteProjectApi = (projectId, confirm = true) => {
   });
 };
 
-// Get single project by ID
-const getProjectApi = (projectId) => {
-  return axiosInstance.get(`/api/projects/${projectId}`);
-};
-
 /**
  * Get project members
  * @param {string} projectId - Project ID
@@ -106,7 +101,6 @@ export {
   createProjectApi,
   getProjectListApi,
   getProjectByIdApi,
-  getProjectApi,
   updateProjectApi,
   deleteProjectApi,
   archiveProjectApi,

@@ -110,8 +110,8 @@ describe('getBoolParam', () => {
 // ─── getMpiProcs ─────────────────────────────────────────────────────
 
 describe('getMpiProcs', () => {
-  it('reads runningmpi first', () => {
-    expect(getMpiProcs({ runningmpi: 4, numberOfMpiProcs: 8 })).toBe(4);
+  it('reads mpiProcs first', () => {
+    expect(getMpiProcs({ mpiProcs: 4, numberOfMpiProcs: 8 })).toBe(4);
   });
 
   it('falls back to numberOfMpiProcs', () => {
@@ -119,8 +119,8 @@ describe('getMpiProcs', () => {
   });
 
   it('enforces minimum of 1', () => {
-    expect(getMpiProcs({ runningmpi: 0 })).toBe(1);
-    expect(getMpiProcs({ runningmpi: -5 })).toBe(1);
+    expect(getMpiProcs({ mpiProcs: 0 })).toBe(1);
+    expect(getMpiProcs({ mpiProcs: -5 })).toBe(1);
   });
 
   it('returns 1 (default) when all fields missing', () => {
@@ -136,7 +136,7 @@ describe('getThreads', () => {
   });
 
   it('enforces minimum of 1', () => {
-    expect(getThreads({ threads: 0 })).toBe(1);
+    expect(getThreads({ numberOfThreads: 0 })).toBe(1);
   });
 });
 
@@ -151,9 +151,9 @@ describe('isGpuEnabled', () => {
     expect(isGpuEnabled({ gpuAcceleration: 'No' })).toBe(false);
   });
 
-  it('detects GPU from useGPU device IDs', () => {
-    expect(isGpuEnabled({ useGPU: '0' })).toBe(true);
-    expect(isGpuEnabled({ useGPU: '0,1,2' })).toBe(true);
+  it('detects GPU from gpuToUse device IDs', () => {
+    expect(isGpuEnabled({ gpuToUse: '0' })).toBe(true);
+    expect(isGpuEnabled({ gpuToUse: '0,1,2' })).toBe(true);
   });
 
   it('returns false for empty data', () => {
@@ -165,24 +165,24 @@ describe('isGpuEnabled', () => {
     expect(isGpuEnabled({ gpuAcceleration: false })).toBe(false);
   });
 
-  it('falls back to use_gpu field', () => {
-    expect(isGpuEnabled({ use_gpu: 'Yes' })).toBe(true);
+  it('falls back to gpuToUse field', () => {
+    expect(isGpuEnabled({ gpuToUse: 'Yes' })).toBe(true);
   });
 });
 
 // ─── getGpuIds ───────────────────────────────────────────────────────
 
 describe('getGpuIds', () => {
-  it('returns GPU IDs from useGPU', () => {
-    expect(getGpuIds({ useGPU: '0,1' })).toBe('0,1');
+  it('returns GPU IDs from gpuToUse', () => {
+    expect(getGpuIds({ gpuToUse: '0,1' })).toBe('0,1');
   });
 
   it('converts Yes to 0', () => {
-    expect(getGpuIds({ useGPU: 'Yes' })).toBe('0');
+    expect(getGpuIds({ gpuToUse: 'Yes' })).toBe('0');
   });
 
   it('strips whitespace', () => {
-    expect(getGpuIds({ useGPU: ' 0, 1 ' })).toBe('0,1');
+    expect(getGpuIds({ gpuToUse: ' 0, 1 ' })).toBe('0,1');
   });
 
   it('defaults to 0', () => {
@@ -197,8 +197,8 @@ describe('getInputStarFile', () => {
     expect(getInputStarFile({ inputStarFile: 'Extract/Job003/particles.star' })).toBe('Extract/Job003/particles.star');
   });
 
-  it('falls back to input_star_file', () => {
-    expect(getInputStarFile({ input_star_file: 'path.star' })).toBe('path.star');
+  it('reads inputStarFile with alternate data', () => {
+    expect(getInputStarFile({ inputStarFile: 'path.star' })).toBe('path.star');
   });
 
   it('returns null when missing', () => {
@@ -222,8 +222,8 @@ describe('getMaskDiameter', () => {
     expect(getMaskDiameter({ maskDiameter: 150 })).toBe(150);
   });
 
-  it('falls back to particle_diameter', () => {
-    expect(getMaskDiameter({ particle_diameter: 120 })).toBe(120);
+  it('reads maskDiameter with different value', () => {
+    expect(getMaskDiameter({ maskDiameter: 120 })).toBe(120);
   });
 
   it('uses default', () => {
@@ -236,8 +236,8 @@ describe('getNumberOfClasses', () => {
     expect(getNumberOfClasses({ numberOfClasses: 50 })).toBe(50);
   });
 
-  it('reads K alias', () => {
-    expect(getNumberOfClasses({ K: 10 })).toBe(10);
+  it('reads numberOfClasses with different value', () => {
+    expect(getNumberOfClasses({ numberOfClasses: 10 })).toBe(10);
   });
 });
 
@@ -266,14 +266,14 @@ describe('getAngpix', () => {
     expect(getAngpix({ angpix: 1.05 })).toBeCloseTo(1.05);
   });
 
-  it('falls back to pixel_size', () => {
-    expect(getAngpix({ pixel_size: 0.85 })).toBeCloseTo(0.85);
+  it('defaults when only angpix is available', () => {
+    expect(getAngpix({ angpix: 0.85 })).toBeCloseTo(0.85);
   });
 });
 
 describe('getReference', () => {
-  it('reads reference', () => {
-    expect(getReference({ reference: 'InitialModel/Job005/initial_model.mrc' }))
+  it('reads referenceMap', () => {
+    expect(getReference({ referenceMap: 'InitialModel/Job005/initial_model.mrc' }))
       .toBe('InitialModel/Job005/initial_model.mrc');
   });
 
@@ -293,8 +293,8 @@ describe('getSymmetry', () => {
 });
 
 describe('getScratchDir', () => {
-  it('reads scratch_dir', () => {
-    expect(getScratchDir({ scratch_dir: '/scratch/user' })).toBe('/scratch/user');
+  it('reads copyParticlesToScratch', () => {
+    expect(getScratchDir({ copyParticlesToScratch: '/scratch/user' })).toBe('/scratch/user');
   });
 
   it('returns null when missing', () => {

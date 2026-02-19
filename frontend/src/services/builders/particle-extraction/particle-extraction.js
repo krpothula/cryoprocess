@@ -11,7 +11,7 @@ const getExtractResultsApi = (jobId = "") => {
 };
 
 const getExtractParticlesImageApi = (jobId = "") => {
-  return axiosInstance.get(`/extract/particles-image/?job_id=${jobId}`);
+  return axiosInstance.get(`/extract/particles-image/?jobId=${jobId}`);
 };
 
 export {

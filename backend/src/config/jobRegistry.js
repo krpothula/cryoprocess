@@ -16,7 +16,6 @@ const Class3DBuilder = require('../services/class3dBuilder');
 const InitialModelBuilder = require('../services/initialModelBuilder');
 const AutoRefineBuilder = require('../services/autoRefineBuilder');
 const PostProcessBuilder = require('../services/postProcessBuilder');
-const LinkMoviesBuilder = require('../services/linkMoviesBuilder');
 const PolishBuilder = require('../services/polishBuilder');
 const CTFRefineBuilder = require('../services/ctfRefineBuilder');
 const MaskCreateBuilder = require('../services/maskCreateBuilder');
@@ -47,13 +46,6 @@ const JOB_DEFINITIONS = {
     stageName: 'Import',
     aliases: ['import'],
     computeTier: 'mpi'
-  },
-  link_movies: {
-    builder: LinkMoviesBuilder,
-    validator: genericValidator,
-    stageName: 'LinkMovies',
-    aliases: ['link_movies', 'linkmovies'],
-    computeTier: 'local'
   },
   motion_correction: {
     builder: MotionCorrectionBuilder,

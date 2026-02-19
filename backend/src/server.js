@@ -45,8 +45,6 @@ const liveSessionRoutes = require('./routes/liveSession');
 const smartscopeRoutes = require('./routes/smartscope');
 const usageRoutes = require('./routes/usage');
 const auditRoutes = require('./routes/audit');
-const swaggerUi = require('swagger-ui-express');
-const swaggerSpec = require('./config/swagger');
 
 const app = express();
 const server = http.createServer(app);
@@ -173,13 +171,6 @@ app.use(sanitize());
 // Static files (React frontend) - serve directly from frontend/build
 app.use(express.static(path.join(__dirname, '../../frontend/build')));
 
-// Swagger API docs (relax CSP for Swagger UI assets)
-app.use('/api/docs', (req, res, next) => {
-  res.setHeader('Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:");
-  next();
-}, swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'CryoProcess API Docs' }));
-
 // Health check endpoint (rich: DB status, uptime, memory, load)
 const healthController = require('./controllers/healthController');
 app.get('/api/health', healthController.getHealth);
@@ -195,6 +186,7 @@ app.get('/api/software-config', authMiddleware, (req, res) => {
     modelangeloExe: settings.MODELANGELO_EXE || '',
     relionPath: settings.SINGULARITY_IMAGE || '',
     emailNotificationsEnabled: settings.EMAIL_NOTIFICATIONS_ENABLED && !!settings.SMTP_HOST,
+    archiveEnabled: !!settings.ARCHIVE_PATH,
   });
 });
 
@@ -306,11 +298,8 @@ app.get('/modelangelo/pdb/', authMiddleware, dashboardController.getModelAngeloP
 app.get('/dynamight/results/', authMiddleware, dashboardController.getDynamightResults);
 app.get('/dynamight/mrc/', authMiddleware, dashboardController.getDynamightMrc);
 
-// Import dashboard legacy routes
-app.get('/api/import/results/:jobId/', authMiddleware, dashboardController.getImportResults);
+// Import logs legacy route (no /api/ prefix)
 app.get('/import/logs', authMiddleware, dashboardController.getImportLogs);
-app.get('/api/import/movie-frame/', authMiddleware, dashboardController.getMovieFrame);
-app.get('/api/import/mrc/', authMiddleware, dashboardController.getImportMrc);
 
 // Motion logs legacy route
 app.get('/motion/logs', authMiddleware, dashboardController.getMotionLogs);

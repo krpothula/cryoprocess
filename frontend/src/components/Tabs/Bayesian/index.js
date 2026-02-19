@@ -103,7 +103,7 @@ const Bayesian = () => {
     e.preventDefault();
     setLoading(true);
 
-    bayesianPolishingAPI({ ...(formData || {}), project_id: projectId })
+    bayesianPolishingAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -160,7 +160,7 @@ const Bayesian = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}
@@ -386,7 +386,7 @@ const Bayesian = () => {
       </div>
 
       
-      <form onSubmit={handleSubmit} className="form-content h-[485px]">
+      <form onSubmit={handleSubmit} noValidate className="form-content h-[485px]">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

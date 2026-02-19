@@ -46,9 +46,9 @@ const Class3DDashboard = () => {
 
     let url;
     if (mrcPath) {
-      url = `${API_BASE_URL}/class3d/mrc/?file_path=${encodeURIComponent(mrcPath)}`;
+      url = `${API_BASE_URL}/class3d/mrc/?filePath=${encodeURIComponent(mrcPath)}`;
     } else {
-      url = `${API_BASE_URL}/class3d/mrc/?job_id=${selectedJob?.id}&iteration=${iter}&class=${selectedClass}`;
+      url = `${API_BASE_URL}/class3d/mrc/?jobId=${selectedJob?.id}&iteration=${iter}&class=${selectedClass}`;
     }
     const a = document.createElement('a');
     a.href = url;
@@ -146,7 +146,7 @@ const Class3DDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -209,6 +209,8 @@ const Class3DDashboard = () => {
                   ? "var(--color-success-text)"
                   : status === "failed"
                   ? "var(--color-danger-text)"
+                  : status === "pending"
+                  ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success"

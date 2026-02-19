@@ -36,7 +36,7 @@ exports.archiveProject = async (req, res) => {
     }
 
     // Only owner or superuser can archive
-    if (project.created_by_id !== req.user.id && !req.user.is_superuser) {
+    if (project.created_by_id !== req.user.id && !req.user.isSuperuser) {
       return response.forbidden(res, 'Only project owner or superuser can archive');
     }
 
@@ -117,7 +117,7 @@ exports.restoreProject = async (req, res) => {
     }
 
     // Only owner or superuser can restore
-    if (project.created_by_id !== req.user.id && !req.user.is_superuser) {
+    if (project.created_by_id !== req.user.id && !req.user.isSuperuser) {
       return response.forbidden(res, 'Only project owner or superuser can restore');
     }
 
@@ -169,14 +169,14 @@ exports.restoreProject = async (req, res) => {
 exports.relocateProject = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { new_path } = req.body;
+    const { newPath } = req.body;
 
-    if (!new_path || !path.isAbsolute(new_path)) {
-      return response.badRequest(res, 'new_path must be an absolute path');
+    if (!newPath || !path.isAbsolute(newPath)) {
+      return response.badRequest(res, 'newPath must be an absolute path');
     }
 
     // Superuser only
-    if (!req.user.is_superuser) {
+    if (!req.user.isSuperuser) {
       return response.forbidden(res, 'Only superusers can relocate projects');
     }
 
@@ -185,8 +185,8 @@ exports.relocateProject = async (req, res) => {
       return response.notFound(res, 'Project not found');
     }
 
-    if (!fs.existsSync(new_path)) {
-      return response.badRequest(res, `Path does not exist: ${new_path}`);
+    if (!fs.existsSync(newPath)) {
+      return response.badRequest(res, `Path does not exist: ${newPath}`);
     }
 
     // Compute old path based on current state
@@ -194,13 +194,13 @@ exports.relocateProject = async (req, res) => {
       ? getArchivedProjectPath(project)
       : getProjectPath(project);
 
-    // Derive new folder_name and archive status from the new_path
-    const newFolderName = path.basename(new_path);
+    // Derive new folder_name and archive status from the newPath
+    const newFolderName = path.basename(newPath);
     let newIsArchived = project.is_archived;
 
-    if (new_path.startsWith(settings.ROOT_PATH + path.sep)) {
+    if (newPath.startsWith(settings.ROOT_PATH + path.sep)) {
       newIsArchived = false;
-    } else if (settings.ARCHIVE_PATH && new_path.startsWith(settings.ARCHIVE_PATH + path.sep)) {
+    } else if (settings.ARCHIVE_PATH && newPath.startsWith(settings.ARCHIVE_PATH + path.sep)) {
       newIsArchived = true;
     }
 
@@ -208,9 +208,9 @@ exports.relocateProject = async (req, res) => {
     project.is_archived = newIsArchived;
     await project.save();
 
-    const jobsUpdated = await rewriteJobPaths(projectId, oldPath, new_path);
+    const jobsUpdated = await rewriteJobPaths(projectId, oldPath, newPath);
 
-    logger.info(`[Relocate] Project ${projectId} relocated: ${oldPath} -> ${new_path}. ${jobsUpdated} jobs updated.`);
+    logger.info(`[Relocate] Project ${projectId} relocated: ${oldPath} -> ${newPath}. ${jobsUpdated} jobs updated.`);
 
     return response.success(res, {
       message: `Project relocated. ${jobsUpdated} job paths updated.`,

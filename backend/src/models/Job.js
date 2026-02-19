@@ -146,6 +146,18 @@ const jobSchema = new mongoose.Schema({
     default: ''
   },
 
+  /**
+   * Subdirectory within output_file_path where per-micrograph output files live.
+   * RELION mirrors the input path structure, so downstream jobs (CTF, AutoPick, Extract)
+   * nest outputs at e.g. MotionCorr/Job003/Movies/ instead of a flat Movies/ subdir.
+   * Computed at submission time from the input STAR file.
+   * Used by progressHelper for fast flat readdir instead of recursive search.
+   */
+  progress_subdir: {
+    type: String,
+    default: null
+  },
+
   // ============================================================================
   // PIPELINE STATS (Uniform per-job statistics)
   // Every job carries all fields. null = not applicable, 0 = no data yet.
@@ -165,7 +177,7 @@ const jobSchema = new mongoose.Schema({
    *   bfactor           - B-factor (set by PostProcess, LocalRes)
    *   class_count       - Number of classes (set by Class2D/3D/InitialModel)
    *   iteration_count   - Iterations completed (LIVE-UPDATED during execution)
-   *   movie_count       - Number of movies (set by Import, JoinStar, LinkMovies)
+   *   movie_count       - Number of movies (set by Import, JoinStar)
    *
    * PARAMETER-DERIVED FIELDS (set at submission time from job parameters):
    *   total_iterations  - Total iterations requested (Class2D/3D/InitialModel/DynaMight)

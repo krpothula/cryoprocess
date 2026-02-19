@@ -24,7 +24,7 @@ import useJobNotification from "../../hooks/useJobNotification";
 const API_BASE_URL = process.env.REACT_APP_API_HOST || "";
 
 const getLocalResResultsApi = async (jobId) => {
-  return axiosInstance.get(`${API_BASE_URL}/localres/results/?job_id=${jobId}`);
+  return axiosInstance.get(`${API_BASE_URL}/localres/results/?jobId=${jobId}`);
 };
 
 // Continuous gradient color scale legend for resolution values
@@ -53,7 +53,7 @@ const LocalResDashboard = () => {
   const [commandCopied, setCommandCopied] = useState(false);
 
   const handleDownload = (type) => {
-    const url = `${API_BASE_URL}/localres/mrc/?type=${type}&job_id=${selectedJob?.id}`;
+    const url = `${API_BASE_URL}/localres/mrc/?type=${type}&jobId=${selectedJob?.id}`;
     const a = document.createElement('a');
     a.href = url;
     a.download = `${selectedJob?.jobName || 'localres'}_${type}.mrc`;
@@ -121,7 +121,7 @@ const LocalResDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -172,6 +172,8 @@ const LocalResDashboard = () => {
                   ? "var(--color-success-text)"
                   : status === "failed"
                   ? "var(--color-danger-text)"
+                  : status === "pending"
+                  ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success"

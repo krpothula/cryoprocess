@@ -130,7 +130,7 @@ const CtfEstimation = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    ctfEstimationAPI({ ...(formData || {}), project_id: projectId })
+    ctfEstimationAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -182,7 +182,7 @@ const CtfEstimation = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

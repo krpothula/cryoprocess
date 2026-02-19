@@ -18,6 +18,11 @@ const progressCache = new Map();
 const CACHE_TTL_MS = 3000; // 3 seconds
 
 // Job-type specific progress detection configuration
+// RELION mirrors the input path structure in the output directory.
+// MotionCorr outputs directly to JobXXX/Movies/, but downstream jobs like
+// CTF and AutoPick nest outputs at e.g. JobXXX/MotionCorr/Job003/Movies/.
+// New jobs store the resolved subdir in job.progress_subdir (fast flat readdir).
+// Jobs marked `recursive: true` use recursive search as fallback for older jobs.
 const PROGRESS_CONFIG = {
   Import: {
     // Import creates movies.star or micrographs.star when done
@@ -34,17 +39,20 @@ const PROGRESS_CONFIG = {
     description: 'micrographs'
   },
   CtfFind: {
-    // CtfFind also outputs to Movies/ subdirectory
-    subdir: 'Movies',
+    // CtfFind mirrors input path: CtfFind/JobXXX/MotionCorr/JobYYY/Movies/*.ctf
+    recursive: true,
     pattern: /\.ctf$/,
     description: 'CTF estimates'
   },
   AutoPick: {
+    // AutoPick mirrors input path: AutoPick/JobXXX/MotionCorr/JobYYY/Movies/*_autopick.star
+    recursive: true,
     pattern: /_autopick\.star$/,
     description: 'micrographs picked'
   },
   Extract: {
-    // For extraction, we count the particles.star file lines or mrcs files
+    // Extract mirrors input path structure
+    recursive: true,
     pattern: /\.mrcs$/,
     description: 'particle stacks'
   },
@@ -86,13 +94,37 @@ const PROGRESS_CONFIG = {
 };
 
 /**
+ * Recursively collect file names matching a pattern from a directory tree.
+ * Used for RELION jobs that mirror the input path structure (CTF, AutoPick, Extract).
+ * Limits depth to 5 to avoid runaway traversal.
+ */
+async function findFilesRecursive(dir, pattern, exclude, depth = 0) {
+  if (depth > 5) return [];
+  let entries;
+  try { entries = await fsp.readdir(dir, { withFileTypes: true }); } catch { return []; }
+
+  const results = [];
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const sub = await findFilesRecursive(path.join(dir, entry.name), pattern, exclude, depth + 1);
+      results.push(...sub);
+    } else if (pattern.test(entry.name)) {
+      if (exclude && exclude.test(entry.name)) continue;
+      results.push(entry.name);
+    }
+  }
+  return results;
+}
+
+/**
  * Get job progress by counting output files (async — does not block event loop)
  * @param {string} outputDir - Job output directory
  * @param {string} jobType - Job type (MotionCorr, CtfFind, etc.)
  * @param {number|null} totalExpected - Expected total count (from input)
+ * @param {string|null} progressSubdir - Pre-computed subdirectory for per-micrograph outputs
  * @returns {Promise<Object|null>} Progress object or null if not supported
  */
-async function getJobProgress(outputDir, jobType, totalExpected = null) {
+async function getJobProgress(outputDir, jobType, totalExpected = null, progressSubdir = null) {
   if (!outputDir) return null;
   try { await fsp.access(outputDir); } catch { return null; }
 
@@ -115,21 +147,36 @@ async function getJobProgress(outputDir, jobType, totalExpected = null) {
   }
 
   try {
-    // Some job types output to subdirectories (e.g., MotionCorr -> Movies/)
-    const searchDir = config.subdir ? path.join(outputDir, config.subdir) : outputDir;
+    // Determine search directory and file list.
+    // Priority: stored progress_subdir > config.subdir > recursive fallback
+    let files;
+    let preFiltered = false; // true when files are already filtered by pattern
+    const resolvedSubdir = progressSubdir || config.subdir;
 
-    try { await fsp.access(searchDir); } catch {
-      // Subdir doesn't exist yet - job hasn't started outputting
-      return {
-        processed: 0,
-        total: totalExpected,
-        percentage: 0,
-        description: config.description,
-        type: config.type || 'count'
-      };
+    if (resolvedSubdir) {
+      // Fast flat search in the known subdirectory
+      const searchDir = path.join(outputDir, resolvedSubdir);
+
+      try { await fsp.access(searchDir); } catch {
+        // Subdir doesn't exist yet - job hasn't started outputting
+        return {
+          processed: 0,
+          total: totalExpected,
+          percentage: 0,
+          description: config.description,
+          type: config.type || 'count'
+        };
+      }
+
+      files = await fsp.readdir(searchDir);
+    } else if (config.recursive) {
+      // Fallback: recursive search for older jobs without progress_subdir
+      files = await findFilesRecursive(outputDir, config.pattern, config.exclude);
+      preFiltered = true; // findFilesRecursive already applies pattern + exclude
+    } else {
+      // Search in the output dir root
+      files = await fsp.readdir(outputDir);
     }
-
-    const files = await fsp.readdir(searchDir);
 
     let result;
 
@@ -165,14 +212,18 @@ async function getJobProgress(outputDir, jobType, totalExpected = null) {
       };
     } else {
       // Default: count matching files
-      const matchingFiles = [];
-      for (const file of files) {
-        if (config.pattern.test(file)) {
-          // Check exclusion pattern if exists
-          if (config.exclude && config.exclude.test(file)) {
-            continue;
+      let matchingFiles;
+
+      if (preFiltered) {
+        // Already filtered by findFilesRecursive
+        matchingFiles = files;
+      } else {
+        matchingFiles = [];
+        for (const file of files) {
+          if (config.pattern.test(file)) {
+            if (config.exclude && config.exclude.test(file)) continue;
+            matchingFiles.push(file);
           }
-          matchingFiles.push(file);
         }
       }
 

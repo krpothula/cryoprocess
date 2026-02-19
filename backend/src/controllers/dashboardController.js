@@ -142,7 +142,7 @@ const parseStarWithCache = async (job, starPath) => {
  */
 exports.getMotionResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const offset = parseInt(req.query.offset) || 0;
     const limit = parseInt(req.query.limit) || 50;
 
@@ -271,7 +271,7 @@ exports.getMotionResults = async (req, res) => {
  */
 exports.getMotionLiveStats = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -358,7 +358,7 @@ exports.getMotionLiveStats = async (req, res) => {
  */
 exports.getMicrographShifts = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const micrograph = req.query.micrograph;
 
     if (!jobId || !micrograph) {
@@ -399,6 +399,15 @@ exports.getMicrographShifts = async (req, res) => {
     }
 
     if (!starFile) {
+      // Diagnostic: log what's actually in the output directory
+      const moviesExists = fs.existsSync(moviesDir);
+      const starFiles = moviesExists
+        ? fs.readdirSync(moviesDir).filter(f => f.endsWith('.star')).slice(0, 5)
+        : [];
+      const mrcFiles = moviesExists
+        ? fs.readdirSync(moviesDir).filter(f => f.endsWith('.mrc')).slice(0, 5)
+        : [];
+      logger.warn(`[Dashboard] Shift data not found for "${micrograph}" | outputDir: ${outputDir} | moviesDir exists: ${moviesExists} | .star files (first 5): [${starFiles.join(', ')}] | .mrc files (first 5): [${mrcFiles.join(', ')}]`);
       return response.notFound(res, 'Shift data not found');
     }
 
@@ -448,7 +457,7 @@ exports.getMicrographShifts = async (req, res) => {
  */
 exports.getMicrographImage = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const micrograph = req.query.micrograph;
     const imageType = req.query.type || 'micrograph';
 
@@ -1035,7 +1044,7 @@ exports.getImportDashboard = async (req, res) => {
     if (!fs.existsSync(starPath)) {
       return response.successData(res, {
           job: { id: job.id, name: job.job_name, status: job.status },
-          stats: { movies: 0, importType: (job.parameters?.rawMovies === 'Yes' ? 'movies' : 'micrographs') }
+          stats: { movies: 0, importType: (job.parameters?.rawMovies === 'Yes' || job.parameters?.multiFrameMovies === true || job.parameters?.multiFrameMovies === 'Yes') ? 'movies' : 'micrographs' }
         });
     }
 
@@ -1046,7 +1055,7 @@ exports.getImportDashboard = async (req, res) => {
         job: { id: job.id, name: job.job_name, status: job.status },
         stats: {
           movies: movies.length,
-          importType: job.parameters?.rawMovies === 'Yes' ? 'movies' : 'micrographs',
+          importType: (job.parameters?.rawMovies === 'Yes' || job.parameters?.multiFrameMovies === true || job.parameters?.multiFrameMovies === 'Yes') ? 'movies' : 'micrographs',
           pixelSize: job.pipeline_stats?.pixel_size ?? job.parameters?.angpix ?? null,
           voltage: job.parameters?.kV || null
         }
@@ -1109,27 +1118,6 @@ exports.getJobLogs = async (req, res) => {
     const outputDir = job.output_file_path;
 
     const logs = { stdout: '', stderr: '' };
-
-    // Handle link_movies and other direct-execution jobs (no SLURM log files)
-    if (job.job_type === 'link_movies' || job.job_type === 'linkmovies') {
-      const statusLine = job.status === 'success'
-        ? 'Link Movies completed successfully.'
-        : `Link Movies ${job.status || 'unknown'}.`;
-      logs.stdout = [
-        '='.repeat(60),
-        `Job: ${job.job_name || jobId}`,
-        `Type: Link Movies`,
-        `Status: ${(job.status || 'unknown').toUpperCase()}`,
-        `Started: ${job.start_time ? new Date(job.start_time).toLocaleString() : 'N/A'}`,
-        `Completed: ${job.end_time ? new Date(job.end_time).toLocaleString() : 'N/A'}`,
-        '='.repeat(60),
-        '',
-        statusLine,
-        job.error_message ? `Error: ${job.error_message}` : ''
-      ].filter(Boolean).join('\n');
-
-      return response.successData(res, logs);
-    }
 
     // Standard jobs with log files
     const outPath = path.join(outputDir, 'run.out');
@@ -1315,9 +1303,9 @@ exports.getPostProcessStatus = async (req, res) => {
  */
 exports.getCtfResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const page = parseInt(req.query.page) || 1;
-    const pageSize = parseInt(req.query.page_size) || 100;
+    const pageSize = parseInt(req.query.pageSize) || 100;
 
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
@@ -1398,7 +1386,7 @@ exports.getCtfResults = async (req, res) => {
  */
 exports.getCtfLiveStats = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -1477,7 +1465,7 @@ exports.getCtfLiveStats = async (req, res) => {
  */
 exports.getCtfImage = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const micrograph = req.query.micrograph;
 
     if (!jobId || !micrograph) {
@@ -1593,7 +1581,7 @@ exports.getCtfImage = async (req, res) => {
  */
 exports.getCtfMicrographImage = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const micrograph = req.query.micrograph;
 
     if (!jobId || !micrograph) {
@@ -1756,7 +1744,7 @@ const parseFullStarFile = (starPath) => {
  */
 exports.exportCtfSelection = async (req, res) => {
   try {
-    const { job_id: jobId, micrograph_names: micrographNames, filename } = req.body;
+    const { jobId, micrographNames, filename } = req.body;
 
     logger.info(`[CTF Export] Received export request - job_id: ${jobId}, filename: ${filename}, micrograph_count: ${micrographNames?.length}`);
 
@@ -1896,7 +1884,7 @@ exports.exportCtfSelection = async (req, res) => {
  */
 exports.downloadCtfSelection = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const filename = req.query.filename;
 
     if (!jobId || !filename) {
@@ -1983,7 +1971,7 @@ exports.generateThumbnails = async (req, res) => {
  */
 exports.getAutopickResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -2107,9 +2095,9 @@ exports.getAutopickResults = async (req, res) => {
  */
 exports.getAutopickImage = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const micrograph = req.query.micrograph;
-    const showPicks = req.query.show_picks !== 'false';
+    const showPicks = req.query.showPicks !== 'false';
     const radius = parseInt(req.query.radius) || 50;
 
     if (!jobId || !micrograph) {
@@ -2258,7 +2246,7 @@ exports.getAutopickImage = async (req, res) => {
  */
 exports.getAutopickLiveStats = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -2378,7 +2366,7 @@ exports.getAutopickLiveStats = async (req, res) => {
  */
 exports.getExtractResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -2429,7 +2417,7 @@ exports.getExtractResults = async (req, res) => {
  */
 exports.getExtractParticlesImage = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const micrograph = req.query.micrograph || '';
     const maxParticles = parseInt(req.query.max) || 100;
 
@@ -2518,7 +2506,7 @@ exports.getExtractParticlesImage = async (req, res) => {
  */
 exports.getExtractLiveStats = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -2566,7 +2554,7 @@ exports.getExtractLiveStats = async (req, res) => {
  */
 exports.getClass2dResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -2711,7 +2699,7 @@ exports.getClass2dResults = async (req, res) => {
  */
 exports.getClass2dClassesImage = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const iteration = req.query.iteration;
 
     if (!jobId) {
@@ -2807,7 +2795,7 @@ exports.getClass2dClassesImage = async (req, res) => {
  */
 exports.getClass2dLiveStats = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -2865,7 +2853,7 @@ exports.getClass2dLiveStats = async (req, res) => {
  */
 exports.getManualSelectResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -2946,7 +2934,7 @@ exports.getManualSelectResults = async (req, res) => {
  */
 exports.getInitialModelResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -3074,8 +3062,8 @@ exports.getInitialModelResults = async (req, res) => {
  */
 exports.getInitialModelMrc = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
-    const filePath = req.query.file_path;
+    const jobId = req.query.jobId;
+    const filePath = req.query.filePath;
     const iteration = req.query.iteration || 'latest';
     const classNum = parseInt(req.query.class) || 1;
 
@@ -3167,7 +3155,7 @@ exports.getInitialModelMrc = async (req, res) => {
  */
 exports.getInitialModelLiveStats = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -3237,7 +3225,7 @@ exports.getInitialModelLiveStats = async (req, res) => {
  */
 exports.getClass3dResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -3353,7 +3341,7 @@ exports.getClass3dResults = async (req, res) => {
 exports.getClass3dMrc = async (req, res) => {
   try {
     // Support direct file path loading (for Molstar)
-    const filePath = req.query.file_path;
+    const filePath = req.query.filePath;
     if (filePath) {
       // Security: Ensure the file exists and is an MRC file
       if (!filePath.endsWith('.mrc')) {
@@ -3369,7 +3357,7 @@ exports.getClass3dMrc = async (req, res) => {
       return fs.createReadStream(filePath).pipe(res);
     }
 
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const iteration = req.query.iteration || 'latest';
     const classNum = req.query.class || 1;
 
@@ -3421,7 +3409,7 @@ exports.getClass3dMrc = async (req, res) => {
  */
 exports.getClass3dLiveStats = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -3479,7 +3467,7 @@ exports.getClass3dLiveStats = async (req, res) => {
  */
 exports.getAutoRefineResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -3577,7 +3565,7 @@ exports.getAutoRefineResults = async (req, res) => {
 exports.getAutoRefineMrc = async (req, res) => {
   try {
     // Support direct file path loading (for Molstar)
-    const filePath = req.query.file_path;
+    const filePath = req.query.filePath;
     if (filePath) {
       if (!filePath.endsWith('.mrc')) {
         return response.badRequest(res, 'Invalid file type');
@@ -3592,7 +3580,7 @@ exports.getAutoRefineMrc = async (req, res) => {
       return fs.createReadStream(filePath).pipe(res);
     }
 
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const iteration = req.query.iteration || 'latest';
     const mapType = req.query.type || 'full';
 
@@ -3681,7 +3669,7 @@ exports.getAutoRefineMrc = async (req, res) => {
  */
 exports.getAutoRefineLiveStats = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -3749,7 +3737,7 @@ exports.getAutoRefineLiveStats = async (req, res) => {
  */
 exports.getAutoRefineFsc = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -3830,7 +3818,7 @@ exports.getAutoRefineFsc = async (req, res) => {
  */
 exports.getMaskCreateResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -3872,8 +3860,8 @@ exports.getMaskCreateResults = async (req, res) => {
  */
 exports.getMaskCreateMrc = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
-    const filePath = req.query.file_path;
+    const jobId = req.query.jobId;
+    const filePath = req.query.filePath;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -3932,7 +3920,7 @@ exports.getMaskCreateMrc = async (req, res) => {
  */
 exports.getCtfRefineResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4105,7 +4093,7 @@ exports.getCtfRefineResults = async (req, res) => {
  */
 exports.getPolishResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4179,7 +4167,7 @@ exports.getPolishResults = async (req, res) => {
  */
 exports.getSubtractResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4249,7 +4237,7 @@ exports.getSubtractResults = async (req, res) => {
  */
 exports.getJoinStarResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4344,7 +4332,7 @@ exports.getJoinStarResults = async (req, res) => {
  */
 exports.getPostProcessResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4410,7 +4398,7 @@ exports.getPostProcessResults = async (req, res) => {
  */
 exports.getPostProcessMrc = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const mapType = req.query.type || 'masked';
 
     if (!jobId) {
@@ -4446,7 +4434,7 @@ exports.getPostProcessMrc = async (req, res) => {
  */
 exports.getPostProcessFsc = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4492,7 +4480,7 @@ exports.getPostProcessFsc = async (req, res) => {
  */
 exports.getLocalResResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4569,7 +4557,7 @@ exports.getLocalResResults = async (req, res) => {
  */
 exports.getLocalResMrc = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const mapType = req.query.type || 'localres';
 
     if (!jobId) {
@@ -4609,7 +4597,7 @@ exports.getLocalResMrc = async (req, res) => {
  */
 exports.getModelAngeloResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4659,7 +4647,7 @@ exports.getModelAngeloResults = async (req, res) => {
  */
 exports.getModelAngeloPdb = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4700,7 +4688,7 @@ exports.getModelAngeloPdb = async (req, res) => {
  */
 exports.getDynamightResults = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4747,7 +4735,7 @@ exports.getDynamightResults = async (req, res) => {
  */
 exports.getDynamightMrc = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4790,7 +4778,7 @@ exports.getDynamightMrc = async (req, res) => {
  */
 exports.getImportResults = async (req, res) => {
   try {
-    const jobId = req.params.jobId || req.query.job_id;
+    const jobId = req.params.jobId || req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -4814,8 +4802,8 @@ exports.getImportResults = async (req, res) => {
     } else {
       // Check for other node type output files
       for (const [nodeType, info] of Object.entries(nodeTypeInfo)) {
-        const outputFile = path.join(outputDir, info.output_file);
-        if (fs.existsSync(outputFile) && !['movies.star', 'micrographs.star'].includes(info.output_file)) {
+        const outputFile = path.join(outputDir, info.outputFile);
+        if (fs.existsSync(outputFile) && !['movies.star', 'micrographs.star'].includes(info.outputFile)) {
           importMode = 'other';
           break;
         }
@@ -4832,12 +4820,12 @@ exports.getImportResults = async (req, res) => {
       if (command.includes('--do_coordinates')) {
         nodeType = 'coords';
         nodeLabel = nodeTypeInfo.coords.label;
-        const outputFile = path.join(outputDir, nodeTypeInfo.coords.output_file);
+        const outputFile = path.join(outputDir, nodeTypeInfo.coords.outputFile);
         if (fs.existsSync(outputFile)) importedFile = outputFile;
       } else if (command.includes('--do_halfmaps')) {
         nodeType = 'halfmap';
         nodeLabel = nodeTypeInfo.halfmap.label;
-        const outputFile = path.join(outputDir, nodeTypeInfo.halfmap.output_file);
+        const outputFile = path.join(outputDir, nodeTypeInfo.halfmap.outputFile);
         if (fs.existsSync(outputFile)) importedFile = outputFile;
       } else {
         // --do_other: parse --node_type flag
@@ -4846,7 +4834,7 @@ exports.getImportResults = async (req, res) => {
           nodeType = nodeTypeMatch[1];
           if (nodeTypeInfo[nodeType]) {
             nodeLabel = nodeTypeInfo[nodeType].label;
-            const outputFile = path.join(outputDir, nodeTypeInfo[nodeType].output_file);
+            const outputFile = path.join(outputDir, nodeTypeInfo[nodeType].outputFile);
             if (fs.existsSync(outputFile)) importedFile = outputFile;
           }
         }
@@ -4855,7 +4843,7 @@ exports.getImportResults = async (req, res) => {
       // Search for expected output files
       if (!importedFile) {
         for (const [nt, info] of Object.entries(nodeTypeInfo)) {
-          const potentialFile = path.join(outputDir, info.output_file);
+          const potentialFile = path.join(outputDir, info.outputFile);
           if (fs.existsSync(potentialFile)) {
             nodeType = nt;
             nodeLabel = info.label;
@@ -4946,9 +4934,9 @@ exports.getImportResults = async (req, res) => {
  */
 exports.getClass2dIndividualImages = async (req, res) => {
   try {
-    const jobId = req.params.jobId || req.query.job_id;
-    const projectId = req.query.project_id;
-    const jobPath = req.query.job_path;
+    const jobId = req.params.jobId || req.query.jobId;
+    const projectId = req.query.projectId;
+    const jobPath = req.query.jobPath;
     const iteration = req.query.iteration || 'latest';
 
     let job = null;
@@ -5264,31 +5252,31 @@ exports.getClass2dIndividualImages = async (req, res) => {
  */
 exports.saveSelectedClasses = async (req, res) => {
   try {
-    const { project_id, data_star_path, selected_classes, output_job_name } = req.body;
+    const { projectId, dataStarPath, selectedClasses, outputJobName } = req.body;
 
-    if (!project_id) {
-      return response.badRequest(res, 'project_id is required');
+    if (!projectId) {
+      return response.badRequest(res, 'projectId is required');
     }
-    if (!data_star_path) {
-      return response.badRequest(res, 'data_star_path is required');
+    if (!dataStarPath) {
+      return response.badRequest(res, 'dataStarPath is required');
     }
-    if (!selected_classes || selected_classes.length === 0) {
+    if (!selectedClasses || selectedClasses.length === 0) {
       return response.badRequest(res, 'No classes selected');
     }
 
     const Project = require('../models/Project');
-    const project = await Project.findOne({ id: project_id });
+    const project = await Project.findOne({ id: projectId });
     if (!project) {
       return response.notFound(res, 'Project not found');
     }
 
     const projectPath = path.join(process.env.ROOT_PATH || '/shared/data', project.folder_name || project.project_name);
 
-    // Resolve data_star_path
-    const fullDataPath = path.isAbsolute(data_star_path) ? data_star_path : path.join(projectPath, data_star_path);
+    // Resolve dataStarPath
+    const fullDataPath = path.isAbsolute(dataStarPath) ? dataStarPath : path.join(projectPath, dataStarPath);
 
     if (!fs.existsSync(fullDataPath)) {
-      return response.notFound(res, `Data file not found: ${data_star_path}`);
+      return response.notFound(res, `Data file not found: ${dataStarPath}`);
     }
 
     // Parse input star file
@@ -5308,7 +5296,7 @@ exports.saveSelectedClasses = async (req, res) => {
     }
 
     // Filter particles by selected classes
-    const selectedSet = new Set(selected_classes.map(c => parseInt(c, 10)));
+    const selectedSet = new Set(selectedClasses.map(c => parseInt(c, 10)));
     const filteredRows = particles.rows.filter(row => {
       const classNum = parseInt(row.rlnClassNumber || row._rlnClassNumber, 10);
       return selectedSet.has(classNum);
@@ -5367,7 +5355,7 @@ exports.saveSelectedClasses = async (req, res) => {
 
     // Extract source job info
     let sourceJobName = null;
-    const relDataPath = path.isAbsolute(data_star_path) ? path.relative(projectPath, data_star_path) : data_star_path;
+    const relDataPath = path.isAbsolute(dataStarPath) ? path.relative(projectPath, dataStarPath) : dataStarPath;
     const pathParts = relDataPath.split('/');
     if (pathParts.length >= 2) {
       sourceJobName = pathParts[1];
@@ -5384,7 +5372,7 @@ exports.saveSelectedClasses = async (req, res) => {
     let inheritedMicrographCount = 0;
     let sourceJob = null;
     if (sourceJobName) {
-      sourceJob = await Job.findOne({ project_id, job_name: sourceJobName }).lean();
+      sourceJob = await Job.findOne({ project_id: projectId, job_name: sourceJobName }).lean();
       if (sourceJob) {
         const ss = sourceJob.pipeline_stats || {};
         inheritedPixelSize = ss.pixel_size ?? sourceJob.pixel_size ?? null;
@@ -5415,7 +5403,7 @@ exports.saveSelectedClasses = async (req, res) => {
 
     const newJob = new Job({
       id: uuidv4(),
-      project_id: project_id,
+      project_id: projectId,
       user_id: req.user.id,
       job_name: outputDirName,
       job_type: 'ManualSelect',
@@ -5423,9 +5411,9 @@ exports.saveSelectedClasses = async (req, res) => {
       output_file_path: path.join('Select', outputDirName),
       input_job_ids: sourceJob ? [sourceJob.id] : [],
       parameters: {
-        sourceStarFile: data_star_path,
-        selectedClasses: Array.from(selected_classes),
-        numClassesSelected: selected_classes.length,
+        sourceStarFile: dataStarPath,
+        selectedClasses: Array.from(selectedClasses),
+        numClassesSelected: selectedClasses.length,
         sourceJobName: sourceJobName,
       },
       output_files: [{
@@ -5441,7 +5429,7 @@ exports.saveSelectedClasses = async (req, res) => {
         particle_count: filteredRows.length,
         box_size: inheritedBoxSize,
         resolution: null,
-        class_count: selected_classes.length,
+        class_count: selectedClasses.length,
         iteration_count: 0,
         total_classes: sourceJob?.pipeline_stats?.class_count || 0
       },
@@ -5454,13 +5442,13 @@ exports.saveSelectedClasses = async (req, res) => {
     await newJob.save();
 
     return response.success(res, {
-      message: `Saved ${filteredRows.length} particles from ${selected_classes.length} classes`,
+      message: `Saved ${filteredRows.length} particles from ${selectedClasses.length} classes`,
       data: {
         jobId: newJob.id,
         jobName: outputDirName,
         outputFile: relOutputPath,
         numParticles: filteredRows.length,
-        selectedClasses: Array.from(selected_classes),
+        selectedClasses: Array.from(selectedClasses),
         sourceJob: sourceJobName,
       }
     });
@@ -5476,7 +5464,7 @@ exports.saveSelectedClasses = async (req, res) => {
  */
 exports.getInitialModelSlices = async (req, res) => {
   try {
-    const jobId = req.params.jobId || req.query.job_id;
+    const jobId = req.params.jobId || req.query.jobId;
     const iteration = req.query.iteration || 'latest';
     const axis = req.query.axis || 'z';
 
@@ -5643,7 +5631,7 @@ exports.getInitialModelSlices = async (req, res) => {
  */
 exports.getCtfRefinePdf = async (req, res) => {
   try {
-    const jobId = req.params.jobId || req.query.job_id;
+    const jobId = req.params.jobId || req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -5677,7 +5665,7 @@ exports.getCtfRefinePdf = async (req, res) => {
  */
 exports.getPolishOutput = async (req, res) => {
   try {
-    const jobId = req.params.jobId || req.query.job_id;
+    const jobId = req.params.jobId || req.query.jobId;
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
     }
@@ -5726,8 +5714,8 @@ exports.getPolishOutput = async (req, res) => {
  */
 exports.getImportLogs = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
-    const projectId = req.query.project_id;
+    const jobId = req.query.jobId;
+    const projectId = req.query.projectId;
 
     if (!jobId) {
       return response.badRequest(res, 'Job ID is required');
@@ -5770,7 +5758,7 @@ exports.getImportLogs = async (req, res) => {
  */
 exports.getMotionLogs = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
 
     if (!jobId) {
       return response.badRequest(res, 'Job ID is required');
@@ -5803,7 +5791,7 @@ exports.getMotionLogs = async (req, res) => {
  */
 exports.getMovieFrame = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
+    const jobId = req.query.jobId;
     const moviePath = req.query.movie;
     const frameIndex = parseInt(req.query.frame || '0', 10);
 
@@ -5872,8 +5860,8 @@ exports.getMovieFrame = async (req, res) => {
  */
 exports.getImportMrc = async (req, res) => {
   try {
-    const jobId = req.query.job_id;
-    const filePath = req.query.file || req.query.file_path;
+    const jobId = req.query.jobId;
+    const filePath = req.query.file || req.query.filePath;
 
     if (!jobId) {
       return response.badRequest(res, 'job_id is required');
@@ -5923,29 +5911,29 @@ exports.getImportMrc = async (req, res) => {
  * Looks up the job that produced the given star file and returns
  * particle count, pixel size, and box size.
  *
- * GET /api/particle-metadata/?project_id=...&star_file=...
+ * GET /api/particle-metadata/?projectId=...&starFile=...
  */
 exports.getParticleMetadata = async (req, res) => {
   try {
-    const { project_id, star_file } = req.query;
-    if (!project_id || !star_file) {
-      return response.badRequest(res, 'project_id and star_file are required');
+    const { projectId, starFile } = req.query;
+    if (!projectId || !starFile) {
+      return response.badRequest(res, 'projectId and starFile are required');
     }
 
     // Find the job that produced this star file by matching output_files or job_name
-    // star_file is typically like "Extract/job005/particles.star" or just "job005"
-    const jobNameMatch = star_file.match(/(job\d+)/i);
+    // starFile is typically like "Extract/job005/particles.star" or just "job005"
+    const jobNameMatch = starFile.match(/(job\d+)/i);
     let sourceJob = null;
 
     if (jobNameMatch) {
-      sourceJob = await Job.findOne({ project_id, job_name: jobNameMatch[1] }).lean();
+      sourceJob = await Job.findOne({ project_id: projectId, job_name: jobNameMatch[1] }).lean();
     }
 
     if (!sourceJob) {
       // Try finding by matching output_files path
       sourceJob = await Job.findOne({
-        project_id,
-        'output_files.relativePath': { $regex: star_file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
+        project_id: projectId,
+        'output_files.relativePath': { $regex: starFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
       }).lean();
     }
 

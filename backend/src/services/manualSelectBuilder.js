@@ -150,10 +150,10 @@ class ManualSelectBuilder extends BaseJobBuilder {
 
       // Store result
       this._selectionResult = {
-        output_file: outputFile,
-        num_particles: filteredRows.length,
-        selected_classes: selectedClasses,
-        total_particles: dataRows.length
+        outputFile,
+        numParticles: filteredRows.length,
+        selectedClasses,
+        totalParticles: dataRows.length
       };
 
       logger.info(`[ManualSelect] Successfully saved ${filteredRows.length} particles to ${outputFile}`);

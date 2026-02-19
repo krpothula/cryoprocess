@@ -398,14 +398,14 @@ async function storeImportMetadata(job) {
       nodeType = 'coords';
       nodeLabel = nodeTypeInfo.coords.label;
       if (outputDir) {
-        const outputFile = path.join(outputDir, nodeTypeInfo.coords.output_file);
+        const outputFile = path.join(outputDir, nodeTypeInfo.coords.outputFile);
         if (fs.existsSync(outputFile)) importedFile = outputFile;
       }
     } else if (command.includes('--do_halfmaps')) {
       nodeType = 'halfmap';
       nodeLabel = nodeTypeInfo.halfmap.label;
       if (outputDir) {
-        const outputFile = path.join(outputDir, nodeTypeInfo.halfmap.output_file);
+        const outputFile = path.join(outputDir, nodeTypeInfo.halfmap.outputFile);
         if (fs.existsSync(outputFile)) importedFile = outputFile;
       }
     } else {
@@ -415,7 +415,7 @@ async function storeImportMetadata(job) {
         nodeType = nodeTypeMatch[1];
         if (nodeTypeInfo[nodeType] && outputDir) {
           nodeLabel = nodeTypeInfo[nodeType].label;
-          const outputFile = path.join(outputDir, nodeTypeInfo[nodeType].output_file);
+          const outputFile = path.join(outputDir, nodeTypeInfo[nodeType].outputFile);
           if (fs.existsSync(outputFile)) importedFile = outputFile;
         } else if (nodeTypeInfo[nodeType]) {
           nodeLabel = nodeTypeInfo[nodeType].label;
@@ -426,7 +426,7 @@ async function storeImportMetadata(job) {
     // Search for expected output files if not found by command
     if (!importedFile && outputDir) {
       for (const [nt, info] of Object.entries(nodeTypeInfo)) {
-        const potentialFile = path.join(outputDir, info.output_file);
+        const potentialFile = path.join(outputDir, info.outputFile);
         if (fs.existsSync(potentialFile)) {
           nodeType = nt;
           nodeLabel = info.label;
@@ -513,11 +513,12 @@ async function storeImportMetadata(job) {
     }
   }
 
-  // Method 3: Check multiframemovies
+  // Method 3: Check multiFrameMovies (camelCase or lowercase)
   if (!importType) {
-    if (params.multiframemovies === 'No' || params.multiframemovies === false) {
+    const mfm = params.multiFrameMovies ?? params.multiframemovies;
+    if (mfm === 'No' || mfm === false) {
       importType = 'micrographs';
-    } else if (params.multiframemovies === 'Yes' || params.multiframemovies === true) {
+    } else if (mfm === 'Yes' || mfm === true) {
       importType = 'movies';
     }
   }

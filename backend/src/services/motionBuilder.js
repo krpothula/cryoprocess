@@ -201,8 +201,10 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
       cmd.push('--defect_file', this.makeRelative(this.resolveInputPath(defectFile.trim())));
     }
 
-    // Optional flags
-    if (getBoolParam(data, ['float16Output'], false)) {
+    // Optional flags — float16 and power spectra are only supported with RELION's own implementation
+    // MotionCor2 cannot write float16 or save power spectra (RELION enforces this in motioncorr_runner.cpp)
+    const useFloat16 = !gpuEnabled && getBoolParam(data, ['float16Output'], false);
+    if (useFloat16) {
       cmd.push('--float16');
     }
 
@@ -216,7 +218,8 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
       cmd.push('--save_noDW');
     }
 
-    if (getBoolParam(data, ['savePowerSpectra'], false)) {
+    // Power spectra: required when float16 is enabled, not available with MotionCor2
+    if (!gpuEnabled && (getBoolParam(data, ['savePowerSpectra'], false) || useFloat16)) {
       cmd.push('--grouping_for_ps', String(getIntParam(data, ['sumPowerSpectra', 'powerSpectraEvery'], 4)));
     }
 
@@ -251,7 +254,7 @@ class MotionCorrectionBuilder extends BaseJobBuilder {
       }
 
       // Add other MotionCor2 arguments if provided (with sanitization)
-      const otherArgs = getParam(data, ['otherMotion', 'othermotion'], null);
+      const otherArgs = getParam(data, ['otherMotion'], null);
       if (otherArgs && String(otherArgs).trim()) {
         const raw = String(otherArgs).trim();
         // Block shell injection patterns (same as addAdditionalArguments)

@@ -23,7 +23,7 @@ import useJobNotification from "../../hooks/useJobNotification";
 const API_BASE_URL = process.env.REACT_APP_API_HOST || "";
 
 const getModelAngeloResultsApi = async (jobId) => {
-  return axiosInstance.get(`${API_BASE_URL}/modelangelo/results/?job_id=${jobId}`);
+  return axiosInstance.get(`${API_BASE_URL}/modelangelo/results/?jobId=${jobId}`);
 };
 
 const ModelAngeloDashboard = () => {
@@ -93,14 +93,14 @@ const ModelAngeloDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
   const downloadPDB = async () => {
     try {
       const response = await axiosInstance.get(
-        `${API_BASE_URL}/modelangelo/pdb/?job_id=${selectedJob.id}`,
+        `${API_BASE_URL}/modelangelo/pdb/?jobId=${selectedJob.id}`,
         { responseType: "blob" }
       );
       if (!mountedRef.current) return;
@@ -161,6 +161,8 @@ const ModelAngeloDashboard = () => {
                   ? "var(--color-success-text)"
                   : status === "failed"
                   ? "var(--color-danger-text)"
+                  : status === "pending"
+                  ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success"

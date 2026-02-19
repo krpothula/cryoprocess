@@ -39,7 +39,7 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
       if (jobFolder && stageFolder) {
         const jobName = `${stageFolder}/${jobFolder}`;
         // Fetch job by name
-        const response = await axiosInstance.get(`/api/jobs/?project_id=${projectId}&job_name=${jobName}`);
+        const response = await axiosInstance.get(`/api/jobs/?projectId=${projectId}&jobName=${jobName}`);
         if (response.data && response.data.length > 0) {
           setJobId(response.data[0].id);
         }
@@ -57,7 +57,7 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
 
     try {
       const response = await axiosInstance.get(
-        `/class2d/individual-images/?job_id=${jobId}&iteration=${iteration}`
+        `/class2d/individual-images/?jobId=${jobId}&iteration=${iteration}`
       );
 
       if (response.data.status === "success") {
@@ -119,10 +119,10 @@ const ClassSelector = ({ onSelectionComplete, classFromJob }) => {
 
     try {
       const response = await axiosInstance.post("/class2d/save-selection/", {
-        project_id: projectId,
-        data_star_path: dataStarPath,
-        selected_classes: Array.from(selectedClasses),
-        output_job_name: "ManualSelect",
+        projectId,
+        dataStarPath,
+        selectedClasses: Array.from(selectedClasses),
+        outputJobName: "ManualSelect",
       });
 
       if (response.data.status === "success") {

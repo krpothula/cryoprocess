@@ -42,7 +42,7 @@ const AutoRefineDashboard = () => {
 
   const handleDownload = () => {
     const iter = selectedIteration === "latest" ? (results?.latestIteration || "") : selectedIteration;
-    const url = `${API_BASE_URL}/autorefine/mrc/?type=${mapType}&job_id=${selectedJob?.id}&iteration=${iter}&class=1`;
+    const url = `${API_BASE_URL}/autorefine/mrc/?type=${mapType}&jobId=${selectedJob?.id}&iteration=${iter}&class=1`;
     const a = document.createElement('a');
     a.href = url;
     a.download = `${selectedJob?.jobName || 'refine3d'}_it${iter}_${mapType}.mrc`;
@@ -82,7 +82,7 @@ const AutoRefineDashboard = () => {
                 setFscData(fscRes.data.data.fscCurve);
               }
             })
-            .catch(() => {}); // FSC is optional
+            .catch((err) => console.warn('[AutoRefine] FSC data not available:', err.message));
         }
       }
     } catch (err) {
@@ -121,7 +121,7 @@ const AutoRefineDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -168,6 +168,8 @@ const AutoRefineDashboard = () => {
                   ? "var(--color-success-text)"
                   : status === "failed"
                   ? "var(--color-danger-text)"
+                  : status === "pending"
+                  ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success"

@@ -112,7 +112,7 @@ const DClassification = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
-    twoDClassificationAPI({ ...(formData || {}), project_id: projectId })
+    twoDClassificationAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -207,7 +207,7 @@ const DClassification = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

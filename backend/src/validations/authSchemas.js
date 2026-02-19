@@ -17,24 +17,24 @@ const registerSchema = {
       .messages({ 'string.pattern.base': 'Username must contain only letters, numbers, underscore, dot, or hyphen' }),
     email: Joi.string().email().max(254).required(),
     password: Joi.string().min(8).max(128).required(),
-    first_name: Joi.string().max(100).allow('').default(''),
-    last_name: Joi.string().max(100).allow('').default('')
+    firstName: Joi.string().max(100).allow('').default(''),
+    lastName: Joi.string().max(100).allow('').default('')
   })
 };
 
 const changePasswordSchema = {
   body: Joi.object({
-    current_password: Joi.string().required(),
-    new_password: Joi.string().min(8).max(128).required(),
-    confirm_password: Joi.string().valid(Joi.ref('new_password')).required()
+    currentPassword: Joi.string().required(),
+    newPassword: Joi.string().min(8).max(128).required(),
+    confirmPassword: Joi.string().valid(Joi.ref('newPassword')).required()
       .messages({ 'any.only': 'New password and confirmation do not match' })
   })
 };
 
 const updateProfileSchema = {
   body: Joi.object({
-    first_name: Joi.string().max(100).allow(''),
-    last_name: Joi.string().max(100).allow(''),
+    firstName: Joi.string().max(100).allow(''),
+    lastName: Joi.string().max(100).allow(''),
     email: Joi.string().email().max(254)
   })
 };
@@ -48,8 +48,8 @@ const forgotPasswordSchema = {
 const resetPasswordSchema = {
   body: Joi.object({
     token: Joi.string().hex().length(64).required(),
-    new_password: Joi.string().min(8).max(128).required(),
-    confirm_password: Joi.string().valid(Joi.ref('new_password')).required()
+    newPassword: Joi.string().min(8).max(128).required(),
+    confirmPassword: Joi.string().valid(Joi.ref('newPassword')).required()
       .messages({ 'any.only': 'New password and confirmation do not match' })
   })
 };

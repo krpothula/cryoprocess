@@ -153,21 +153,21 @@ describe('authMiddleware', () => {
 
 describe('isStaff', () => {
   it('allows staff users', () => {
-    const req = { user: { is_staff: true, is_superuser: false } };
+    const req = { user: { isStaff: true, isSuperuser: false } };
     const res = mockRes();
     isStaff(req, res, nextFn);
     expect(nextFn).toHaveBeenCalled();
   });
 
   it('allows superusers', () => {
-    const req = { user: { is_staff: false, is_superuser: true } };
+    const req = { user: { isStaff: false, isSuperuser: true } };
     const res = mockRes();
     isStaff(req, res, nextFn);
     expect(nextFn).toHaveBeenCalled();
   });
 
   it('rejects regular users', () => {
-    const req = { user: { is_staff: false, is_superuser: false } };
+    const req = { user: { isStaff: false, isSuperuser: false } };
     const res = mockRes();
     isStaff(req, res, nextFn);
     expect(res.statusCode).toBe(403);
@@ -185,14 +185,14 @@ describe('isStaff', () => {
 
 describe('isSuperuser', () => {
   it('allows superusers', () => {
-    const req = { user: { is_superuser: true } };
+    const req = { user: { isSuperuser: true } };
     const res = mockRes();
     isSuperuser(req, res, nextFn);
     expect(nextFn).toHaveBeenCalled();
   });
 
   it('rejects staff (non-super) users', () => {
-    const req = { user: { is_staff: true, is_superuser: false } };
+    const req = { user: { isStaff: true, isSuperuser: false } };
     const res = mockRes();
     isSuperuser(req, res, nextFn);
     expect(res.statusCode).toBe(403);

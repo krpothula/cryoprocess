@@ -12,6 +12,7 @@ const settings = require('../config/settings');
 const { getMonitor } = require('./slurmMonitor');
 const Project = require('../models/Project');
 const ProjectMember = require('../models/ProjectMember');
+const { mapKeys } = require('../utils/mapKeys');
 
 class WebSocketServer {
   constructor() {
@@ -197,8 +198,7 @@ class WebSocketServer {
    * @param {Object} data
    */
   async handleSubscribe(ws, client, data) {
-    // Support both snake_case (from frontend) and camelCase
-    const projectId = data.projectId || data.project_id;
+    const projectId = data.projectId;
     const { channel } = data;
 
     if (projectId) {
@@ -276,8 +276,7 @@ class WebSocketServer {
    * @param {Object} data
    */
   handleUnsubscribe(ws, client, data) {
-    // Support both snake_case and camelCase
-    const projectId = data.projectId || data.project_id;
+    const projectId = data.projectId;
     const { channel } = data;
 
     if (projectId) {
@@ -310,10 +309,10 @@ class WebSocketServer {
    * Handle request for current live session state (sent on reconnect)
    * @param {WebSocket} ws
    * @param {Object} client
-   * @param {Object} data - { session_id }
+   * @param {Object} data - { sessionId }
    */
   async handleGetLiveState(ws, client, data) {
-    const sessionId = data.session_id;
+    const sessionId = data.sessionId;
     if (!sessionId) return;
 
     try {
@@ -324,8 +323,8 @@ class WebSocketServer {
       if (session) {
         this.send(ws, {
           type: 'live_session_state',
-          session_id: sessionId,
-          data: session,
+          sessionId,
+          data: mapKeys(session),
           timestamp: new Date().toISOString()
         });
       }

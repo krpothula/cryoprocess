@@ -95,7 +95,7 @@ const Mask = () => {
     e.preventDefault();
     setLoading(true);
 
-    maskCreationAPI({ ...(formData || {}), project_id: projectId })
+    maskCreationAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -149,7 +149,7 @@ const Mask = () => {
       </div>
 
       {/* Form content */}
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}
@@ -352,7 +352,7 @@ const Mask = () => {
       </div>
 
       
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

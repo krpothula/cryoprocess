@@ -133,8 +133,8 @@ export const getResourceLimits = async () => {
 export const cancelSlurmJob = async (slurmJobId, jobId = null) => {
   try {
     const response = await axiosInstance.post(`${SLURM_BASE_URL}/cancel/`, {
-      slurm_job_id: slurmJobId,
-      job_id: jobId
+      slurmJobId,
+      jobId
     });
     return response.data;
   } catch (error) {
@@ -263,10 +263,10 @@ export const getJobIssues = async (jobId, options = {}) => {
   try {
     const params = {};
     if (options.includeWarnings !== undefined) {
-      params.include_warnings = options.includeWarnings ? 'true' : 'false';
+      params.includeWarnings = options.includeWarnings ? 'true' : 'false';
     }
     if (options.includePostprocess !== undefined) {
-      params.include_postprocess = options.includePostprocess ? 'true' : 'false';
+      params.includePostprocess = options.includePostprocess ? 'true' : 'false';
     }
 
     const response = await axiosInstance.get(`${SLURM_BASE_URL}/jobs/${jobId}/issues/`, { params });

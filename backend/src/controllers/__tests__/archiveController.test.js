@@ -73,7 +73,7 @@ jest.mock('../../utils/responseHelper', () => ({
   forbidden: jest.fn((res, msg) => res.status(403).json({ success: false, message: msg })),
   conflict: jest.fn((res, msg) => res.status(409).json({ success: false, message: msg })),
   serverError: jest.fn((res, msg) => res.status(500).json({ success: false, message: msg })),
-  success: jest.fn((res, data) => res.status(200).json({ success: true, ...data })),
+  success: jest.fn((res, data, statusCode = 200) => res.status(statusCode).json({ success: true, ...data })),
 }));
 
 const { archiveProject, restoreProject, relocateProject } = require('../archiveController');
@@ -98,9 +98,9 @@ const mockRes = () => {
   return res;
 };
 
-const ownerUser = { id: 'user-1', is_superuser: false };
-const superUser = { id: 'admin-1', is_superuser: true };
-const otherUser = { id: 'user-2', is_superuser: false };
+const ownerUser = { id: 'user-1', isSuperuser: false };
+const superUser = { id: 'admin-1', isSuperuser: true };
+const otherUser = { id: 'user-2', isSuperuser: false };
 
 // ─── Setup / Teardown ───────────────────────────────────────────────
 
@@ -413,7 +413,7 @@ describe('relocateProject', () => {
 
   it('updates folder_name and rewrites job paths', async () => {
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: '/mnt/custom/NewLocation' }), res);
+    await relocateProject(makeReq({ newPath: '/mnt/custom/NewLocation' }), res);
 
     expect(res.statusCode).toBe(200);
     expect(mockProjectSaved).toBe(true);
@@ -430,7 +430,7 @@ describe('relocateProject', () => {
   it('returns job count in success message', async () => {
     mockRewrittenCount = 12;
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: '/mnt/custom/NewLocation' }), res);
+    await relocateProject(makeReq({ newPath: '/mnt/custom/NewLocation' }), res);
 
     expect(res.body.message).toContain('12');
   });
@@ -438,7 +438,7 @@ describe('relocateProject', () => {
   // ─── Edge case: non-superuser ───────────────────────────────────
   it('rejects non-superuser', async () => {
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: '/mnt/custom/NewLocation' }, ownerUser), res);
+    await relocateProject(makeReq({ newPath: '/mnt/custom/NewLocation' }, ownerUser), res);
 
     expect(res.statusCode).toBe(403);
     expect(res.body.message).toContain('superusers');
@@ -447,44 +447,44 @@ describe('relocateProject', () => {
   // ─── Edge case: relative path ───────────────────────────────────
   it('rejects relative paths', async () => {
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: 'relative/path' }), res);
+    await relocateProject(makeReq({ newPath: 'relative/path' }), res);
 
     expect(res.statusCode).toBe(400);
     expect(res.body.message).toContain('absolute path');
   });
 
-  // ─── Edge case: missing new_path ────────────────────────────────
-  it('rejects missing new_path', async () => {
+  // ─── Edge case: missing newPath ────────────────────────────────
+  it('rejects missing newPath', async () => {
     const res = mockRes();
     await relocateProject(makeReq({}), res);
 
     expect(res.statusCode).toBe(400);
   });
 
-  // ─── Edge case: null new_path ───────────────────────────────────
-  it('rejects null new_path', async () => {
+  // ─── Edge case: null newPath ───────────────────────────────────
+  it('rejects null newPath', async () => {
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: null }), res);
+    await relocateProject(makeReq({ newPath: null }), res);
 
     expect(res.statusCode).toBe(400);
   });
 
   // ─── Edge case: path does not exist on disk ─────────────────────
-  it('rejects when new_path does not exist on disk', async () => {
+  it('rejects when newPath does not exist on disk', async () => {
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: '/nonexistent/path' }), res);
+    await relocateProject(makeReq({ newPath: '/nonexistent/path' }), res);
 
     expect(res.statusCode).toBe(400);
     expect(res.body.message).toContain('does not exist');
   });
 
   // ─── Edge case: auto-detect is_archived from ROOT_PATH ──────────
-  it('sets is_archived=false when new_path is under ROOT_PATH', async () => {
+  it('sets is_archived=false when newPath is under ROOT_PATH', async () => {
     mockProject.is_archived = true;
     mockFsExistsResults['/data/projects/RestoredProject'] = true;
 
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: '/data/projects/RestoredProject' }), res);
+    await relocateProject(makeReq({ newPath: '/data/projects/RestoredProject' }), res);
 
     expect(res.statusCode).toBe(200);
     expect(mockProject.is_archived).toBe(false);
@@ -492,25 +492,25 @@ describe('relocateProject', () => {
   });
 
   // ─── Edge case: auto-detect is_archived from ARCHIVE_PATH ──────
-  it('sets is_archived=true when new_path is under ARCHIVE_PATH', async () => {
+  it('sets is_archived=true when newPath is under ARCHIVE_PATH', async () => {
     mockProject.is_archived = false;
     mockFsExistsResults['/mnt/archive/projects/ArchivedProject'] = true;
 
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: '/mnt/archive/projects/ArchivedProject' }), res);
+    await relocateProject(makeReq({ newPath: '/mnt/archive/projects/ArchivedProject' }), res);
 
     expect(res.statusCode).toBe(200);
     expect(mockProject.is_archived).toBe(true);
     expect(mockProject.folder_name).toBe('ArchivedProject');
   });
 
-  // ─── Edge case: new_path outside both ROOT and ARCHIVE ──────────
-  it('preserves current is_archived when new_path is outside known paths', async () => {
+  // ─── Edge case: newPath outside both ROOT and ARCHIVE ──────────
+  it('preserves current is_archived when newPath is outside known paths', async () => {
     mockProject.is_archived = false;
     mockFsExistsResults['/mnt/custom/SomeProject'] = true;
 
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: '/mnt/custom/SomeProject' }), res);
+    await relocateProject(makeReq({ newPath: '/mnt/custom/SomeProject' }), res);
 
     expect(res.statusCode).toBe(200);
     expect(mockProject.is_archived).toBe(false);
@@ -520,7 +520,7 @@ describe('relocateProject', () => {
   it('returns 404 when project does not exist', async () => {
     mockProject = null;
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: '/mnt/custom/NewLocation' }), res);
+    await relocateProject(makeReq({ newPath: '/mnt/custom/NewLocation' }), res);
 
     expect(res.statusCode).toBe(404);
   });
@@ -531,7 +531,7 @@ describe('relocateProject', () => {
     mockFsExistsResults['/mnt/custom/Moved'] = true;
 
     const res = mockRes();
-    await relocateProject(makeReq({ new_path: '/mnt/custom/Moved' }), res);
+    await relocateProject(makeReq({ newPath: '/mnt/custom/Moved' }), res);
 
     const { rewriteJobPaths } = require('../../utils/pathUtils');
     expect(rewriteJobPaths).toHaveBeenCalledWith(

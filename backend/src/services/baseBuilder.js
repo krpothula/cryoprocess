@@ -60,8 +60,8 @@ class BaseJobBuilder {
    */
   getInputJobIds() {
     // If explicitly provided, use those
-    if (this.data.input_job_ids && this.data.input_job_ids.length > 0) {
-      return this.data.input_job_ids;
+    if (this.data.inputJobIds && this.data.inputJobIds.length > 0) {
+      return this.data.inputJobIds;
     }
 
     // Otherwise, extract job names from input file paths
@@ -130,6 +130,61 @@ class BaseJobBuilder {
   getInputJobId() {
     const ids = this.getInputJobIds();
     return ids.length > 0 ? ids[0] : '';
+  }
+
+  /**
+   * Get the subdirectory (relative to the job output dir) where RELION writes
+   * per-micrograph output files.  RELION mirrors the input micrograph path
+   * structure, so for downstream jobs the outputs are nested, e.g.
+   *   CtfFind/Job005/MotionCorr/Job003/Movies/*.ctf
+   *
+   * This reads the primary input STAR file, extracts the first micrograph path,
+   * and returns its directory component (e.g. "MotionCorr/Job003/Movies").
+   *
+   * Returns null when not applicable (iterative jobs, Import, etc.).
+   * Subclasses may override if they use a different input field.
+   * @returns {string|null}
+   */
+  getProgressSubdir() {
+    // Only relevant for downstream per-micrograph jobs that mirror input paths.
+    // MotionCorr uses config.subdir='Movies' in PROGRESS_CONFIG (no DB storage needed).
+    const perMicTypes = ['CtfFind', 'AutoPick', 'Extract'];
+    if (!perMicTypes.includes(this.stageName)) {
+      return null;
+    }
+
+    try {
+      const { getFirstMoviePathSync } = require('../utils/starParser');
+
+      // Find the primary input STAR file
+      const inputFields = [
+        'inputStarFile', 'inputMicrographs', 'micrographStarFile',
+        'inputCoordinates', 'coordinatesFile', 'inputMovies'
+      ];
+      let starPath = null;
+      for (const field of inputFields) {
+        const val = this.data[field];
+        if (val && typeof val === 'string') {
+          starPath = this.resolveInputPath(val);
+          break;
+        }
+      }
+      if (!starPath) return null;
+
+      // Read the first micrograph path from the STAR file
+      const firstMicPath = getFirstMoviePathSync(starPath);
+      if (!firstMicPath) return null;
+
+      // Return the directory portion (e.g. "MotionCorr/Job003/Movies")
+      const subdir = path.dirname(firstMicPath);
+      if (subdir === '.' || !subdir) return null;
+
+      logger.info(`[${this.stageName}] Progress subdir resolved: ${subdir}`);
+      return subdir;
+    } catch (err) {
+      logger.warn(`[${this.stageName}] Could not resolve progress subdir: ${err.message}`);
+      return null;
+    }
   }
 
   /**
@@ -275,7 +330,7 @@ class BaseJobBuilder {
 
   /**
    * Whether this job type supports MPI parallelization.
-   * Override to false for non-MPI jobs (Import, LinkMovies, etc.)
+   * Override to false for non-MPI jobs (Import, etc.)
    * Used by job submission to prevent mpirun usage for non-MPI jobs.
    * @returns {boolean}
    */

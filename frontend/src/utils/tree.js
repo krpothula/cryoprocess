@@ -35,7 +35,7 @@ const jobTypeColors = {
 const getJobColor = (jobType) => {
   if (!jobType) return jobTypeColors.default;
   const type = jobType.toLowerCase();
-  if (type.includes("import") || type === "linkmovies") return jobTypeColors.Import;
+  if (type.includes("import")) return jobTypeColors.Import;
   if (type.includes("motion")) return jobTypeColors.Motion;
   if (type.includes("ctffind") || type === "ctffind") return jobTypeColors.CTF;
   if (type.includes("ctfrefine")) return jobTypeColors.Refine;

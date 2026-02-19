@@ -38,6 +38,7 @@ const CtfDashboard = () => {
   const [selectedMicrograph, setSelectedMicrograph] = useState(null);
   const [powerSpectrumImage, setPowerSpectrumImage] = useState(null);
   const [micrographImage, setMicrographImage] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showCommand, setShowCommand] = useState(false);
   const [commandCopied, setCommandCopied] = useState(false);
@@ -221,8 +222,13 @@ const CtfDashboard = () => {
   // Fetch power spectrum and micrograph image when micrograph is selected
   useEffect(() => {
     if (selectedMicrograph) {
-      fetchPowerSpectrum(selectedMicrograph);
-      fetchMicrographImage(selectedMicrograph);
+      setImageLoading(true);
+      setPowerSpectrumImage(null);
+      setMicrographImage(null);
+      Promise.all([
+        fetchPowerSpectrum(selectedMicrograph),
+        fetchMicrographImage(selectedMicrograph),
+      ]).finally(() => setImageLoading(false));
     }
   }, [selectedMicrograph, fetchPowerSpectrum, fetchMicrographImage]);
 
@@ -340,7 +346,7 @@ const CtfDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -389,6 +395,7 @@ const CtfDashboard = () => {
                 fontWeight: 500,
                 color: status === "success" ? "var(--color-success-text)"
                   : status === "failed" ? "var(--color-danger-text)"
+                  : status === "pending" ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success" ? "Success"
@@ -543,6 +550,7 @@ const CtfDashboard = () => {
                 micrographData={allMicrographs.find(m => m.micrographName === selectedMicrograph)}
                 zoom={viewerZoom}
                 activeTab={activeImageTab}
+                loading={imageLoading}
               />
             </div>
           </div>
@@ -571,7 +579,10 @@ const CtfDashboard = () => {
               type="number"
               placeholder="Min"
               value={filters.minDefocus != null ? Math.round(filters.minDefocus) : ""}
-              onChange={(e) => setFilters({ ...filters, minDefocus: e.target.value ? parseFloat(e.target.value) : null })}
+              onChange={(e) => {
+                const val = e.target.value ? parseFloat(e.target.value) : null;
+                setFilters(f => ({ ...f, minDefocus: val }));
+              }}
               className="w-20 px-2 py-1 border border-[var(--color-border)] rounded focus:outline-none focus:border-[var(--color-border-focus)] focus:ring-1 focus:ring-[var(--color-primary-light)]"
               style={{ fontSize: '12px' }}
             />
@@ -580,7 +591,10 @@ const CtfDashboard = () => {
               type="number"
               placeholder="Max"
               value={filters.maxDefocus != null ? Math.round(filters.maxDefocus) : ""}
-              onChange={(e) => setFilters({ ...filters, maxDefocus: e.target.value ? parseFloat(e.target.value) : null })}
+              onChange={(e) => {
+                const val = e.target.value ? parseFloat(e.target.value) : null;
+                setFilters(f => ({ ...f, maxDefocus: val }));
+              }}
               className="w-20 px-2 py-1 border border-[var(--color-border)] rounded focus:outline-none focus:border-[var(--color-border-focus)] focus:ring-1 focus:ring-[var(--color-primary-light)]"
               style={{ fontSize: '12px' }}
             />

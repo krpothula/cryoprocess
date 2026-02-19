@@ -124,7 +124,7 @@ class ExtractBuilder extends BaseJobBuilder {
 
     // Get MPI processes for parallel extraction
     // Debug: log all potential MPI field values
-    logger.info(`[Extract] MPI fields: numberOfMpiProcs=${data.numberOfMpiProcs}, mpiProcs=${data.mpiProcs}, mpi_procs=${data.mpi_procs}, runningmpi=${data.runningmpi}, nr_mpi=${data.nr_mpi}`);
+    logger.info(`[Extract] MPI fields: mpiProcs=${data.mpiProcs}, numberOfMpiProcs=${data.numberOfMpiProcs}`);
     const mpiProcs = getMpiProcs(data);
     logger.info(`[Extract] MPI procs result: ${mpiProcs}`);
 

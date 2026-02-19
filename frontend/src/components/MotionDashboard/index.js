@@ -35,6 +35,8 @@ const MotionDashboard = () => {
   const [liveStats, setLiveStats] = useState(null);
   const [selectedMicrograph, setSelectedMicrograph] = useState(null);
   const [shiftData, setShiftData] = useState(null);
+  const [shiftError, setShiftError] = useState(null);
+  const [shiftLoading, setShiftLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showCommand, setShowCommand] = useState(false);
   const [commandCopied, setCommandCopied] = useState(false);
@@ -108,6 +110,10 @@ const MotionDashboard = () => {
   const fetchShiftData = useCallback(async (micrographName) => {
     if (!selectedJob?.id || !micrographName) return;
 
+    setShiftData(null);
+    setShiftError(null);
+    setShiftLoading(true);
+
     try {
       // Normalize: strip path and .mrc extension so backend finds the .star file
       const parts = micrographName.split("/");
@@ -118,9 +124,15 @@ const MotionDashboard = () => {
       );
       if (response?.data?.status === "success") {
         setShiftData(response.data.data);
+      } else {
+        setShiftError("No shift data returned");
       }
     } catch (err) {
       console.error("Error fetching shift data:", err);
+      const msg = err?.response?.data?.message || err.message || "Failed to load shift data";
+      setShiftError(msg);
+    } finally {
+      setShiftLoading(false);
     }
   }, [selectedJob?.id]);
 
@@ -187,7 +199,7 @@ const MotionDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -232,6 +244,7 @@ const MotionDashboard = () => {
                 fontWeight: 500,
                 color: status === "success" ? "var(--color-success-text)"
                   : status === "failed" ? "var(--color-danger-text)"
+                  : status === "pending" ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success" ? "Success"
@@ -383,6 +396,16 @@ const MotionDashboard = () => {
           <div className="flex-1 min-h-0">
             {shiftData ? (
               <ShiftTrajectory data={shiftData} />
+            ) : shiftLoading ? (
+              <div className="h-full flex flex-col items-center justify-center text-[var(--color-text-muted)]">
+                <BiLoader className="animate-spin text-2xl mb-2" />
+                <p className="text-center text-xs">Loading shift data...</p>
+              </div>
+            ) : shiftError ? (
+              <div className="h-full flex flex-col items-center justify-center text-[var(--color-text-muted)]">
+                <FiAlertCircle className="text-2xl mb-2 text-amber-500" />
+                <p className="text-center text-xs">{shiftError}</p>
+              </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-[var(--color-text-muted)]">
                 <FiActivity className="text-3xl mb-2" />

@@ -100,7 +100,7 @@ const PostProcessing = () => {
     e.preventDefault();
     setLoading(true);
 
-    postProcessingAPI({ ...(formData || {}), project_id: projectId })
+    postProcessingAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -152,7 +152,7 @@ const PostProcessing = () => {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             handleInputChange={handleInputChange}

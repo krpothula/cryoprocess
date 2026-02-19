@@ -6,7 +6,7 @@ import axiosInstance from "../config";
 
 /**
  * Preview the command that would be built for a job
- * @param {Object} payload - Form data including job_type and project_id
+ * @param {Object} payload - Form data including jobType and projectId
  * @returns {Promise} API response with command string
  */
 const previewCommandAPI = (payload = {}) => {

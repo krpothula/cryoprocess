@@ -2,41 +2,41 @@ import axiosInstance from "../config";
 
 const getJobsApi = (projectId = "", skip = 0, limit = 10) => {
   return axiosInstance.get(
-    `/jobs?project_id=${projectId}&skip=${skip}&limit=${limit}`
+    `/jobs?projectId=${projectId}&skip=${skip}&limit=${limit}`
   );
 };
 
 const getFilesApi = (projectId = "", jobId = "") => {
   return axiosInstance.get(
-    `/api/download/?project_id=${projectId}&job_id=${jobId}`
+    `/api/download/?projectId=${projectId}&jobId=${jobId}`
   );
 };
 
 const getLogsApi = (projectId = "", jobId = "") => {
   return axiosInstance.get(
-    `/api/import/logs?project_id=${projectId}&job_id=${jobId}`
+    `/api/import/logs?projectId=${projectId}&jobId=${jobId}`
   );
 };
 
 const getGroupedFilesApi = (projectId = "", type = "") => {
   return axiosInstance.get(
-    `/grouping/files/?project_id=${projectId}&type=${type}`
+    `/grouping/files/?projectId=${projectId}&type=${type}`
   );
 };
 const getGroupedMrcFilesApi = (projectId = "", type = "") => {
   return axiosInstance.get(
-    `/listing/mrcfiles/?project_id=${projectId}&type=${type}`
+    `/listing/mrcfiles/?projectId=${projectId}&type=${type}`
   );
 };
 
 const getMrcMapsApi = (projectId = "", type = "") => {
   return axiosInstance.get(
-    `/listing/mrcmaps/?project_id=${projectId}&type=${type}`
+    `/listing/mrcmaps/?projectId=${projectId}&type=${type}`
   );
 };
 
 const getJobsTreeApi = (projectId = "") => {
-  return axiosInstance.get(`/api/jobs/tree?project_id=${projectId}`);
+  return axiosInstance.get(`/api/jobs/tree?projectId=${projectId}`);
 };
 
 /**
@@ -46,7 +46,7 @@ const getJobsTreeApi = (projectId = "") => {
  * @param {string} stage - Stage name (Import, Motion, CTF, etc.)
  */
 const getStageStarFilesApi = (projectId = "", stage = "") => {
-  return axiosInstance.get(`/api/stage-files/?project_id=${projectId}&stage=${stage}`);
+  return axiosInstance.get(`/api/stage-files/?projectId=${projectId}&stage=${stage}`);
 };
 
 /**
@@ -56,7 +56,7 @@ const getStageStarFilesApi = (projectId = "", stage = "") => {
  * @param {string} stage - Stage name (InitialModel, Class3D, AutoRefine, etc.)
  */
 const getStageMrcFilesApi = (projectId = "", stage = "") => {
-  return axiosInstance.get(`/api/stage-mrc-files/?project_id=${projectId}&stage=${stage}`);
+  return axiosInstance.get(`/api/stage-mrc-files/?projectId=${projectId}&stage=${stage}`);
 };
 
 /**
@@ -66,7 +66,7 @@ const getStageMrcFilesApi = (projectId = "", stage = "") => {
  * @param {string} stage - Stage name (Class2D, Class3D, AutoRefine, InitialModel)
  */
 const getStageOptimiserFilesApi = (projectId = "", stage = "") => {
-  return axiosInstance.get(`/api/stage-optimiser-files/?project_id=${projectId}&stage=${stage}`);
+  return axiosInstance.get(`/api/stage-optimiser-files/?projectId=${projectId}&stage=${stage}`);
 };
 
 /**
@@ -76,7 +76,7 @@ const getStageOptimiserFilesApi = (projectId = "", stage = "") => {
  * @param {string} starFile - Path to particles.star file
  */
 const getParticleMetadataApi = (projectId = "", starFile = "") => {
-  return axiosInstance.get(`/api/particle-metadata/?project_id=${projectId}&star_file=${encodeURIComponent(starFile)}`);
+  return axiosInstance.get(`/api/particle-metadata/?projectId=${projectId}&starFile=${encodeURIComponent(starFile)}`);
 };
 
 /**
@@ -87,7 +87,7 @@ const getParticleMetadataApi = (projectId = "", starFile = "") => {
  * @param {string} extensions - Comma-separated file extensions to filter (e.g., ".mrc,.map")
  */
 const browseFolderApi = (projectId = "", path = "", extensions = "") => {
-  let url = `/api/browse-folder/?project_id=${projectId}&path=${encodeURIComponent(path)}`;
+  let url = `/api/browse-folder/?projectId=${projectId}&path=${encodeURIComponent(path)}`;
   if (extensions) {
     url += `&extensions=${encodeURIComponent(extensions)}`;
   }
@@ -121,8 +121,8 @@ const getJobOutputsApi = (jobId = "") => {
  * @param {string} role - Filter by semantic role: 'particlesStar', 'referenceMrc', etc. (optional)
  */
 const getStageOutputFilesApi = (projectId = "", stages = "", fileType = "", role = "") => {
-  let url = `/api/jobs/stage-outputs?project_id=${projectId}&stages=${encodeURIComponent(stages)}`;
-  if (fileType) url += `&file_type=${fileType}`;
+  let url = `/api/jobs/stage-outputs?projectId=${projectId}&stages=${encodeURIComponent(stages)}`;
+  if (fileType) url += `&fileType=${fileType}`;
   if (role) url += `&role=${role}`;
   return axiosInstance.get(url);
 };

@@ -147,13 +147,21 @@ const CTFParameterHistogram = ({
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
 
-  // Get value from x position
+  // Get value from x position (converts screen coords to SVG viewBox coords)
   const getValueFromX = (clientX) => {
     if (!svgRef.current) return null;
     const range = histogramData.max - histogramData.min;
     if (range === 0) return histogramData.min;
-    const rect = svgRef.current.getBoundingClientRect();
-    const x = clientX - rect.left - margin.left;
+
+    // Use SVG's coordinate transform to correctly map screen → viewBox coords
+    const ctm = svgRef.current.getScreenCTM();
+    if (!ctm) return null;
+    const point = svgRef.current.createSVGPoint();
+    point.x = clientX;
+    point.y = 0;
+    const svgPoint = point.matrixTransform(ctm.inverse());
+
+    const x = svgPoint.x - margin.left;
     const ratio = Math.max(0, Math.min(1, x / plotWidth));
     return histogramData.min + ratio * range;
   };
@@ -192,8 +200,14 @@ const CTFParameterHistogram = ({
       }
 
       setDragTarget(target);
-      if (target === "min") onFilterMinChange?.(value);
-      else onFilterMaxChange?.(value);
+      // Clamp to prevent crossover
+      if (target === "min") {
+        const clamped = filterMaxValue !== null ? Math.min(value, filterMaxValue) : value;
+        onFilterMinChange?.(clamped);
+      } else {
+        const clamped = filterMinValue !== null ? Math.max(value, filterMinValue) : value;
+        onFilterMaxChange?.(clamped);
+      }
       setIsDragging(true);
     } else {
       if (!onFilterChange) return;
@@ -208,8 +222,14 @@ const CTFParameterHistogram = ({
 
     if (isDragging) {
       if (rangeFilter) {
-        if (dragTarget === "min") onFilterMinChange?.(value);
-        else if (dragTarget === "max") onFilterMaxChange?.(value);
+        // Clamp to prevent min/max crossover during drag
+        if (dragTarget === "min") {
+          const clamped = filterMaxValue !== null ? Math.min(value, filterMaxValue) : value;
+          onFilterMinChange?.(clamped);
+        } else if (dragTarget === "max") {
+          const clamped = filterMinValue !== null ? Math.max(value, filterMinValue) : value;
+          onFilterMaxChange?.(clamped);
+        }
       } else if (onFilterChange) {
         onFilterChange(value);
       }
@@ -281,8 +301,8 @@ const CTFParameterHistogram = ({
   // Render a filter line with label
   const renderFilterLine = (x, label, position = "top") => {
     if (x === null) return null;
-    const labelY = position === "top" ? -2 : plotHeight - 12;
-    const textY = position === "top" ? 8 : plotHeight - 2;
+    const labelY = -2;
+    const textY = 8;
     const lineColor = position === "top" ? "var(--color-primary)" : "#1d4ed8"; // blue for min, darker blue for max
     return (
       <>

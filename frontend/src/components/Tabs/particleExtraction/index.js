@@ -118,7 +118,7 @@ const ParticleExtraction = () => {
     e.preventDefault();
 
     setLoading(true);
-    particleExtractionAPI({ ...(formData || {}), project_id: projectId })
+    particleExtractionAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -186,7 +186,7 @@ const ParticleExtraction = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

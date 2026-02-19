@@ -22,7 +22,7 @@ import useJobNotification from "../../hooks/useJobNotification";
 const API_BASE_URL = process.env.REACT_APP_API_HOST || "";
 
 const getMaskCreateResultsApi = async (jobId) => {
-  return axiosInstance.get(`${API_BASE_URL}/maskcreate/results/?job_id=${jobId}`);
+  return axiosInstance.get(`${API_BASE_URL}/maskcreate/results/?jobId=${jobId}`);
 };
 
 const MaskCreateDashboard = () => {
@@ -34,7 +34,7 @@ const MaskCreateDashboard = () => {
   const [commandCopied, setCommandCopied] = useState(false);
 
   const handleDownload = () => {
-    const url = `${API_BASE_URL}/maskcreate/mrc/?job_id=${selectedJob?.id}`;
+    const url = `${API_BASE_URL}/maskcreate/mrc/?jobId=${selectedJob?.id}`;
     const a = document.createElement('a');
     a.href = url;
     a.download = `${selectedJob?.jobName || 'mask'}_mask.mrc`;
@@ -102,7 +102,7 @@ const MaskCreateDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -149,6 +149,8 @@ const MaskCreateDashboard = () => {
                   ? "var(--color-success-text)"
                   : status === "failed"
                   ? "var(--color-danger-text)"
+                  : status === "pending"
+                  ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success"

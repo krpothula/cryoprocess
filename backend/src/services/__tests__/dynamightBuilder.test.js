@@ -81,7 +81,7 @@ describe('DynamightBuilder — optimize-deformations (default)', () => {
   });
 
   it('includes --n-threads', () => {
-    const cmd = buildCommand(DynamightBuilder, { ...BASE_DATA, threads: 8 });
+    const cmd = buildCommand(DynamightBuilder, { ...BASE_DATA, numberOfThreads: 8 });
     expectFlag(cmd, '--n-threads', '8');
   });
 

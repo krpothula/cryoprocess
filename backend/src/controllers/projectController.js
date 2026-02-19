@@ -16,6 +16,8 @@ const settings = require('../config/settings');
 const response = require('../utils/responseHelper');
 const auditLog = require('../utils/auditLogger');
 const { mapKeys } = require('../utils/mapKeys');
+const { checkProjectAccess } = require('./projectMemberController');
+const { parsePagination } = require('../utils/pagination');
 
 /**
  * Helper to get user display name
@@ -63,12 +65,11 @@ function mapProject(p) {
 exports.listProjects = async (req, res) => {
   try {
     const { includeArchived = 'false' } = req.query;
-    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-    const skip = Math.max(parseInt(req.query.skip) || 0, 0);
+    const { limit, skip } = parsePagination(req.query, { maxLimit: 200 });
     const currentUserName = getUserDisplayName(req.user);
 
     // Staff and Superusers see ALL projects
-    if (req.user.is_staff || req.user.is_superuser) {
+    if (req.user.isStaff || req.user.isSuperuser) {
       const query = {};
       if (includeArchived !== 'true') {
         query.is_archived = { $ne: true };
@@ -107,8 +108,8 @@ exports.listProjects = async (req, res) => {
 
       // Enrich projects without N+1 queries
       for (const project of allProjects) {
-        project.isOwner = project.created_by_id === req.user.id || req.user.is_superuser;
-        project.role = project.created_by_id === req.user.id ? 'owner' : (req.user.is_superuser ? 'admin' : 'editor');
+        project.isOwner = project.created_by_id === req.user.id || req.user.isSuperuser;
+        project.role = project.created_by_id === req.user.id ? 'owner' : (req.user.isSuperuser ? 'admin' : 'editor');
         project.jobCount = jobCountMap[project.id] || 0;
         project.createdName = project.created_by_id === req.user.id
           ? currentUserName
@@ -325,29 +326,12 @@ exports.getProject = async (req, res) => {
     }
 
     // Check ownership or membership
-    let role = null;
-    let isOwner = false;
-
-    if (project.created_by_id === req.user.id) {
-      role = 'owner';
-      isOwner = true;
-    } else if (req.user.is_superuser) {
-      role = 'admin';
-      isOwner = true;
-    } else if (req.user.is_staff) {
-      role = 'editor';
-      isOwner = true;
-    } else {
-      const membership = await ProjectMember.findOne({
-        project_id: projectId,
-        user_id: req.user.id
-      }).lean();
-
-      if (!membership) {
-        return response.forbidden(res);
-      }
-      role = membership.role;
+    const access = await checkProjectAccess(projectId, req.user.id, 'viewer');
+    if (!access.hasAccess) {
+      return response.forbidden(res);
     }
+    const role = access.role;
+    const isOwner = role === 'owner' || role === 'admin';
 
     // Add job count and role info
     project.jobCount = await Job.countDocuments({ project_id: projectId });
@@ -383,15 +367,9 @@ exports.updateProject = async (req, res) => {
     }
 
     // Check ownership, staff, superuser, or admin role
-    if (project.created_by_id !== req.user.id && !req.user.is_staff && !req.user.is_superuser) {
-      const membership = await ProjectMember.findOne({
-        project_id: projectId,
-        user_id: req.user.id
-      }).lean();
-
-      if (!membership || membership.role !== 'admin') {
-        return response.forbidden(res, 'Only project owner or admin can update project');
-      }
+    const access = await checkProjectAccess(projectId, req.user.id, 'admin');
+    if (!access.hasAccess) {
+      return response.forbidden(res, 'Only project owner or admin can update project');
     }
 
     // Validate and update fields
@@ -454,7 +432,7 @@ exports.deleteProject = async (req, res) => {
     }
 
     // Verify ownership or superuser
-    if (project.created_by_id !== req.user.id && !req.user.is_superuser) {
+    if (project.created_by_id !== req.user.id && !req.user.isSuperuser) {
       return response.forbidden(res);
     }
 
@@ -503,15 +481,9 @@ exports.getProjectJobs = async (req, res) => {
     }
 
     // Check ownership, staff/superuser, or membership
-    if (project.created_by_id !== req.user.id && !req.user.is_staff && !req.user.is_superuser) {
-      const membership = await ProjectMember.findOne({
-        project_id: projectId,
-        user_id: req.user.id
-      }).lean();
-
-      if (!membership) {
-        return response.forbidden(res);
-      }
+    const access = await checkProjectAccess(projectId, req.user.id, 'viewer');
+    if (!access.hasAccess) {
+      return response.forbidden(res);
     }
 
     const jobs = await Job.find({ project_id: projectId })

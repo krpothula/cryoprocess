@@ -7,11 +7,11 @@ const threeDAutoRefineAPI = (payload = {}) => {
 
 // Dashboard visualization APIs
 const getAutoRefineResultsApi = (jobId = "") => {
-  return axiosInstance.get(`/autorefine/results/?job_id=${jobId}`);
+  return axiosInstance.get(`/autorefine/results/?jobId=${jobId}`);
 };
 
 const getAutoRefineFscApi = (jobId = "") => {
-  return axiosInstance.get(`/autorefine/fsc/?job_id=${jobId}`);
+  return axiosInstance.get(`/autorefine/fsc/?jobId=${jobId}`);
 };
 
 export {

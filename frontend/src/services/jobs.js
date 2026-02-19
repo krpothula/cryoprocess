@@ -8,7 +8,7 @@ import axiosInstance from "./config";
 
 /**
  * Submit a job of any type
- * @param {string} jobType - Job type (link_movies, import, motion_correction, etc.)
+ * @param {string} jobType - Job type (import, motion_correction, etc.)
  * @param {object} payload - Job parameters
  */
 export const submitJob = (jobType, payload) => {
@@ -38,12 +38,11 @@ export const getJobDetails = (jobId) => {
  * @param {string} projectId - Project ID
  */
 export const getJobSummary = (jobType, projectId) => {
-  return axiosInstance.get(`/api/jobs/${jobType}/summary?project_id=${projectId}`);
+  return axiosInstance.get(`/api/jobs/${jobType}/summary?projectId=${projectId}`);
 };
 
 // Convenience functions for specific job types
 
-export const submitLinkMovies = (payload) => submitJob("link_movies", payload);
 export const submitImport = (payload) => submitJob("import", payload);
 export const submitMotionCorrection = (payload) => submitJob("motion_correction", payload);
 export const submitCtf = (payload) => submitJob("ctf", payload);

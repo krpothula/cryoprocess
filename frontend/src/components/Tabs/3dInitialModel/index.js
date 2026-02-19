@@ -121,7 +121,7 @@ const InitialModel = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
-    threeDInitialModelAPI({ ...(formData || {}), project_id: projectId })
+    threeDInitialModelAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -187,7 +187,7 @@ const InitialModel = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

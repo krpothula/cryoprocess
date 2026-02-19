@@ -529,14 +529,19 @@ exports.testClusterConnection = async (req, res) => {
  * POST /api/auth/logout
  */
 exports.logout = (req, res) => {
-  auditLog(req, 'logout', { resourceType: 'user', resourceId: req.user?.id });
-  res.clearCookie('atoken', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/'
-  });
-  return response.success(res, { message: 'Logged out' });
+  try {
+    auditLog(req, 'logout', { resourceType: 'user', resourceId: req.user?.id });
+    res.clearCookie('atoken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/'
+    });
+    return response.success(res, { message: 'Logged out' });
+  } catch (error) {
+    logger.error('[Auth] logout error:', error);
+    return response.serverError(res, 'Logout failed');
+  }
 };
 
 /**

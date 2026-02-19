@@ -6,6 +6,7 @@ import { BiLoader } from "react-icons/bi";
 import {
   FiCheckCircle,
   FiAlertCircle,
+  FiClock,
   FiLayers,
   FiGrid,
   FiCrosshair,
@@ -60,7 +61,7 @@ const ManualSelectDashboard = () => {
         }
       }
 
-      const url = `/class2d/individual-images/?project_id=${projectId}&job_path=${encodeURIComponent(jobPath)}&iteration=latest`;
+      const url = `/class2d/individual-images/?projectId=${projectId}&jobPath=${encodeURIComponent(jobPath)}&iteration=latest`;
       const response = await axiosInstance.get(url);
 
       if (response.data.status === "success") {
@@ -123,7 +124,7 @@ const ManualSelectDashboard = () => {
           ) : status === "failed" ? (
             <FiAlertCircle className="text-red-500 text-xl" />
           ) : (
-            <FiCheckCircle className="text-yellow-500 text-xl" />
+            <FiClock className="text-slate-400 text-xl" />
           )}
           <div>
             <h2 style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-heading)" }}>
@@ -136,6 +137,8 @@ const ManualSelectDashboard = () => {
                 ? "var(--color-success-text)"
                 : status === "failed"
                 ? "var(--color-danger-text)"
+                : status === "pending"
+                ? "var(--color-text-muted)"
                 : "var(--color-warning)"
             }}>
               {status === "success"

@@ -8,7 +8,8 @@ const MicrographViewer = ({
   selectedMicrograph,
   micrographData,
   zoom = 1,
-  activeTab = "micrograph"
+  activeTab = "micrograph",
+  loading = false,
 }) => {
   if (!selectedMicrograph) {
     return (
@@ -20,9 +21,8 @@ const MicrographViewer = ({
   }
 
   const currentImage = activeTab === "micrograph" ? micrographImage : powerSpectrumImage;
-  const isLoading = !currentImage;
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--color-bg)]">
         <BiLoader className="animate-spin text-blue-500 text-3xl" />

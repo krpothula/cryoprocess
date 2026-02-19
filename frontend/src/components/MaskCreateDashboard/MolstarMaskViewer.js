@@ -267,7 +267,7 @@ const MolstarMaskViewer = ({
           "molstar/lib/mol-plugin-state/helpers/volume-representation-params"
         );
 
-        const mapUrl = getMrcUrl("/maskcreate/mrc/", { job_id: jobId, file_path: sourceMapPath });
+        const mapUrl = getMrcUrl("/maskcreate/mrc/", { jobId, filePath: sourceMapPath });
 
         const downloadedData = await plugin.builders.data.download(
           { url: mapUrl, isBinary: true, label: "source_map" },
@@ -382,7 +382,7 @@ const MolstarMaskViewer = ({
 
         pluginRef.current = plugin;
 
-        const maskUrl = getMrcUrl(maskApiEndpoint, { job_id: jobId });
+        const maskUrl = getMrcUrl(maskApiEndpoint, { jobId });
 
         const maskData = await plugin.builders.data.download(
           { url: maskUrl, isBinary: true, label: "mask" },

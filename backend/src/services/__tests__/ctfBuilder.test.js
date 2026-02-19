@@ -17,7 +17,7 @@ describe('CTFBuilder — CTFFIND version detection', () => {
   it('adds --is_ctffind4 for standard ctffind path', () => {
     const cmd = buildCommand(CTFBuilder, {
       ...BASE_DATA,
-      ctffind_exe: '/usr/local/bin/ctffind',
+      ctfFindExecutable: '/usr/local/bin/ctffind',
     });
     expectFlag(cmd, '--ctffind_exe', '/usr/local/bin/ctffind');
     expectFlag(cmd, '--is_ctffind4');
@@ -26,7 +26,7 @@ describe('CTFBuilder — CTFFIND version detection', () => {
   it('adds --is_ctffind4 for ctffind4 explicit path', () => {
     const cmd = buildCommand(CTFBuilder, {
       ...BASE_DATA,
-      ctffind_exe: '/usr/local/bin/ctffind4',
+      ctfFindExecutable: '/usr/local/bin/ctffind4',
     });
     expectFlag(cmd, '--is_ctffind4');
   });
@@ -34,7 +34,7 @@ describe('CTFBuilder — CTFFIND version detection', () => {
   it('omits --is_ctffind4 for ctffind5 path', () => {
     const cmd = buildCommand(CTFBuilder, {
       ...BASE_DATA,
-      ctffind_exe: '/usr/local/bin/ctffind5',
+      ctfFindExecutable: '/usr/local/bin/ctffind5',
     });
     expectNoFlag(cmd, '--is_ctffind4');
   });
@@ -42,7 +42,7 @@ describe('CTFBuilder — CTFFIND version detection', () => {
   it('omits --is_ctffind4 for ctffind-5 path', () => {
     const cmd = buildCommand(CTFBuilder, {
       ...BASE_DATA,
-      ctffind_exe: '/opt/software/ctffind-5.0.2/bin/ctffind-5',
+      ctfFindExecutable: '/opt/software/ctffind-5.0.2/bin/ctffind-5',
     });
     expectNoFlag(cmd, '--is_ctffind4');
   });
@@ -50,7 +50,7 @@ describe('CTFBuilder — CTFFIND version detection', () => {
   it('omits --is_ctffind4 for CTFFIND_5 uppercase path', () => {
     const cmd = buildCommand(CTFBuilder, {
       ...BASE_DATA,
-      ctffind_exe: '/usr/local/bin/CTFFIND_5',
+      ctfFindExecutable: '/usr/local/bin/CTFFIND_5',
     });
     expectNoFlag(cmd, '--is_ctffind4');
   });
@@ -62,8 +62,8 @@ describe('CTFBuilder — Gctf mode', () => {
   it('adds --use_gctf and --gctf_exe', () => {
     const cmd = buildCommand(CTFBuilder, {
       ...BASE_DATA,
-      use_gctf: 'Yes',
-      gctf_exe: '/usr/local/bin/gctf',
+      useGctf: 'Yes',
+      gctfExecutable: '/usr/local/bin/gctf',
     });
     expectFlag(cmd, '--use_gctf');
     expectFlag(cmd, '--gctf_exe', '/usr/local/bin/gctf');
@@ -74,9 +74,9 @@ describe('CTFBuilder — Gctf mode', () => {
   it('adds --gpu for Gctf', () => {
     const cmd = buildCommand(CTFBuilder, {
       ...BASE_DATA,
-      use_gctf: 'Yes',
-      gctf_exe: '/usr/local/bin/gctf',
-      useGPU: '0,1',
+      useGctf: 'Yes',
+      gctfExecutable: '/usr/local/bin/gctf',
+      gpuToUse: '0,1',
     });
     expectFlag(cmd, '--gpu', '0,1');
   });
@@ -195,12 +195,12 @@ describe('CTFBuilder — optional flags', () => {
 
 describe('CTFBuilder — MPI', () => {
   it('uses _mpi for multiple procs', () => {
-    const cmd = buildCommand(CTFBuilder, { ...BASE_DATA, runningmpi: 4 });
+    const cmd = buildCommand(CTFBuilder, { ...BASE_DATA, mpiProcs: 4 });
     expect(cmd[0]).toBe('relion_run_ctffind_mpi');
   });
 
   it('uses non-mpi for single proc', () => {
-    const cmd = buildCommand(CTFBuilder, { ...BASE_DATA, runningmpi: 1 });
+    const cmd = buildCommand(CTFBuilder, { ...BASE_DATA, mpiProcs: 1 });
     expect(cmd[0]).toBe('relion_run_ctffind');
   });
 });

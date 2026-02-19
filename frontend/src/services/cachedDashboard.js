@@ -58,7 +58,7 @@ export const getCachedStatsApi = (jobId) => {
 /**
  * Check post-processing status for a job.
  * @param {string} jobId - Job ID
- * @returns {Promise} - Response with { complete: boolean, thumbnail_count: number, stats_available: boolean }
+ * @returns {Promise} - Response with { complete: boolean, thumbnailCount: number, statsAvailable: boolean }
  */
 export const getPostProcessStatusApi = (jobId) => {
   return axiosInstance.get(`/api/dashboard/postprocess-status/${jobId}`);

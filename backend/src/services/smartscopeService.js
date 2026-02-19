@@ -182,42 +182,42 @@ exit $CMD_EXIT_CODE
 
 /**
  * Submit a single-micrograph processing job
- * @param {Object} params - { micrograph_path, pixel_size, voltage, cs, output_dir, user_id, threads, gpus }
- * @returns {Promise<{job_id: string, status: string}>}
+ * @param {Object} params - { micrographPath, pixelSize, voltage, cs, outputDir, userId, threads, gpus }
+ * @returns {Promise<{jobId: string, status: string}>}
  */
 const submitProcessingJob = async (params) => {
   const {
-    micrograph_path,
-    pixel_size,
+    micrographPath,
+    pixelSize,
     voltage,
     cs,
-    amplitude_contrast = 0.1,
-    output_dir,
-    user_id,
+    amplitudeContrast = 0.1,
+    outputDir,
+    userId,
     threads = 4,
     gpus = 0
   } = params;
 
   // Generate job ID
   const jobId = Job.generateId();
-  const jobOutputDir = path.join(output_dir, `smartscope_${jobId}`);
+  const jobOutputDir = path.join(outputDir, `smartscope_${jobId}`);
 
   // Create output directory
   fs.mkdirSync(jobOutputDir, { recursive: true });
   fs.mkdirSync(path.join(jobOutputDir, 'MotionCorr'), { recursive: true });
   fs.mkdirSync(path.join(jobOutputDir, 'CtfFind'), { recursive: true });
 
-  logger.info(`[SmartScope] Creating job ${jobId} | micrograph: ${path.basename(micrograph_path)}`);
+  logger.info(`[SmartScope] Creating job ${jobId} | micrograph: ${path.basename(micrographPath)}`);
 
   // Write input STAR file
   const inputStarPath = path.join(jobOutputDir, 'input.star');
-  createInputStar(micrograph_path, { pixel_size, voltage, cs, amplitude_contrast }, inputStarPath);
+  createInputStar(micrographPath, { pixel_size: pixelSize, voltage, cs, amplitude_contrast: amplitudeContrast }, inputStarPath);
 
   // Create Job record in DB
   const job = new Job({
     id: jobId,
     project_id: 'smartscope',
-    user_id: user_id || 1,
+    user_id: userId || 1,
     job_name: `SmartScope_${jobId.substring(0, 8)}`,
     job_type: 'SmartScopeProcess',
     status: JOB_STATUS.PENDING,
@@ -225,15 +225,15 @@ const submitProcessingJob = async (params) => {
     system_type: 'local',
     output_file_path: jobOutputDir,
     parameters: {
-      micrograph_path,
-      pixel_size,
+      micrograph_path: micrographPath,
+      pixel_size: pixelSize,
       voltage,
       cs,
-      amplitude_contrast,
-      output_dir
+      amplitude_contrast: amplitudeContrast,
+      output_dir: outputDir
     },
     pipeline_stats: {
-      pixel_size,
+      pixel_size: pixelSize,
       micrograph_count: 1
     }
   });
@@ -270,7 +270,7 @@ const submitProcessingJob = async (params) => {
         status: JOB_STATUS.FAILED,
         error_message: `Failed to parse SLURM job ID from: ${stdout.trim()}`
       });
-      return { job_id: jobId, status: 'failed', error: 'SLURM submission failed' };
+      return { jobId, status: 'failed', error: 'SLURM submission failed' };
     }
 
     await Job.findOneAndUpdate({ id: jobId }, {
@@ -279,8 +279,8 @@ const submitProcessingJob = async (params) => {
       start_time: new Date()
     });
 
-    logger.info(`[SmartScope] Job submitted | job_id: ${jobId} | slurm_id: ${slurmJobId}`);
-    return { job_id: jobId, status: 'queued' };
+    logger.info(`[SmartScope] Job submitted | jobId: ${jobId} | slurmId: ${slurmJobId}`);
+    return { jobId, status: 'queued' };
 
   } catch (err) {
     logger.error(`[SmartScope] SLURM submission failed: ${err.message}`);
@@ -288,7 +288,7 @@ const submitProcessingJob = async (params) => {
       status: JOB_STATUS.FAILED,
       error_message: err.message
     });
-    return { job_id: jobId, status: 'failed', error: err.message };
+    return { jobId, status: 'failed', error: err.message };
   }
 };
 
@@ -305,17 +305,17 @@ const getProcessingResults = async (jobId) => {
 
   // Still running or pending
   if (job.status === JOB_STATUS.PENDING || job.status === JOB_STATUS.RUNNING) {
-    return { job_id: jobId, status: job.status };
+    return { jobId, status: job.status };
   }
 
   // Failed
   if (job.status === JOB_STATUS.FAILED) {
-    return { job_id: jobId, status: 'failed', error: job.error_message || 'Processing failed' };
+    return { jobId, status: 'failed', error: job.error_message || 'Processing failed' };
   }
 
   // Cancelled
   if (job.status === JOB_STATUS.CANCELLED) {
-    return { job_id: jobId, status: 'cancelled' };
+    return { jobId, status: 'cancelled' };
   }
 
   // Success — parse CTF results
@@ -323,7 +323,7 @@ const getProcessingResults = async (jobId) => {
   const ctfStarPath = path.join(outputDir, 'CtfFind', 'micrographs_ctf.star');
 
   if (!fs.existsSync(ctfStarPath)) {
-    return { job_id: jobId, status: 'completed', error: 'CTF output STAR file not found' };
+    return { jobId, status: 'completed', error: 'CTF output STAR file not found' };
   }
 
   try {
@@ -334,7 +334,7 @@ const getProcessingResults = async (jobId) => {
     const rows = micrographs.rows || starData.files || [];
 
     if (rows.length === 0) {
-      return { job_id: jobId, status: 'completed', error: 'No micrograph data in CTF STAR file' };
+      return { jobId, status: 'completed', error: 'No micrograph data in CTF STAR file' };
     }
 
     const row = rows[0];
@@ -359,28 +359,28 @@ const getProcessingResults = async (jobId) => {
       astig: Math.round(astig * 1000) / 1000,
       angast: Math.round(defocusAngle * 10) / 10,
       ctffit: Math.round(ctfFit * 1000) / 1000,
-      shape_x: imageX,
-      shape_y: imageY,
-      pixel_size: job.parameters.pixel_size,
-      micrograph_png: pngResults.micrograph_png || '',
-      ctf_png: pngResults.ctf_png || ''
+      shapeX: imageX,
+      shapeY: imageY,
+      pixelSize: job.parameters.pixel_size,
+      micrographPng: pngResults.micrographPng || '',
+      ctfPng: pngResults.ctfPng || ''
     };
 
-    return { job_id: jobId, status: 'completed', results };
+    return { jobId, status: 'completed', results };
 
   } catch (err) {
     logger.error(`[SmartScope] Error parsing results for ${jobId}: ${err.message}`);
-    return { job_id: jobId, status: 'completed', error: `Result parsing failed: ${err.message}` };
+    return { jobId, status: 'completed', error: `Result parsing failed: ${err.message}` };
   }
 };
 
 /**
  * Generate PNG images from MRC output files
  * @param {string} outputDir - Job output directory
- * @returns {Promise<{micrograph_png: string, ctf_png: string}>}
+ * @returns {Promise<{micrographPng: string, ctfPng: string}>}
  */
 const generatePngs = async (outputDir) => {
-  const result = { micrograph_png: '', ctf_png: '' };
+  const result = { micrographPng: '', ctfPng: '' };
 
   try {
     const { frameToPng } = require('../utils/mrcParser');
@@ -405,7 +405,7 @@ const generatePngs = async (outputDir) => {
             fs.writeFileSync(pngPath, pngBuffer);
           }
         }
-        result.micrograph_png = pngPath;
+        result.micrographPng = pngPath;
         break;
       }
     }
@@ -430,7 +430,7 @@ const generatePngs = async (outputDir) => {
             fs.writeFileSync(pngPath, pngBuffer);
           }
         }
-        result.ctf_png = pngPath;
+        result.ctfPng = pngPath;
         break;
       }
     }

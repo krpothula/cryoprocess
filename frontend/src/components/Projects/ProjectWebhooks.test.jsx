@@ -4,7 +4,7 @@ import ProjectWebhooks from './ProjectWebhooks';
 
 // Mock the API services
 jest.mock('../../services/projects/projects', () => ({
-  getProjectApi: jest.fn(),
+  getProjectByIdApi: jest.fn(),
   updateProjectApi: jest.fn(),
 }));
 
@@ -12,7 +12,7 @@ jest.mock('../../services/projects/projects', () => ({
 const mockShowToast = jest.fn();
 jest.mock('../../hooks/useToast', () => () => mockShowToast);
 
-const { getProjectApi, updateProjectApi } = require('../../services/projects/projects');
+const { getProjectByIdApi, updateProjectApi } = require('../../services/projects/projects');
 
 const defaultProps = {
   projectId: 'proj-123',
@@ -23,13 +23,13 @@ const defaultProps = {
 describe('ProjectWebhooks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getProjectApi.mockResolvedValue({
+    getProjectByIdApi.mockResolvedValue({
       data: { data: { webhookUrls: [] } },
     });
   });
 
   test('shows loading state initially', () => {
-    getProjectApi.mockReturnValue(new Promise(() => {})); // Never resolves
+    getProjectByIdApi.mockReturnValue(new Promise(() => {})); // Never resolves
     render(<ProjectWebhooks {...defaultProps} />);
     expect(screen.getByText('Loading...')).toBeInTheDocument();
   });
@@ -44,7 +44,7 @@ describe('ProjectWebhooks', () => {
   });
 
   test('displays existing webhook URLs', async () => {
-    getProjectApi.mockResolvedValue({
+    getProjectByIdApi.mockResolvedValue({
       data: { data: { webhookUrls: ['https://hooks.slack.com/services/123'] } },
     });
 
@@ -55,7 +55,7 @@ describe('ProjectWebhooks', () => {
   });
 
   test('detects Teams webhook provider', async () => {
-    getProjectApi.mockResolvedValue({
+    getProjectByIdApi.mockResolvedValue({
       data: { data: { webhookUrls: ['https://webhook.office.com/xxx'] } },
     });
 
@@ -123,7 +123,7 @@ describe('ProjectWebhooks', () => {
 
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => {
-      expect(updateProjectApi).toHaveBeenCalledWith('proj-123', { webhook_urls: [] });
+      expect(updateProjectApi).toHaveBeenCalledWith('proj-123', { webhookUrls: [] });
     });
     await waitFor(() => {
       expect(mockShowToast).toHaveBeenCalledWith('Webhook URLs saved', { type: 'success' });

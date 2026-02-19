@@ -153,7 +153,7 @@ const AutoRefine = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
-    threeDAutoRefineAPI({ ...(formData || {}), project_id: projectId })
+    threeDAutoRefineAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -244,7 +244,7 @@ const AutoRefine = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

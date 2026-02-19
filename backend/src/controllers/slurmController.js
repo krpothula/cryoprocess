@@ -328,16 +328,16 @@ exports.getConnectionInfo = async (req, res) => {
  */
 exports.cancelJob = async (req, res) => {
   try {
-    const { slurm_job_id, job_id } = req.body;
+    const { slurmJobId, jobId } = req.body;
 
-    if (!slurm_job_id) {
-      return response.badRequest(res, 'slurm_job_id is required');
+    if (!slurmJobId) {
+      return response.badRequest(res, 'slurmJobId is required');
     }
 
     // Validate and sanitize SLURM job ID to prevent command injection
-    const safeJobId = sanitizeSlurmJobId(slurm_job_id);
+    const safeJobId = sanitizeSlurmJobId(slurmJobId);
     if (!safeJobId) {
-      logger.warn(`[SLURM] Invalid job ID rejected: ${slurm_job_id}`);
+      logger.warn(`[SLURM] Invalid job ID rejected: ${slurmJobId}`);
       return response.badRequest(res, 'Invalid SLURM job ID format');
     }
 
@@ -346,10 +346,10 @@ exports.cancelJob = async (req, res) => {
       .then(() => true)
       .catch(() => false);
 
-    // Update job in database if job_id provided
-    if (job_id) {
+    // Update job in database if jobId provided
+    if (jobId) {
       await Job.findOneAndUpdate(
-        { id: job_id },
+        { id: jobId },
         {
           status: JOB_STATUS.CANCELLED,
           end_time: new Date(),
@@ -359,7 +359,7 @@ exports.cancelJob = async (req, res) => {
     } else {
       // Try to find by slurm_job_id
       await Job.findOneAndUpdate(
-        { slurm_job_id },
+        { slurm_job_id: slurmJobId },
         {
           status: JOB_STATUS.CANCELLED,
           end_time: new Date(),
@@ -369,7 +369,7 @@ exports.cancelJob = async (req, res) => {
     }
 
     if (cancelled) {
-      auditLog(req, 'job_cancel', { resourceType: 'job', resourceId: job_id || slurm_job_id });
+      auditLog(req, 'job_cancel', { resourceType: 'job', resourceId: jobId || slurmJobId });
     }
 
     if (cancelled) {
@@ -397,7 +397,7 @@ exports.cancelJobById = async (req, res) => {
     }
 
     // Check ownership
-    if (job.user_id !== req.user.id && !req.user.is_superuser) {
+    if (job.user_id !== req.user.id && !req.user.isSuperuser) {
       return response.forbidden(res, 'Not authorized to cancel this job');
     }
 
@@ -471,8 +471,7 @@ const JOB_TYPE_NAMES = {
   'Dynamight': 'DynaMight',
   'ModelAngelo': 'ModelAngelo',
   'ManualPick': 'Manual Picking',
-  'ManualSelect': 'Manual Select',
-  'LinkMovies': 'Link Movies'
+  'ManualSelect': 'Manual Select'
 };
 
 /**
@@ -645,7 +644,7 @@ exports.streamJobLogs = async (req, res) => {
 exports.getJobIssues = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const includeWarnings = req.query.include_warnings !== 'false';
+    const includeWarnings = req.query.includeWarnings !== 'false';
 
     const job = await Job.findOne({ id: jobId }).lean();
     if (!job) {
@@ -760,7 +759,7 @@ exports.deleteJob = async (req, res) => {
     }
 
     // Check ownership
-    if (job.user_id !== req.user.id && !req.user.is_superuser) {
+    if (job.user_id !== req.user.id && !req.user.isSuperuser) {
       return response.forbidden(res, 'Not authorized to delete this job');
     }
 
@@ -805,7 +804,7 @@ exports.updateJobStatus = async (req, res) => {
     }
 
     // Check ownership
-    if (job.user_id !== req.user.id && !req.user.is_superuser) {
+    if (job.user_id !== req.user.id && !req.user.isSuperuser) {
       return response.forbidden(res, 'Not authorized to update this job');
     }
 
@@ -842,7 +841,7 @@ exports.toggleNotifyEmail = async (req, res) => {
     }
 
     // Check ownership
-    if (job.user_id !== req.user.id && !req.user.is_superuser) {
+    if (job.user_id !== req.user.id && !req.user.isSuperuser) {
       return response.forbidden(res, 'Not authorized to modify this job');
     }
 

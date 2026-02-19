@@ -8,6 +8,7 @@ const AuditLog = require('../models/AuditLog');
 const response = require('../utils/responseHelper');
 const logger = require('../utils/logger');
 const { mapKeys } = require('../utils/mapKeys');
+const { parsePagination } = require('../utils/pagination');
 
 /**
  * List audit logs with filters and pagination
@@ -15,23 +16,21 @@ const { mapKeys } = require('../utils/mapKeys');
  */
 exports.listAuditLogs = async (req, res) => {
   try {
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200);
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req.query, { maxLimit: 200 });
 
     // Build filter
     const filter = {};
     if (req.query.action) {
       filter.action = req.query.action;
     }
-    if (req.query.user_id) {
-      filter.user_id = parseInt(req.query.user_id);
+    if (req.query.userId) {
+      filter.user_id = parseInt(req.query.userId);
     }
     if (req.query.username) {
       filter.username = { $regex: req.query.username, $options: 'i' };
     }
-    if (req.query.resource_type) {
-      filter.resource_type = req.query.resource_type;
+    if (req.query.resourceType) {
+      filter.resource_type = req.query.resourceType;
     }
 
     const [logs, total] = await Promise.all([

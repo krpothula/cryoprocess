@@ -37,8 +37,8 @@ const CommandPreview = ({ formData, jobType, projectId }) => {
     try {
       const response = await previewCommandAPI({
         ...formData,
-        project_id: projectId,
-        job_type: jobType,
+        projectId,
+        jobType,
       });
 
       if (response?.data?.command) {

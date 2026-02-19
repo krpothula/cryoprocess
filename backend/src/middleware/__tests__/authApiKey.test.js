@@ -219,10 +219,10 @@ describe('smartscopeAuth — per-user API key', () => {
       id: 42,
       username: 'bot',
       email: 'bot@lab.org',
-      first_name: 'Bot',
-      last_name: 'Account',
-      is_staff: true,
-      is_superuser: false,
+      firstName: 'Bot',
+      lastName: 'Account',
+      isStaff: true,
+      isSuperuser: false,
     });
   });
 });

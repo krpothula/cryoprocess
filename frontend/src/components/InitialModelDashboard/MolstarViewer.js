@@ -32,10 +32,10 @@ const MolstarViewer = ({
 
     if (mrcFilePath) {
       const sep = endpoint.includes("?") ? "&" : "?";
-      path = `${endpoint}${sep}file_path=${encodeURIComponent(mrcFilePath)}`;
+      path = `${endpoint}${sep}filePath=${encodeURIComponent(mrcFilePath)}`;
     } else {
       const params = new URLSearchParams({
-        job_id: jobId,
+        jobId: jobId,
         iteration: iteration,
         class: classNum,
       });

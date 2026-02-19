@@ -33,7 +33,7 @@ import useJobNotification from "../../hooks/useJobNotification";
 const API_BASE_URL = process.env.REACT_APP_API_HOST || "";
 
 const getCTFRefineResultsApi = async (jobId) => {
-  return axiosInstance.get(`${API_BASE_URL}/ctfrefine/results/?job_id=${jobId}`);
+  return axiosInstance.get(`${API_BASE_URL}/ctfrefine/results/?jobId=${jobId}`);
 };
 
 // Zernike polynomial names for display
@@ -75,7 +75,7 @@ const CTFRefineDashboard = () => {
   };
 
   const handlePdfDownload = () => {
-    const url = `${API_BASE_URL}/ctfrefine/pdf/?job_id=${selectedJob?.id}`;
+    const url = `${API_BASE_URL}/ctfrefine/pdf/?jobId=${selectedJob?.id}`;
     const a = document.createElement("a");
     a.href = url;
     a.download = `${selectedJob?.jobName || "ctfrefine"}_logfile.pdf`;
@@ -135,7 +135,7 @@ const CTFRefineDashboard = () => {
       case "error":
         return <FiAlertCircle className="text-red-500 text-xl" />;
       default:
-        return <FiClock className="text-yellow-500 text-xl" />;
+        return <FiClock className="text-slate-400 text-xl" />;
     }
   };
 
@@ -236,6 +236,8 @@ const CTFRefineDashboard = () => {
                   ? "var(--color-success-text)"
                   : status === "failed"
                   ? "var(--color-danger-text)"
+                  : status === "pending"
+                  ? "var(--color-text-muted)"
                   : "var(--color-warning)"
               }}>
                 {status === "success"

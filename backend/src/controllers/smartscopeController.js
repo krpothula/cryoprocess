@@ -45,7 +45,7 @@ exports.health = async (req, res) => {
  * Start watching a raw directory for new micrographs
  * POST /api/smartscope/start
  *
- * Request: {
+ * Request (SmartScope sends snake_case): {
  *   watch_dir, grid_name, output_dir, pixel_size, voltage, cs,
  *   amplitude_contrast, threads, gpus, n_processes
  * }
@@ -53,25 +53,26 @@ exports.health = async (req, res) => {
  */
 exports.startSession = async (req, res) => {
   try {
+    // SmartScope sends snake_case — rename at boundary to camelCase
     const {
-      watch_dir,
-      grid_name,
-      output_dir,
-      pixel_size,
+      watch_dir: watchDir,
+      grid_name: gridName,
+      output_dir: outputDir,
+      pixel_size: pixelSize,
       voltage,
       cs,
-      amplitude_contrast = 0.1,
-      file_pattern = '*.tiff',
+      amplitude_contrast: amplitudeContrast = 0.1,
+      file_pattern: filePattern = '*.tiff',
       threads,
       gpus,
-      n_processes
+      n_processes: nProcesses
     } = req.body;
 
     // Validate required fields
-    if (!watch_dir) {
+    if (!watchDir) {
       return response.badRequest(res, 'watch_dir is required');
     }
-    if (!pixel_size || pixel_size <= 0) {
+    if (!pixelSize || pixelSize <= 0) {
       return response.badRequest(res, 'pixel_size must be a positive number');
     }
     if (!voltage || voltage <= 0) {
@@ -82,12 +83,12 @@ exports.startSession = async (req, res) => {
     }
 
     // Validate watch directory exists
-    if (!fs.existsSync(watch_dir)) {
-      return response.badRequest(res, `Watch directory not found: ${watch_dir}`);
+    if (!fs.existsSync(watchDir)) {
+      return response.badRequest(res, `Watch directory not found: ${watchDir}`);
     }
 
-    // Project name: use grid_name if provided, otherwise date-based
-    const projName = grid_name || `SmartScope_${new Date().toISOString().split('T')[0]}`;
+    // Project name: use gridName if provided, otherwise date-based
+    const projName = gridName || `SmartScope_${new Date().toISOString().split('T')[0]}`;
     const sessionName = projName;
 
     // Create or find project
@@ -119,13 +120,13 @@ exports.startSession = async (req, res) => {
       session_name: sessionName,
       status: 'pending',
       input_mode: 'watch',
-      watch_directory: watch_dir,
-      file_pattern,
+      watch_directory: watchDir,
+      file_pattern: filePattern,
       optics: {
-        pixel_size: parseFloat(pixel_size),
+        pixel_size: parseFloat(pixelSize),
         voltage: parseFloat(voltage),
         cs: parseFloat(cs),
-        amplitude_contrast: parseFloat(amplitude_contrast)
+        amplitude_contrast: parseFloat(amplitudeContrast)
       },
       // SmartScope only needs Import → MotionCorr → CTF
       picking_config: { enabled: false },
@@ -134,7 +135,7 @@ exports.startSession = async (req, res) => {
     });
 
     await session.save();
-    logger.info(`[SmartScope] Session created: ${session.id} | grid: ${grid_name || 'default'} | watching: ${watch_dir}`);
+    logger.info(`[SmartScope] Session created: ${session.id} | grid: ${gridName || 'default'} | watching: ${watchDir}`);
 
     // Start the session via live orchestrator
     const orchestrator = getLiveOrchestrator();

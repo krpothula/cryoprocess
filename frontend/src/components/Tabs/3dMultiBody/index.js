@@ -112,7 +112,7 @@ const MultiBody = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
-    threeDMultiBodyAPI({ ...(formData || {}), project_id: projectId })
+    threeDMultiBodyAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -180,7 +180,7 @@ const MultiBody = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

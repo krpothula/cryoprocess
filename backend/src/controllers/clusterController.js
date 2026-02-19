@@ -108,7 +108,7 @@ exports.cancelJob = async (req, res) => {
     }
 
     // Check if user owns the job or is admin
-    if (job.user_id !== req.user.id && !req.user.is_superuser) {
+    if (job.user_id !== req.user.id && !req.user.isSuperuser) {
       return response.forbidden(res, 'Not authorized to cancel this job');
     }
 
@@ -151,18 +151,28 @@ exports.updateConfig = async (req, res) => {
     const updates = req.body;
 
     // Only allow specific fields to be updated
-    const allowedFields = [
-      'defaultPartition',
-      'defaultThreads',
-      'defaultGpus',
-      'slurmEnabled',
-      'singularityImage',
-      'mpiCommand'
-    ];
+    const allowedFields = {
+      defaultPartition:  { type: 'string' },
+      defaultThreads:    { type: 'number', min: 1, max: 256 },
+      defaultGpus:       { type: 'number', min: 0, max: 16 },
+      slurmEnabled:      { type: 'boolean' },
+      singularityImage:  { type: 'string' },
+      mpiCommand:        { type: 'string' },
+    };
 
-    for (const field of allowedFields) {
-      if (updates[field] !== undefined) {
-        clusterConfig[field] = updates[field];
+    for (const [field, rules] of Object.entries(allowedFields)) {
+      if (updates[field] === undefined) continue;
+      const val = updates[field];
+      if (typeof val !== rules.type) {
+        return response.badRequest(res, `${field} must be a ${rules.type}`);
+      }
+      if (rules.type === 'number') {
+        if (!Number.isFinite(val) || val < rules.min || val > rules.max) {
+          return response.badRequest(res, `${field} must be between ${rules.min} and ${rules.max}`);
+        }
+        clusterConfig[field] = Math.floor(val);
+      } else {
+        clusterConfig[field] = val;
       }
     }
 

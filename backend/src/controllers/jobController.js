@@ -27,8 +27,7 @@ const { mapKeys } = require('../utils/mapKeys');
 const {
   JOB_BUILDERS,
   JOB_VALIDATORS,
-  STAGE_NAMES,
-  getJobDefinition
+  STAGE_NAMES
 } = require('../config/jobRegistry');
 
 /**
@@ -55,13 +54,13 @@ exports.submitJob = async (req, res) => {
     }
 
     // Get project and verify access (need editor role to submit jobs)
-    const project = await Project.findOne({ id: data.project_id }).lean();
+    const project = await Project.findOne({ id: data.projectId }).lean();
     if (!project) {
-      logger.job.error(jobType, new Error(`Project not found: ${data.project_id}`));
+      logger.job.error(jobType, new Error(`Project not found: ${data.projectId}`));
       return response.notFound(res, 'Project not found');
     }
 
-    const access = await checkProjectAccess(data.project_id, req.user.id, 'editor');
+    const access = await checkProjectAccess(data.projectId, req.user.id, 'editor');
     if (!access.hasAccess) {
       return response.forbidden(res, 'You do not have permission to submit jobs in this project');
     }
@@ -73,11 +72,11 @@ exports.submitJob = async (req, res) => {
     const projectPath = getProjectPath(project);
 
     // Start job logging (both combined and project logs)
-    logger.job.start(jobType, data.project_id, req.user.id);
+    logger.job.start(jobType, data.projectId, req.user.id);
     logger.project.start(projectPath, project.id, jobType, req.user.id);
 
-    logger.job.step(jobType, 1, 'Parameters validated', { project_id: data.project_id });
-    logger.project.step(projectPath, project.id, jobType, 1, 'Parameters validated', { project_id: data.project_id });
+    logger.job.step(jobType, 1, 'Parameters validated', { project_id: data.projectId });
+    logger.project.step(projectPath, project.id, jobType, 1, 'Parameters validated', { project_id: data.projectId });
 
     logger.job.step(jobType, 2, 'Project found', { project_name: project.project_name });
     logger.project.step(projectPath, project.id, jobType, 2, 'Project found', { project_name: project.project_name });
@@ -119,8 +118,8 @@ exports.submitJob = async (req, res) => {
       const sys = getSystemResources();
       const maxCpus = sys.availableCpus;
 
-      let mpi = parseInt(data.runningmpi || data.numberOfMpiProcs || data.mpiProcs || 1, 10);
-      let threads = parseInt(data.threads || data.numberOfThreads || 1, 10);
+      let mpi = parseInt(data.mpiProcs || data.numberOfMpiProcs || 1, 10);
+      let threads = parseInt(data.numberOfThreads || data.threads || 1, 10);
 
       if (mpi * threads > maxCpus) {
         const origMpi = mpi, origThreads = threads;
@@ -131,9 +130,8 @@ exports.submitJob = async (req, res) => {
         logger.info(`[${jobType}] Resource clamped: mpi ${origMpi}->${mpi}, threads ${origThreads}->${threads} (max ${maxCpus} CPUs)`);
       }
 
-      data.runningmpi = mpi;
-      data.numberOfMpiProcs = mpi;
       data.mpiProcs = mpi;
+      data.numberOfMpiProcs = mpi;
       data.threads = threads;
       data.numberOfThreads = threads;
       data.gres = Math.min(parseInt(data.gres || 0, 10), sys.gpuCount);
@@ -291,8 +289,9 @@ exports.submitJob = async (req, res) => {
     switch (stageName) {
       case 'Import':
         inheritedStats.voltage = data.kV ? parseFloat(data.kV) : null;
-        inheritedStats.cs = data.Cs ? parseFloat(data.Cs) : null;
-        if (data.rawMovies === 'Yes' || data.rawMovies === true) {
+        inheritedStats.cs = data.spherical ? parseFloat(data.spherical) : null;
+        if (data.rawMovies === 'Yes' || data.rawMovies === true
+            || data.multiFrameMovies === 'Yes' || data.multiFrameMovies === true) {
           inheritedStats.import_type = 'movies';
         } else if (data.rawMicrographs === 'Yes' || data.rawMicrographs === true) {
           inheritedStats.import_type = 'micrographs';
@@ -330,6 +329,10 @@ exports.submitJob = async (req, res) => {
         break;
     }
 
+    // Compute progress subdirectory for per-micrograph counting jobs
+    // (CTF, AutoPick, Extract) so progressHelper can do a fast flat readdir
+    const progressSubdir = builder.getProgressSubdir ? builder.getProgressSubdir() : null;
+
     const newJob = await Job.create({
       id: jobId,
       project_id: project.id,
@@ -339,12 +342,13 @@ exports.submitJob = async (req, res) => {
       status: JOB_STATUS.PENDING,
       input_job_ids: resolvedInputJobIds,  // Database IDs for tree connections
       output_file_path: outputDir,
+      progress_subdir: progressSubdir,
       command: commandStr,
       execution_method: executionMethod,
       system_type: systemType,
       parameters: req.body,
       pipeline_stats: inheritedStats,
-      notify_email: !!req.body.notify_email
+      notify_email: !!req.body.notifyEmail
     });
 
     logger.job.step(jobType, 6, 'Job saved to database', { job_id: jobId, output_dir: outputDir });
@@ -355,7 +359,7 @@ exports.submitJob = async (req, res) => {
     if (executionMethod === 'slurm') {
       // GPU detection: Check multiple parameter formats
       // - gpuAcceleration: "Yes"/"No" (frontend checkbox)
-      // - useGPU: "0" (GPU device ID, means GPU is requested)
+      // - gpuToUse: "0" (GPU device ID, means GPU is requested)
       // - gres/gpus: explicit GPU count
       const gpuRequested = isGpuEnabled(data);
       const explicitGres = parseInt(data.gres || data.gpus || 0, 10);
@@ -364,7 +368,7 @@ exports.submitJob = async (req, res) => {
 
       // Log GPU allocation decision for debugging
       if (gpuRequested) {
-        logger.info(`[${jobType}] GPU requested: gpuAcceleration=${data.gpuAcceleration}, useGPU=${data.useGPU}, allocating ${effectiveGres} GPU(s)`);
+        logger.info(`[${jobType}] GPU requested: gpuAcceleration=${data.gpuAcceleration}, gpuToUse=${data.gpuToUse}, allocating ${effectiveGres} GPU(s)`);
       }
 
       if (!builder.supportsGpu && requestedGres > 0) {
@@ -372,7 +376,7 @@ exports.submitJob = async (req, res) => {
       }
 
       // For non-MPI jobs, force mpiProcs=1 to prevent mpirun usage
-      const requestedMpi = data.runningmpi || data.numberOfMpiProcs || data.mpiProcs || 1;
+      const requestedMpi = data.mpiProcs || data.numberOfMpiProcs || 1;
       const effectiveMpi = builder.supportsMpi ? requestedMpi : 1;
 
       if (!builder.supportsMpi && requestedMpi > 1) {
@@ -380,14 +384,14 @@ exports.submitJob = async (req, res) => {
       }
 
       slurmParams = {
-        queuename: data.queuename || data.queueName || data.QueueName,
-        queueSubmitCommand: data.queueSubmitCommand || data.QueueSubmitCommand || 'sbatch',
-        runningmpi: effectiveMpi,
-        threads: data.threads || data.numberOfThreads,
+        queuename: data.queueName || data.queuename,
+        queueSubmitCommand: data.queueSubmitCommand || 'sbatch',
+        mpiProcs: effectiveMpi,
+        threads: data.numberOfThreads || data.threads,
         gres: effectiveGres,
-        coresPerNode: data.coresPerNode || data.minimumDedicatedCoresPerNode || data.minimumDedicatedcoresPerNode || data.minDedicatedCores || data.minCoresPerNode,
+        coresPerNode: data.coresPerNode || data.minimumDedicatedCoresPerNode || data.minDedicatedCores || data.minCoresPerNode,
         clustername: data.clusterName || data.clustername,
-        arguments: data.arguments || data.slurmArguments || data.AdditionalArguments
+        arguments: data.arguments || data.slurmArguments
       };
     }
 
@@ -412,48 +416,13 @@ exports.submitJob = async (req, res) => {
     logger.job.step(jobType, 7, 'Preparing submission', { execution_method: executionMethod, system_type: systemType });
     logger.project.step(projectPath, project.id, jobType, 7, 'Preparing submission', { execution_method: executionMethod, system_type: systemType });
 
-    // Special handling for link_movies - execute directly (no SLURM)
-    if (jobType === 'link_movies' || jobType === 'linkmovies') {
-      logger.job.step(jobType, 8, 'Executing symlink creation directly');
-      const result = builder.execute();
-
-      // Update job status based on result
-      const jobStatus = result.status === 'success' ? JOB_STATUS.SUCCESS : JOB_STATUS.FAILED;
-      await Job.findOneAndUpdate(
-        { id: jobId },
-        {
-          status: jobStatus,
-          start_time: new Date(),
-          end_time: new Date(),
-          error_message: result.status === 'error' ? result.message : null
-        }
-      );
-
-      const duration = Date.now() - startTime;
-      if (result.status === 'success') {
-        logger.job.success(jobType, jobId, jobName);
-        logger.info(`[JOB:${jobType.toUpperCase()}] Duration: ${duration}ms`);
-      } else {
-        logger.job.error(jobType, new Error(result.message), jobId);
-      }
-
-      return res.status(jobStatus === JOB_STATUS.SUCCESS ? 200 : 500).json({
-        status: jobStatus,
-        id: jobId,
-        jobName: jobName,
-        message: result.message,
-        source: result.source,
-        destination: result.destination
-      });
-    }
-
     // Special handling for ManualSelect - processes data directly in buildCommand(), no SLURM
     if (stageName === 'ManualSelect' || cmd === null) {
       logger.job.step(jobType, 8, 'ManualSelect processed directly');
 
       // Check if processing was successful (builder creates success marker)
       const selectionResult = builder.getSelectionResult ? builder.getSelectionResult() : null;
-      const isSuccess = selectionResult && selectionResult.num_particles > 0;
+      const isSuccess = selectionResult && selectionResult.numParticles > 0;
 
       // Update job status and particle count
       await Job.findOneAndUpdate(
@@ -462,7 +431,7 @@ exports.submitJob = async (req, res) => {
           status: isSuccess ? JOB_STATUS.SUCCESS : JOB_STATUS.FAILED,
           start_time: new Date(),
           end_time: new Date(),
-          particle_count: selectionResult?.num_particles || 0,
+          particle_count: selectionResult?.numParticles || 0,
           error_message: isSuccess ? null : 'No particles found in selected classes'
         }
       );
@@ -470,7 +439,7 @@ exports.submitJob = async (req, res) => {
       const duration = Date.now() - startTime;
       if (isSuccess) {
         logger.job.success(jobType, jobId, jobName);
-        logger.info(`[JOB:${jobType.toUpperCase()}] Duration: ${duration}ms | Particles: ${selectionResult.num_particles}`);
+        logger.info(`[JOB:${jobType.toUpperCase()}] Duration: ${duration}ms | Particles: ${selectionResult.numParticles}`);
       } else {
         logger.job.error(jobType, new Error('Selection failed'), jobId);
       }
@@ -479,9 +448,9 @@ exports.submitJob = async (req, res) => {
         status: isSuccess ? JOB_STATUS.SUCCESS : JOB_STATUS.FAILED,
         id: jobId,
         jobName: jobName,
-        message: isSuccess ? `Selected ${selectionResult.num_particles} particles` : 'No particles found in selected classes',
-        particleCount: selectionResult?.num_particles || 0,
-        selectedClasses: selectionResult?.selected_classes || []
+        message: isSuccess ? `Selected ${selectionResult.numParticles} particles` : 'No particles found in selected classes',
+        particleCount: selectionResult?.numParticles || 0,
+        selectedClasses: selectionResult?.selectedClasses || []
       });
     }
 
@@ -577,10 +546,10 @@ exports.getJobResults = async (req, res) => {
 exports.getJobSummary = async (req, res) => {
   try {
     const { jobType } = req.params;
-    const { project_id: projectId } = req.query;
+    const { projectId } = req.query;
 
     if (!projectId) {
-      return response.badRequest(res, 'project_id is required');
+      return response.badRequest(res, 'projectId is required');
     }
 
     const stageName = STAGE_NAMES[jobType] || jobType;
@@ -653,7 +622,7 @@ exports.getJobDetails = async (req, res) => {
 
 /**
  * Browse files for job input
- * GET /api/files?project_id=...&type=...
+ * GET /api/files?projectId=...&type=...
  */
 exports.browseFiles = async (req, res) => {
   // Delegated to fileController
@@ -662,14 +631,14 @@ exports.browseFiles = async (req, res) => {
 
 /**
  * List all jobs for a project
- * GET /jobs?project_id=...&skip=...&limit=...
+ * GET /jobs?projectId=...&skip=...&limit=...
  */
 exports.listJobs = async (req, res) => {
   try {
-    const { project_id: projectId, skip = 0, limit = 1000 } = req.query;
+    const { projectId, skip = 0, limit = 1000 } = req.query;
 
     if (!projectId) {
-      return response.badRequest(res, 'project_id is required');
+      return response.badRequest(res, 'projectId is required');
     }
 
     // Verify user has access to this project
@@ -726,7 +695,7 @@ exports.listJobs = async (req, res) => {
 
 /**
  * Get job tree for a project (hierarchical view)
- * GET /api/jobs/tree?project_id=...
+ * GET /api/jobs/tree?projectId=...
  * Returns hierarchical data with parent-child relationships for ReactFlow.
  *
  * Uses single-parent tree model (like CryoSPARC):
@@ -737,10 +706,10 @@ exports.listJobs = async (req, res) => {
  */
 exports.getJobsTree = async (req, res) => {
   try {
-    const { project_id: projectId } = req.query;
+    const { projectId } = req.query;
 
     if (!projectId) {
-      return response.badRequest(res, 'project_id is required');
+      return response.badRequest(res, 'projectId is required');
     }
 
     // Verify user has access to this project
@@ -831,12 +800,12 @@ exports.getJobsTree = async (req, res) => {
     });
 
     // --- Pass 2: Fix orphaned jobs by parsing command + parameters ---
-    // Only Import and LinkMovies should be true roots.
+    // Only Import should be a true root.
     const trueRoots = [];
     const orphans = [];
 
     for (const node of rootJobs) {
-      if (node.jobType === 'Import' || node.jobType === 'LinkMovies') {
+      if (node.jobType === 'Import') {
         trueRoots.push(node);
       } else {
         orphans.push(node);
@@ -1005,7 +974,7 @@ exports.getJobProgress = async (req, res) => {
     }
 
     // Get progress by counting output files
-    const progress = await getJobProgress(outputDir, job.job_type, totalExpected);
+    const progress = await getJobProgress(outputDir, job.job_type, totalExpected, job.progress_subdir);
 
     if (!progress) {
       // Job type not supported for progress tracking
@@ -1018,6 +987,27 @@ exports.getJobProgress = async (req, res) => {
           message: 'Progress tracking not available for this job type'
         }
       });
+    }
+
+    // Update pipeline_stats in DB so SlurmMonitor can detect changes
+    // and broadcast progress via WebSocket (same pattern as MotionCorr live-stats)
+    if (progress.processed > 0) {
+      const statsUpdate = {};
+      if (progress.type === 'iteration') {
+        if (progress.processed !== (job.pipeline_stats?.iteration_count ?? 0)) {
+          statsUpdate['pipeline_stats.iteration_count'] = progress.processed;
+        }
+        if (totalExpected && totalExpected !== (job.pipeline_stats?.total_iterations ?? 0)) {
+          statsUpdate['pipeline_stats.total_iterations'] = totalExpected;
+        }
+      } else if (progress.type === 'count') {
+        if (progress.processed !== (job.pipeline_stats?.micrograph_count ?? 0)) {
+          statsUpdate['pipeline_stats.micrograph_count'] = progress.processed;
+        }
+      }
+      if (Object.keys(statsUpdate).length > 0) {
+        Job.updateOne({ id: job.id }, { $set: statsUpdate }).catch(() => {});
+      }
     }
 
     return response.success(res, {
@@ -1146,18 +1136,18 @@ exports.getJobOutputs = async (req, res) => {
 /**
  * Get output files from completed jobs of specified stages (database-backed)
  * Replaces filesystem-scanning getStageStarFiles/getStageMrcFiles
- * GET /api/jobs/stage-outputs?project_id=...&stages=Extract,Subset&file_type=star&role=particlesStar
+ * GET /api/jobs/stage-outputs?projectId=...&stages=Extract,Subset&fileType=star&role=particlesStar
  */
 exports.getStageOutputFiles = async (req, res) => {
   try {
-    const { project_id, stages, file_type, role } = req.query;
+    const { projectId, stages, fileType, role } = req.query;
 
-    if (!project_id || !stages) {
-      return response.badRequest(res, 'project_id and stages are required');
+    if (!projectId || !stages) {
+      return response.badRequest(res, 'projectId and stages are required');
     }
 
     // Access check
-    const access = await checkProjectAccess(project_id, req.user.id, 'viewer');
+    const access = await checkProjectAccess(projectId, req.user.id, 'viewer');
     if (!access.hasAccess) {
       return response.forbidden(res, 'Access denied');
     }
@@ -1166,12 +1156,12 @@ exports.getStageOutputFiles = async (req, res) => {
 
     // Find completed jobs of the requested stages
     const jobs = await Job.find({
-      project_id,
+      project_id: projectId,
       job_type: { $in: stageList },
       status: JOB_STATUS.SUCCESS,
     }).sort({ created_at: -1 }).lean();
 
-    logger.info(`[StageOutputs] Query: project=${project_id}, stages=${stageList.join(',')}, file_type=${file_type || 'all'} -> found ${jobs.length} jobs`);
+    logger.info(`[StageOutputs] Query: project=${projectId}, stages=${stageList.join(',')}, fileType=${fileType || 'all'} -> found ${jobs.length} jobs`);
     for (const j of jobs) {
       logger.info(`[StageOutputs]   ${j.job_name} (${j.job_type}, status=${j.status}, output_files=${(j.output_files || []).length}, path=${j.output_file_path})`);
     }
@@ -1210,7 +1200,7 @@ exports.getStageOutputFiles = async (req, res) => {
       for (const file of outputFiles) {
         // Apply filters
         // Match file type (treat 'mrc' as also matching 'mrcs')
-        if (file_type && file.fileType !== file_type && !(file_type === 'mrc' && file.fileType === 'mrcs')) continue;
+        if (fileType && file.fileType !== fileType && !(fileType === 'mrc' && file.fileType === 'mrcs')) continue;
         if (role && file.role !== role) continue;
 
         results.push({
@@ -1237,28 +1227,28 @@ exports.getStageOutputFiles = async (req, res) => {
 /**
  * Save a pasted FASTA sequence as a file in the project
  * POST /api/jobs/save-fasta
- * Body: { project_id, fasta_type: 'protein'|'dna'|'rna', sequence_text, filename? }
+ * Body: { projectId, fastaType: 'protein'|'dna'|'rna', sequenceText, filename? }
  */
 exports.saveFastaSequence = async (req, res) => {
   try {
-    const { project_id, fasta_type, sequence_text, filename } = req.body;
+    const { projectId, fastaType, sequenceText, filename } = req.body;
 
-    if (!project_id || !fasta_type || !sequence_text) {
-      return response.badRequest(res, 'project_id, fasta_type, and sequence_text are required');
+    if (!projectId || !fastaType || !sequenceText) {
+      return response.badRequest(res, 'projectId, fastaType, and sequenceText are required');
     }
 
     const validTypes = ['protein', 'dna', 'rna'];
-    if (!validTypes.includes(fasta_type)) {
-      return response.badRequest(res, `fasta_type must be one of: ${validTypes.join(', ')}`);
+    if (!validTypes.includes(fastaType)) {
+      return response.badRequest(res, `fastaType must be one of: ${validTypes.join(', ')}`);
     }
 
     // Size limit: 1MB
-    if (sequence_text.length > 1024 * 1024) {
+    if (sequenceText.length > 1024 * 1024) {
       return response.badRequest(res, 'Sequence text exceeds 1MB limit');
     }
 
     // Validate FASTA format
-    const trimmed = sequence_text.trim();
+    const trimmed = sequenceText.trim();
     if (!trimmed.startsWith('>')) {
       return response.badRequest(res, 'Invalid FASTA: must start with a header line beginning with ">"');
     }
@@ -1273,7 +1263,7 @@ exports.saveFastaSequence = async (req, res) => {
       dna: /^[ACGTNX\s]+$/i,
       rna: /^[ACGUNX\s]+$/i,
     };
-    const allowedChars = charSets[fasta_type];
+    const allowedChars = charSets[fastaType];
 
     for (const line of lines) {
       const l = line.trim();
@@ -1286,7 +1276,7 @@ exports.saveFastaSequence = async (req, res) => {
           return response.badRequest(res, 'Invalid FASTA: sequence data found before header line');
         }
         if (!allowedChars.test(l)) {
-          return response.badRequest(res, `Invalid FASTA: sequence contains invalid characters for ${fasta_type}`);
+          return response.badRequest(res, `Invalid FASTA: sequence contains invalid characters for ${fastaType}`);
         }
         hasSequence = true;
       }
@@ -1297,12 +1287,12 @@ exports.saveFastaSequence = async (req, res) => {
     }
 
     // Verify project access
-    const project = await Project.findOne({ id: project_id }).lean();
+    const project = await Project.findOne({ id: projectId }).lean();
     if (!project) {
       return response.notFound(res, 'Project not found');
     }
 
-    const access = await checkProjectAccess(project_id, req.user.id, 'editor');
+    const access = await checkProjectAccess(projectId, req.user.id, 'editor');
     if (!access.hasAccess) {
       return response.forbidden(res, 'You do not have permission to modify this project');
     }
@@ -1313,7 +1303,7 @@ exports.saveFastaSequence = async (req, res) => {
     const { sanitizeFilename } = require('../utils/pathUtils');
     const baseName = filename
       ? sanitizeFilename(filename).replace(/\.fasta$/i, '')
-      : `${fasta_type}_sequence`;
+      : `${fastaType}_sequence`;
     const safeFilename = `${baseName}.fasta`;
 
     // Write to <projectPath>/sequences/<filename>.fasta
@@ -1326,7 +1316,7 @@ exports.saveFastaSequence = async (req, res) => {
     fs.writeFileSync(filePath, trimmed + '\n', 'utf8');
 
     const relativePath = `sequences/${safeFilename}`;
-    logger.info(`[SaveFasta] Saved ${fasta_type} FASTA to ${relativePath} for project ${project_id}`);
+    logger.info(`[SaveFasta] Saved ${fastaType} FASTA to ${relativePath} for project ${projectId}`);
 
     return response.successData(res, { path: relativePath });
   } catch (error) {

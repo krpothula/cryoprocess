@@ -161,7 +161,7 @@ const Classification = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
-    threeDClassificationAPI({ ...(formData || {}), project_id: projectId })
+    threeDClassificationAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -252,7 +252,7 @@ const Classification = () => {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

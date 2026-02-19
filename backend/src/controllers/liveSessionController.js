@@ -12,7 +12,7 @@ const Project = require('../models/Project');
 const Job = require('../models/Job');
 const response = require('../utils/responseHelper');
 const { getProjectPath } = require('../utils/pathUtils');
-const { mapKeys } = require('../utils/mapKeys');
+const { mapKeys, mapKeysToSnake } = require('../utils/mapKeys');
 
 /**
  * Create a new live session (and optionally a new project)
@@ -30,6 +30,7 @@ exports.createSession = async (req, res) => {
       inputMode,
       watchDirectory,
       filePattern,
+      movieThreshold,
       optics,
       motionConfig,
       ctfConfig,
@@ -118,6 +119,7 @@ exports.createSession = async (req, res) => {
       input_mode: inputMode || 'watch',
       watch_directory: watchDirectory,
       file_pattern: filePattern || '*.tiff',
+      movie_threshold: parseInt(movieThreshold) || 0,
       optics: {
         pixel_size: optics.pixelSize,
         voltage: optics.voltage,
@@ -125,13 +127,13 @@ exports.createSession = async (req, res) => {
         amplitude_contrast: optics.amplitudeContrast || 0.1,
         optics_group_name: optics.opticsGroupName || 'opticsGroup1'
       },
-      motion_config: motionConfig || {},
-      ctf_config: ctfConfig || {},
-      picking_config: pickingConfig || {},
-      extraction_config: extractionConfig || {},
-      class2d_config: class2dConfig || {},
-      thresholds: thresholds || {},
-      slurm_config: slurmConfig || {},
+      motion_config: mapKeysToSnake(motionConfig || {}),
+      ctf_config: mapKeysToSnake(ctfConfig || {}),
+      picking_config: mapKeysToSnake(pickingConfig || {}),
+      extraction_config: mapKeysToSnake(extractionConfig || {}),
+      class2d_config: mapKeysToSnake(class2dConfig || {}),
+      thresholds: mapKeysToSnake(thresholds || {}),
+      slurm_config: mapKeysToSnake(slurmConfig || {}),
       activity_log: [{
         timestamp: new Date(),
         event: 'session_created',
@@ -332,9 +334,9 @@ exports.getSessionStats = async (req, res) => {
 
     return response.success(res, {
       data: {
-        state: session.state,
+        state: mapKeys(session.state),
         jobs: mapKeys(jobsByType),
-        thresholds: session.thresholds
+        thresholds: mapKeys(session.thresholds)
       }
     });
   } catch (error) {

@@ -282,7 +282,7 @@ describe('changePassword', () => {
   it('changes password when current password is correct', async () => {
     const req = {
       user: { id: 1 },
-      body: { current_password: 'correct-password', new_password: 'NewPass123!', confirm_password: 'NewPass123!' },
+      body: { currentPassword: 'correct-password', newPassword: 'NewPass123!', confirmPassword: 'NewPass123!' },
     };
     const res = mockRes();
 
@@ -304,7 +304,7 @@ describe('changePassword', () => {
   it('returns 400 when passwords do not match', async () => {
     const req = {
       user: { id: 1 },
-      body: { current_password: 'correct-password', new_password: 'NewPass1', confirm_password: 'Different1' },
+      body: { currentPassword: 'correct-password', newPassword: 'NewPass1', confirmPassword: 'Different1' },
     };
     const res = mockRes();
 
@@ -316,7 +316,7 @@ describe('changePassword', () => {
   it('returns 401 when current password is wrong', async () => {
     const req = {
       user: { id: 1 },
-      body: { current_password: 'wrong-password', new_password: 'NewPass123!', confirm_password: 'NewPass123!' },
+      body: { currentPassword: 'wrong-password', newPassword: 'NewPass123!', confirmPassword: 'NewPass123!' },
     };
     const res = mockRes();
 
@@ -377,7 +377,7 @@ describe('resetPassword', () => {
   });
 
   it('resets password with valid token', async () => {
-    const req = { body: { token: 'valid-token', new_password: 'NewPass123!', confirm_password: 'NewPass123!' } };
+    const req = { body: { token: 'valid-token', newPassword: 'NewPass123!', confirmPassword: 'NewPass123!' } };
     const res = mockRes();
 
     await authController.resetPassword(req, res);
@@ -387,7 +387,7 @@ describe('resetPassword', () => {
   });
 
   it('returns 400 when token is missing', async () => {
-    const req = { body: { new_password: 'NewPass123!' } };
+    const req = { body: { newPassword: 'NewPass123!' } };
     const res = mockRes();
 
     await authController.resetPassword(req, res);
@@ -396,7 +396,7 @@ describe('resetPassword', () => {
   });
 
   it('returns 400 when passwords do not match', async () => {
-    const req = { body: { token: 'valid-token', new_password: 'NewPass1', confirm_password: 'Different1' } };
+    const req = { body: { token: 'valid-token', newPassword: 'NewPass1', confirmPassword: 'Different1' } };
     const res = mockRes();
 
     await authController.resetPassword(req, res);
@@ -406,7 +406,7 @@ describe('resetPassword', () => {
 
   it('returns 400 for invalid/expired token', async () => {
     mockResetToken = null;
-    const req = { body: { token: 'bad-token', new_password: 'NewPass123!', confirm_password: 'NewPass123!' } };
+    const req = { body: { token: 'bad-token', newPassword: 'NewPass123!', confirmPassword: 'NewPass123!' } };
     const res = mockRes();
 
     await authController.resetPassword(req, res);

@@ -7,9 +7,9 @@ const modelAngeloAPI = (payload = {}) => {
 
 const saveFastaSequenceApi = (projectId, fastaType, sequenceText, filename) => {
   return axiosInstance.post('/api/jobs/save-fasta', {
-    project_id: projectId,
-    fasta_type: fastaType,
-    sequence_text: sequenceText,
+    projectId,
+    fastaType,
+    sequenceText,
     filename,
   });
 };

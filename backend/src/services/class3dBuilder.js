@@ -269,7 +269,7 @@ class Class3DBuilder extends BaseJobBuilder {
     cmd.push('--healpix_order', String(healpixOrder));
 
     // Relax symmetry
-    const relaxSym = getParam(data, ['relaxSymmetry', 'RelaxSymmetry'], null);
+    const relaxSym = getParam(data, ['relaxSymmetry'], null);
     if (relaxSym) {
       cmd.push('--relax_sym', relaxSym);
     }

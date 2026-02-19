@@ -115,7 +115,7 @@ const ModelAngelo = () => {
     e.preventDefault();
     setLoading(true);
 
-    modelAngeloAPI({ ...(formData || {}), project_id: projectId })
+    modelAngeloAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -167,7 +167,7 @@ const ModelAngelo = () => {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}
@@ -345,7 +345,7 @@ const ModelAngelo = () => {
       </div>
 
       
-      <form onSubmit={handleSubmit} className="form-content ">
+      <form onSubmit={handleSubmit} noValidate className="form-content ">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

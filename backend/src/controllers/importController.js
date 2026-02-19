@@ -44,8 +44,8 @@ const detectImportMode = (command, outputDir) => {
 
   // Check for other node type output files
   for (const [nodeType, info] of Object.entries(NODE_TYPE_INFO)) {
-    const outputFile = path.join(outputDir, info.output_file);
-    if (fs.existsSync(outputFile) && !['movies.star', 'micrographs.star'].includes(info.output_file)) {
+    const outputFile = path.join(outputDir, info.outputFile);
+    if (fs.existsSync(outputFile) && !['movies.star', 'micrographs.star'].includes(info.outputFile)) {
       return 'other';
     }
   }
@@ -104,7 +104,7 @@ const getOtherNodeResults = async (job, outputDir, projectPath, res) => {
     nodeType = match[1];
     if (NODE_TYPE_INFO[nodeType]) {
       nodeLabel = NODE_TYPE_INFO[nodeType].label;
-      const outputFile = NODE_TYPE_INFO[nodeType].output_file;
+      const outputFile = NODE_TYPE_INFO[nodeType].outputFile;
       importedFile = path.join(outputDir, outputFile);
       if (!fs.existsSync(importedFile)) {
         importedFile = null;
@@ -115,7 +115,7 @@ const getOtherNodeResults = async (job, outputDir, projectPath, res) => {
   // Fallback: search for expected output files
   if (!importedFile) {
     for (const [nt, info] of Object.entries(NODE_TYPE_INFO)) {
-      const potentialFile = path.join(outputDir, info.output_file);
+      const potentialFile = path.join(outputDir, info.outputFile);
       if (fs.existsSync(potentialFile)) {
         nodeType = nt;
         nodeLabel = info.label;
@@ -332,9 +332,13 @@ const getMoviesResults = async (job, outputDir, projectPath, req, res) => {
 
   // Get import type and parameters
   const params = job.parameters || {};
-  let importType = params.rawMovies === 'Yes' ? 'movies' : 'micrographs';
-  if (!params.rawMovies) {
-    importType = starFile && starFile.includes('movies') ? 'movies' : 'micrographs';
+  let importType = 'micrographs';
+  if (params.rawMovies === 'Yes' || params.rawMovies === true) {
+    importType = 'movies';
+  } else if (params.multiFrameMovies === 'Yes' || params.multiFrameMovies === true) {
+    importType = 'movies';
+  } else if (starFile && starFile.includes('movies')) {
+    importType = 'movies';
   }
 
   const angpix = params.angpix;
@@ -372,10 +376,10 @@ const getMoviesResults = async (job, outputDir, projectPath, req, res) => {
  */
 exports.getMovieFrame = async (req, res) => {
   try {
-    const { path: moviePath, job_id: jobId, frame, info, average } = req.query;
+    const { path: moviePath, jobId, frame, info, average } = req.query;
 
     if (!jobId) {
-      return response.badRequest(res, 'job_id is required');
+      return response.badRequest(res, 'jobId is required');
     }
 
     // Verify ownership
@@ -455,10 +459,10 @@ exports.getMovieFrame = async (req, res) => {
  */
 exports.getAllMovieFrames = async (req, res) => {
   try {
-    const { path: moviePath, job_id: jobId, max_frames = 50, size = 256 } = req.query;
+    const { path: moviePath, jobId, maxFrames = 50, size = 256 } = req.query;
 
     if (!jobId) {
-      return response.badRequest(res, 'job_id is required');
+      return response.badRequest(res, 'jobId is required');
     }
 
     // Verify ownership
@@ -495,7 +499,7 @@ exports.getAllMovieFrames = async (req, res) => {
     }
 
     const numFrames = mrcInfo.num_frames;
-    const maxFramesInt = Math.min(parseInt(max_frames, 10) || 50, 100);
+    const maxFramesInt = Math.min(parseInt(maxFrames, 10) || 50, 100);
     const targetSize = Math.min(parseInt(size, 10) || 256, 512);
 
     // Calculate which frames to extract
@@ -593,10 +597,10 @@ exports.getThumbnail = async (req, res) => {
  */
 exports.getMrcVolume = async (req, res) => {
   try {
-    const { job_id: jobId } = req.query;
+    const { jobId } = req.query;
 
     if (!jobId) {
-      return response.badRequest(res, 'job_id is required');
+      return response.badRequest(res, 'jobId is required');
     }
 
     // Verify ownership
@@ -665,10 +669,10 @@ exports.getMrcVolume = async (req, res) => {
  */
 exports.getLogs = async (req, res) => {
   try {
-    const { project_id: projectId, job_id: jobId } = req.query;
+    const { projectId, jobId } = req.query;
 
     if (!projectId || !jobId) {
-      return response.badRequest(res, 'project_id and job_id are required');
+      return response.badRequest(res, 'projectId and jobId are required');
     }
 
     // Verify job ownership
@@ -678,31 +682,6 @@ exports.getLogs = async (req, res) => {
         return response.notFound(res, error);
       }
       return response.forbidden(res, error);
-    }
-
-    // Handle link_movies jobs (no log files, executed directly)
-    const jobTypeLower = (job.job_type || '').toLowerCase();
-    if (jobTypeLower === 'linkmovies' || jobTypeLower === 'link_movies') {
-      const statusLine = job.status === 'success'
-        ? 'Link Movies completed successfully.'
-        : `Link Movies ${job.status || 'unknown'}.`;
-      const content = [
-        '='.repeat(60),
-        `Job: ${job.job_name || jobId}`,
-        `Type: Link Movies`,
-        `Status: ${(job.status || 'unknown').toUpperCase()}`,
-        `Started: ${job.start_time ? new Date(job.start_time).toLocaleString() : 'N/A'}`,
-        `Completed: ${job.end_time ? new Date(job.end_time).toLocaleString() : 'N/A'}`,
-        '='.repeat(60),
-        '',
-        statusLine,
-        job.error_message ? `Error: ${job.error_message}` : ''
-      ].filter(Boolean).join('\n');
-
-      return response.success(res, {
-        logPath: 'N/A (direct execution)',
-        content
-      });
     }
 
     const folderPath = job.output_file_path;
@@ -763,10 +742,10 @@ exports.getLogs = async (req, res) => {
  */
 exports.parseStar = async (req, res) => {
   try {
-    const { star_file: starFile, limit = 100 } = req.body;
+    const { starFile, limit = 100 } = req.body;
 
     if (!starFile) {
-      return response.badRequest(res, 'star_file is required');
+      return response.badRequest(res, 'starFile is required');
     }
 
     // Security: validate path
@@ -802,10 +781,10 @@ exports.parseStar = async (req, res) => {
  */
 exports.getMrcFileInfo = async (req, res) => {
   try {
-    const { mrc_file: mrcFile } = req.body;
+    const { mrcFile } = req.body;
 
     if (!mrcFile) {
-      return response.badRequest(res, 'mrc_file is required');
+      return response.badRequest(res, 'mrcFile is required');
     }
 
     // Security: validate path

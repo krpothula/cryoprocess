@@ -72,7 +72,7 @@ class SubtractBuilder extends BaseJobBuilder {
       }
     }
 
-    if (getBoolParam(data, ['subtractedImages', 'subtracted_images'], false)) {
+    if (getBoolParam(data, ['subtractedImages'], false)) {
       cmd.push('--recenter_on_mask');
     }
 

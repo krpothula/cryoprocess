@@ -8,14 +8,14 @@ import axiosInstance from "./config";
  */
 export const browseFolderApi = (projectId, path = "", filters = {}) => {
   const params = {
-    project_id: projectId,
+    projectId,
     path: path,
   };
 
   if (filters.prefix) params.prefix = filters.prefix;
   if (filters.suffix) params.suffix = filters.suffix;
   if (filters.extensions) params.extensions = filters.extensions;
-  if (filters.showFiles !== undefined) params.show_files = filters.showFiles;
+  if (filters.showFiles !== undefined) params.showFiles = filters.showFiles;
   if (filters.limit !== undefined) params.limit = filters.limit;
   if (filters.offset !== undefined) params.offset = filters.offset;
 
@@ -32,8 +32,8 @@ export const browseFolderApi = (projectId, path = "", filters = {}) => {
  */
 export const selectFilesApi = (projectId, folderPath, pattern = "*", prefix = "", suffix = "") => {
   return axiosInstance.post("/api/files/select", {
-    project_id: projectId,
-    folder_path: folderPath,
+    projectId,
+    folderPath,
     pattern: pattern,
     prefix: prefix,
     suffix: suffix,

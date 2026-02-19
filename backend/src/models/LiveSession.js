@@ -156,6 +156,12 @@ const liveSessionSchema = new mongoose.Schema({
     vdam_mini_batches: { type: Number, default: 200 }
   },
 
+  // Minimum movies before triggering first pipeline pass
+  movie_threshold: {
+    type: Number,
+    default: 0   // 0 = no threshold, start immediately
+  },
+
   // Quality filtering thresholds
   thresholds: {
     ctf_resolution_max: { type: Number, default: 5.0 },

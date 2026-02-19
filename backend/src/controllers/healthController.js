@@ -7,6 +7,7 @@
 
 const mongoose = require('mongoose');
 const os = require('os');
+const response = require('../utils/responseHelper');
 
 const DB_STATES = {
   0: 'disconnected',
@@ -42,8 +43,8 @@ exports.getHealth = (req, res) => {
       },
     };
 
-    res.status(healthy ? 200 : 503).json(payload);
+    return response.successData(res, payload, healthy ? 200 : 503);
   } catch (error) {
-    res.status(503).json({ status: 'error', message: 'Health check failed' });
+    return response.serverError(res, 'Health check failed');
   }
 };

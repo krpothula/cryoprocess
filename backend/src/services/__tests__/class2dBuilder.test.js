@@ -1,7 +1,7 @@
 jest.mock('../../utils/logger');
 
 const Class2DBuilder = require('../class2dBuilder');
-const { buildCommand, createBuilder, MOCK_OUTPUT_DIR, MOCK_JOB_NAME } = require('./helpers/builderFactory');
+const { buildCommand, createBuilder } = require('./helpers/builderFactory');
 const { expectFlag, expectNoFlag, expectBinary } = require('./helpers/commandAssertions');
 
 const BASE_DATA = {
@@ -14,10 +14,9 @@ afterEach(() => jest.restoreAllMocks());
 // ─── VDAM vs EM ──────────────────────────────────────────────────────
 
 describe('Class2DBuilder — VDAM mode (default)', () => {
-  it('includes --grad and --grad_ini_subset for VDAM', () => {
+  it('includes --grad flags for VDAM', () => {
     const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, useVDAM: 'Yes' });
     expectFlag(cmd, '--grad');
-    expectFlag(cmd, '--grad_ini_subset', '200');
     expectFlag(cmd, '--class_inactivity_threshold', '0.1');
     expectFlag(cmd, '--grad_write_iter', '10');
   });
@@ -25,12 +24,17 @@ describe('Class2DBuilder — VDAM mode (default)', () => {
   it('VDAM is enabled by default (no useVDAM field)', () => {
     const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA });
     expectFlag(cmd, '--grad');
-    expectFlag(cmd, '--grad_ini_subset', '200');
+    expectFlag(cmd, '--class_inactivity_threshold', '0.1');
   });
 
-  it('respects custom mini-batch size', () => {
+  it('uses default 200 VDAM mini-batches as --iter', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA });
+    expectFlag(cmd, '--iter', '200');
+  });
+
+  it('respects custom mini-batch size via --iter', () => {
     const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, vdamMiniBatches: 100 });
-    expectFlag(cmd, '--grad_ini_subset', '100');
+    expectFlag(cmd, '--iter', '100');
   });
 });
 
@@ -38,8 +42,18 @@ describe('Class2DBuilder — EM mode', () => {
   it('omits --grad when VDAM disabled', () => {
     const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, useVDAM: 'No' });
     expectNoFlag(cmd, '--grad');
-    expectNoFlag(cmd, '--grad_ini_subset');
     expectNoFlag(cmd, '--class_inactivity_threshold');
+    expectNoFlag(cmd, '--grad_write_iter');
+  });
+
+  it('uses default 25 EM iterations when VDAM disabled', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, useVDAM: 'No' });
+    expectFlag(cmd, '--iter', '25');
+  });
+
+  it('respects custom EM iterations', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, useVDAM: 'No', numberEMIterations: 40 });
+    expectFlag(cmd, '--iter', '40');
   });
 });
 
@@ -63,7 +77,14 @@ describe('Class2DBuilder — continue from optimiser', () => {
     });
     expectNoFlag(cmd, '--grad');
     expectNoFlag(cmd, '--ctf');
-    expectNoFlag(cmd, '--grad_ini_subset');
+  });
+
+  it('includes --dont_combine_weights_via_disc in continue mode', () => {
+    const cmd = buildCommand(Class2DBuilder, {
+      continueFrom: 'Class2D/Job001/run_it025_optimiser.star',
+      submitToQueue: 'Yes',
+    });
+    expectFlag(cmd, '--dont_combine_weights_via_disc');
   });
 });
 
@@ -71,12 +92,12 @@ describe('Class2DBuilder — continue from optimiser', () => {
 
 describe('Class2DBuilder — MPI', () => {
   it('uses relion_refine (no _mpi) for single process', () => {
-    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, runningmpi: 1 });
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, mpiProcs: 1 });
     expect(cmd[0]).toBe('relion_refine');
   });
 
   it('uses relion_refine_mpi for multi-process queue submission', () => {
-    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, runningmpi: 4 });
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, mpiProcs: 4 });
     expect(cmd[0]).toBe('relion_refine_mpi');
   });
 });
@@ -88,7 +109,7 @@ describe('Class2DBuilder — GPU', () => {
     const cmd = buildCommand(Class2DBuilder, {
       ...BASE_DATA,
       gpuAcceleration: 'Yes',
-      useGPU: '0,1',
+      gpuToUse: '0,1',
     });
     expectFlag(cmd, '--gpu', '0,1');
   });
@@ -116,11 +137,6 @@ describe('Class2DBuilder — defaults', () => {
     expectFlag(cmd, '--dont_combine_weights_via_disc');
   });
 
-  it('uses default iterations (25)', () => {
-    const cmd = buildCommand(Class2DBuilder, BASE_DATA);
-    expectFlag(cmd, '--iter', '25');
-  });
-
   it('uses default particle diameter (200)', () => {
     const cmd = buildCommand(Class2DBuilder, BASE_DATA);
     expectFlag(cmd, '--particle_diameter', '200');
@@ -136,9 +152,53 @@ describe('Class2DBuilder — defaults', () => {
     expectFlag(cmd, '--K', '50');
   });
 
-  it('sets custom iterations', () => {
-    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, numberEMIterations: 40 });
-    expectFlag(cmd, '--iter', '40');
+  it('sets custom particle diameter', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, maskDiameter: 150 });
+    expectFlag(cmd, '--particle_diameter', '150');
+  });
+
+  it('uses default regularisation (2)', () => {
+    const cmd = buildCommand(Class2DBuilder, BASE_DATA);
+    expectFlag(cmd, '--tau2_fudge', '2');
+  });
+
+  it('sets custom regularisation', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, regularisationParam: 4 });
+    expectFlag(cmd, '--tau2_fudge', '4');
+  });
+});
+
+// ─── Alignment options ──────────────────────────────────────────────
+
+describe('Class2DBuilder — alignment', () => {
+  it('adds --skip_align when image alignment disabled', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, performImageAlignment: 'No' });
+    expectFlag(cmd, '--skip_align');
+    expectNoFlag(cmd, '--zero_mask');
+    expectNoFlag(cmd, '--center_classes');
+  });
+
+  it('includes alignment flags by default', () => {
+    const cmd = buildCommand(Class2DBuilder, BASE_DATA);
+    expectFlag(cmd, '--oversampling', '1');
+    expectFlag(cmd, '--offset_range', '5');
+    expectFlag(cmd, '--offset_step', '1');
+  });
+
+  it('respects custom offset range and step', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, offsetSearchRange: 10, offsetSearchStep: 2 });
+    expectFlag(cmd, '--offset_range', '10');
+    expectFlag(cmd, '--offset_step', '2');
+  });
+
+  it('adds --allow_coarser_sampling when enabled', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, allowCoarseSampling: 'Yes' });
+    expectFlag(cmd, '--allow_coarser_sampling');
+  });
+
+  it('omits --allow_coarser_sampling by default', () => {
+    const cmd = buildCommand(Class2DBuilder, BASE_DATA);
+    expectNoFlag(cmd, '--allow_coarser_sampling');
   });
 });
 
@@ -153,6 +213,11 @@ describe('Class2DBuilder — CTF intact first peak', () => {
   it('omits --ctf_intact_first_peak by default', () => {
     const cmd = buildCommand(Class2DBuilder, BASE_DATA);
     expectNoFlag(cmd, '--ctf_intact_first_peak');
+  });
+
+  it('omits --ctf when ctfCorrection disabled', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, ctfCorrection: 'No' });
+    expectNoFlag(cmd, '--ctf');
   });
 });
 
@@ -182,18 +247,34 @@ describe('Class2DBuilder — helical', () => {
       doBimodalAngular: 'Yes',
     });
     expectFlag(cmd, '--helical_outer_diameter', '300');
-    expectFlag(cmd, '--helical_rise', '5.5');
+    expectFlag(cmd, '--helical_rise_initial', '5.5');
     expectFlag(cmd, '--bimodal_psi');
+  });
+
+  it('uses default helical rise (4.75)', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, classify2DHelical: 'Yes' });
+    expectFlag(cmd, '--helical_rise_initial', '4.75');
+  });
+
+  it('adds --helical_offset_step when restrict offsets enabled', () => {
+    const cmd = buildCommand(Class2DBuilder, {
+      ...BASE_DATA,
+      classify2DHelical: 'Yes',
+      restrictHelicalOffsets: 'Yes',
+      offsetSearchStep: 3,
+    });
+    expectFlag(cmd, '--helical_offset_step', '3');
   });
 
   it('omits helical flags when disabled', () => {
     const cmd = buildCommand(Class2DBuilder, BASE_DATA);
     expectNoFlag(cmd, '--helical_outer_diameter');
     expectNoFlag(cmd, '--bimodal_psi');
+    expectNoFlag(cmd, '--helical_rise_initial');
   });
 });
 
-// ─── Scratch & preread ───────────────────────────────────────────────
+// ─── I/O options ────────────────────────────────────────────────────
 
 describe('Class2DBuilder — I/O options', () => {
   it('adds --preread_images when enabled', () => {
@@ -202,8 +283,18 @@ describe('Class2DBuilder — I/O options', () => {
   });
 
   it('adds --scratch_dir when set', () => {
-    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, scratch_dir: '/scratch/user' });
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, copyParticlesToScratch: '/scratch/user' });
     expectFlag(cmd, '--scratch_dir', '/scratch/user');
+  });
+
+  it('adds --no_parallel_disc_io when parallel IO disabled', () => {
+    const cmd = buildCommand(Class2DBuilder, { ...BASE_DATA, useParallelIO: 'No' });
+    expectFlag(cmd, '--no_parallel_disc_io');
+  });
+
+  it('omits --no_parallel_disc_io by default (parallel IO enabled)', () => {
+    const cmd = buildCommand(Class2DBuilder, BASE_DATA);
+    expectNoFlag(cmd, '--no_parallel_disc_io');
   });
 });
 

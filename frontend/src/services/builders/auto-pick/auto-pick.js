@@ -7,12 +7,12 @@ const autoPickerAPI = (payload = {}) => {
 
 // Dashboard visualization APIs
 const getAutoPickResultsApi = (jobId = "") => {
-  return axiosInstance.get(`/autopick/results/?job_id=${jobId}`);
+  return axiosInstance.get(`/autopick/results/?jobId=${jobId}`);
 };
 
 const getAutoPickImageApi = (jobId = "", micrograph = "", showPicks = true, radius = 50) => {
   return axiosInstance.get(
-    `/autopick/image/?job_id=${jobId}&micrograph=${micrograph}&show_picks=${showPicks}&radius=${radius}`
+    `/autopick/image/?jobId=${jobId}&micrograph=${micrograph}&showPicks=${showPicks}&radius=${radius}`
   );
 };
 

@@ -86,7 +86,7 @@ const ParticleSubtraction = () => {
     e.preventDefault();
     setLoading(true);
 
-    particleSubtractionAPI({ ...(formData || {}), project_id: projectId })
+    particleSubtractionAPI({ ...(formData || {}), projectId })
       .then((response) => {
         setMessage(`Success: ${response?.data?.message}`);
         setTimeout(() => {
@@ -138,7 +138,7 @@ const ParticleSubtraction = () => {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}
@@ -337,7 +337,7 @@ const ParticleSubtraction = () => {
           Running
         </button>
       </div>
-      <form onSubmit={handleSubmit} className="form-content">
+      <form onSubmit={handleSubmit} noValidate className="form-content">
         {activeTab === "I/O" && (
           <Io
             formData={formData}

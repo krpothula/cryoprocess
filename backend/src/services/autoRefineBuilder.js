@@ -182,7 +182,7 @@ class AutoRefineBuilder extends BaseJobBuilder {
     }
 
     // Relax symmetry
-    const relaxSym = getParam(data, ['relaxSymmetry', 'RelaxSymmetry'], null);
+    const relaxSym = getParam(data, ['relaxSymmetry'], null);
     if (relaxSym) {
       cmd.push('--relax_sym', relaxSym);
     }

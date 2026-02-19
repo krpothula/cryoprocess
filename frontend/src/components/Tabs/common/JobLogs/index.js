@@ -14,7 +14,6 @@ import "./JobLogs.css";
 
 // Job type display names
 const JOB_TYPE_NAMES = {
-  LinkMovies: "Link Movies",
   Import: "Import",
   MotionCorr: "Motion Correction",
   CtfFind: "CTF Estimation",

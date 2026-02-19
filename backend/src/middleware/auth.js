@@ -54,15 +54,15 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    // Attach user to request
+    // Attach user to request (camelCase — DB fields are snake_case)
     req.user = {
       id: user.id,
       username: user.username,
       email: user.email,
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      is_staff: user.is_staff || false,
-      is_superuser: user.is_superuser || false
+      firstName: user.first_name || '',
+      lastName: user.last_name || '',
+      isStaff: user.is_staff || false,
+      isSuperuser: user.is_superuser || false
     };
 
     next();
@@ -103,7 +103,7 @@ const isStaff = (req, res, next) => {
     });
   }
 
-  if (!req.user.is_superuser && !req.user.is_staff) {
+  if (!req.user.isSuperuser && !req.user.isStaff) {
     return res.status(403).json({
       status: 'error',
       message: 'Staff access required'
@@ -125,7 +125,7 @@ const isSuperuser = (req, res, next) => {
     });
   }
 
-  if (!req.user.is_superuser) {
+  if (!req.user.isSuperuser) {
     return res.status(403).json({
       status: 'error',
       message: 'Superuser access required'
@@ -160,10 +160,10 @@ const smartscopeAuth = async (req, res, next) => {
         id: serviceUser.id,
         username: serviceUser.username,
         email: serviceUser.email,
-        first_name: serviceUser.first_name || 'SmartScope',
-        last_name: serviceUser.last_name || 'Service',
-        is_staff: serviceUser.is_staff || false,
-        is_superuser: serviceUser.is_superuser || false
+        firstName: serviceUser.first_name || 'SmartScope',
+        lastName: serviceUser.last_name || 'Service',
+        isStaff: serviceUser.is_staff || false,
+        isSuperuser: serviceUser.is_superuser || false
       };
 
       return next();
@@ -185,10 +185,10 @@ const smartscopeAuth = async (req, res, next) => {
         id: user.id,
         username: user.username,
         email: user.email,
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        is_staff: user.is_staff || false,
-        is_superuser: user.is_superuser || false
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        isStaff: user.is_staff || false,
+        isSuperuser: user.is_superuser || false
       };
 
       return next();
