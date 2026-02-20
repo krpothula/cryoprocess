@@ -147,10 +147,11 @@ const MotionDashboard = () => {
       fetchResults(0);
       fetchLiveStats();
 
-      // Poll for live stats if job is running
+      // Poll for live stats and results if job is running
       const interval = setInterval(() => {
         if (selectedJob?.status === "running") {
           fetchLiveStats();
+          fetchResults(0);
         }
       }, 5000);
 
