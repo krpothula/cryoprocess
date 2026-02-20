@@ -1154,10 +1154,27 @@ exports.getStageOutputFiles = async (req, res) => {
 
     const stageList = stages.split(',').map(s => s.trim()).filter(Boolean);
 
+    // Virtual stage aliases: expand to real job_type + role filter
+    const VIRTUAL_STAGES = {
+      ImportCoords: { jobType: 'Import', role: 'coordinatesStar' },
+    };
+    const virtualRoles = {};
+    const realStages = [];
+    for (const s of stageList) {
+      if (VIRTUAL_STAGES[s]) {
+        const v = VIRTUAL_STAGES[s];
+        realStages.push(v.jobType);
+        virtualRoles[v.jobType] = v.role;
+      } else {
+        realStages.push(s);
+      }
+    }
+    const uniqueStages = [...new Set(realStages)];
+
     // Find completed jobs of the requested stages
     const jobs = await Job.find({
       project_id: projectId,
-      job_type: { $in: stageList },
+      job_type: { $in: uniqueStages },
       status: JOB_STATUS.SUCCESS,
     }).sort({ created_at: -1 }).lean();
 
@@ -1202,6 +1219,9 @@ exports.getStageOutputFiles = async (req, res) => {
         // Match file type (treat 'mrc' as also matching 'mrcs')
         if (fileType && file.fileType !== fileType && !(fileType === 'mrc' && file.fileType === 'mrcs')) continue;
         if (role && file.role !== role) continue;
+        // Virtual stage role filter (e.g., ImportCoords -> only coordinatesStar files from Import)
+        const vRole = virtualRoles[job.job_type];
+        if (vRole && file.role !== vRole) continue;
 
         results.push({
           filePath: file.relativePath,
