@@ -77,8 +77,8 @@ class ImportJobBuilder {
       return { valid: false, error: 'Input file is required for other node types' };
     }
 
-    // Security: validate path doesn't contain shell metacharacters (allow * for glob)
-    const safePath = otherInput.includes('*') ? otherInput.replace(/\*/g, '') : otherInput;
+    // Security: validate path doesn't contain shell metacharacters (allow glob wildcards: * ? [ ])
+    const safePath = otherInput.replace(/[*?\[\]]/g, '');
     if (!isPathSafe(safePath)) {
       logger.warn(`[Import] Validation: Failed | invalid characters in path: ${otherInput}`);
       return { valid: false, error: 'Input path contains invalid characters' };
@@ -137,16 +137,17 @@ class ImportJobBuilder {
       return { valid: false, error: 'Input files path is required' };
     }
 
-    // Security: validate path doesn't contain shell metacharacters (allow * for glob)
+    // Security: validate path doesn't contain shell metacharacters (allow glob wildcards: * ? [ ])
     // We check the base path without the glob pattern
-    const basePath = inputFiles.includes('*') ? path.dirname(inputFiles) : inputFiles;
-    if (basePath && !isPathSafe(basePath.replace(/\*/g, ''))) {
+    const basePath = /[*?\[\]]/.test(inputFiles) ? path.dirname(inputFiles) : inputFiles;
+    if (basePath && !isPathSafe(basePath.replace(/[*?\[\]]/g, ''))) {
       logger.warn(`[Import] Validation: Failed | invalid characters in path: ${inputFiles}`);
       return { valid: false, error: 'Input path contains invalid characters' };
     }
 
-    // Input files can be a glob pattern
-    const inputDir = inputFiles.includes('*')
+    // Input files can be a glob pattern (*, ?, [])
+    const hasGlob = /[*?\[\]]/.test(inputFiles);
+    const inputDir = hasGlob
       ? path.dirname(inputFiles)
       : inputFiles;
 
