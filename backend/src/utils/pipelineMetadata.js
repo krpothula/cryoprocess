@@ -387,7 +387,7 @@ async function storeImportMetadata(job) {
 
   // --- Handle "other" node type imports (ref3d, mask, halfmap, refs2d, coords) ---
   // RELION uses different flags: --do_other (ref3d, mask, refs2d), --do_coordinates, --do_halfmaps
-  const isOtherImport = command.includes('--do_other') || command.includes('--do_coordinates') || command.includes('--do_halfmaps');
+  const isOtherImport = command.includes('--do_other') || command.includes('--do_coordinates') || command.includes('--do_halfmaps') || command.includes('--do_particles');
   if (isOtherImport) {
     let nodeType = null;
     let nodeLabel = 'Unknown';
@@ -406,6 +406,13 @@ async function storeImportMetadata(job) {
       nodeLabel = nodeTypeInfo.halfmap.label;
       if (outputDir) {
         const outputFile = path.join(outputDir, nodeTypeInfo.halfmap.outputFile);
+        if (fs.existsSync(outputFile)) importedFile = outputFile;
+      }
+    } else if (command.includes('--do_particles')) {
+      nodeType = 'particles';
+      nodeLabel = nodeTypeInfo.particles.label;
+      if (outputDir) {
+        const outputFile = path.join(outputDir, nodeTypeInfo.particles.outputFile);
         if (fs.existsSync(outputFile)) importedFile = outputFile;
       }
     } else {
@@ -1905,6 +1912,8 @@ async function catalogImportOtherOutputFiles(job) {
     nodeType = 'coords';
   } else if (cmd.includes('--do_halfmaps')) {
     nodeType = 'halfmap';
+  } else if (cmd.includes('--do_particles')) {
+    nodeType = 'particles';
   } else {
     const nodeTypeMatch = cmd.match(/--node_type\s+(\w+)/);
     nodeType = nodeTypeMatch?.[1];
@@ -1921,6 +1930,7 @@ async function catalogImportOtherOutputFiles(job) {
     halfmap: { role: 'halfMapMrc',      fileType: 'mrc',  extensions: ['.mrc'] },
     refs2d:  { role: 'refs2dMrcs',      fileType: 'mrcs', extensions: ['.mrcs', '.star'] },
     coords:  { role: 'coordinatesStar', fileType: 'star', extensions: ['.star'] },
+    particles: { role: 'particlesStar', fileType: 'star', extensions: ['.star'] },
   };
 
   const mapping = NODE_ROLE_MAP[nodeType];
@@ -1929,14 +1939,26 @@ async function catalogImportOtherOutputFiles(job) {
     return;
   }
 
-  // Find the data file in output dir (skip run.* and RELION_* control files)
+  // Find data files in output dir (skip run.* and RELION_* control files)
+  // For coordinate imports, RELION preserves the original path structure in subdirectories,
+  // so we also scan recursively to find the actual imported data files.
   const allFiles = await fs.promises.readdir(outputDir);
-  const dataFiles = allFiles.filter(f =>
-    !f.startsWith('run.') && !f.startsWith('RELION_') &&
-    mapping.extensions.some(ext => f.endsWith(ext))
-  );
+  const topLevelData = allFiles.filter(f => {
+    if (f.startsWith('run.') || f.startsWith('RELION_')) return false;
+    if (!mapping.extensions.some(ext => f.endsWith(ext))) return false;
+    // For coords imports, RELION creates coords_suffix_*.star as the pipeline node output.
+    // Any other .star files at top level (e.g. a copied autopick.star input) are not nodes.
+    if (nodeType === 'coords' && !f.startsWith('coords_suffix')) return false;
+    return true;
+  });
 
-  if (dataFiles.length === 0) {
+  // For coords imports, the only pipeline node is coords_suffix_*.star at top level.
+  // RELION copies the source file into subdirs preserving path structure, but those
+  // copies are not pipeline nodes and should not be cataloged.
+  const subDirFiles = [];
+
+  const allDataFiles = [...topLevelData, ...subDirFiles];
+  if (allDataFiles.length === 0) {
     logger.warn(`[CatalogImportOther] No ${mapping.extensions.join('/')} files found in ${outputDir}`);
     return;
   }
@@ -1944,13 +1966,15 @@ async function catalogImportOtherOutputFiles(job) {
   const projectRoot = path.dirname(path.dirname(outputDir));
   const outputFiles = [];
 
-  for (const fileName of dataFiles) {
-    const filePath = path.join(outputDir, fileName);
+  for (const relName of allDataFiles) {
+    const filePath = path.join(outputDir, relName);
     const relativePath = path.relative(projectRoot, filePath);
+    const fileName = path.basename(relName);
     let entryCount = 0;
+    const isSuffixRef = fileName.startsWith('coords_suffix');
 
     // Count entries: STAR rows for star files, Z-slices for mrcs stacks
-    if (fileName.endsWith('.star')) {
+    if (fileName.endsWith('.star') && !isSuffixRef) {
       entryCount = await countStarFileEntries(filePath);
       if (entryCount === 0) entryCount = await countParticlesInStar(filePath);
     } else if (fileName.endsWith('.mrcs')) {
@@ -1992,7 +2016,7 @@ async function catalogOutputFiles(job) {
 
   // Special handling for Import "other" node type jobs (ref3d, mask, halfmap, refs2d, coords)
   // RELION copies files with original names, so pattern-based cataloging won't work
-  const isOtherNodeImport = job.job_type === 'Import' && (job.command?.includes('--do_other') || job.command?.includes('--do_coordinates') || job.command?.includes('--do_halfmaps'));
+  const isOtherNodeImport = job.job_type === 'Import' && (job.command?.includes('--do_other') || job.command?.includes('--do_coordinates') || job.command?.includes('--do_halfmaps') || job.command?.includes('--do_particles'));
   if (isOtherNodeImport) {
     return catalogImportOtherOutputFiles(job);
   }

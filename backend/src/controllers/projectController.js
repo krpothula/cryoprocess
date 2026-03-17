@@ -440,6 +440,21 @@ exports.deleteProject = async (req, res) => {
     const projectPath = path.join(settings.ROOT_PATH, project.folder_name || project.project_name.replace(/ /g, '_'));
     const projectName = project.project_name;
 
+    // Stop and delete any live sessions for this project
+    const liveSessions = await LiveSession.find({ project_id: projectId });
+    if (liveSessions.length > 0) {
+      for (const ls of liveSessions) {
+        if (ls.status === 'running' || ls.status === 'paused') {
+          try {
+            const { getLiveOrchestrator } = require('../services/liveOrchestrator');
+            await getLiveOrchestrator().stopSession(ls.id);
+          } catch (e) { /* session may already be stopped */ }
+        }
+      }
+      const deletedSessions = await LiveSession.deleteMany({ project_id: projectId });
+      logger.info(`[Projects] Deleted ${deletedSessions.deletedCount} live sessions for project: ${projectId}`);
+    }
+
     // Delete all jobs associated with this project
     const deletedJobs = await Job.deleteMany({ project_id: projectId });
     logger.info(`[Projects] Deleted ${deletedJobs.deletedCount} jobs for project: ${projectId}`);

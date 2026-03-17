@@ -22,6 +22,10 @@ import {
   FiChevronDown,
   FiSearch,
   FiFilter,
+  FiSettings,
+  FiX,
+  FiSave,
+  FiLayers,
 } from "react-icons/fi";
 import * as liveApi from "../../services/liveSession";
 import { getClass2DIndividualImagesApi } from "../../services/builders/2d-classification/2d-classification";
@@ -50,9 +54,12 @@ const PIPELINE_STAGES = [
   { key: "import", label: "Import", icon: FiFilm },
   { key: "motion", label: "Motion", icon: FiRefreshCw },
   { key: "ctf", label: "CTF", icon: FiCrosshair },
+  { key: "filter", label: "Filter", icon: FiFilter },
   { key: "pick", label: "Pick", icon: FiGrid },
   { key: "extract", label: "Extract", icon: FiBox },
   { key: "class2d", label: "2D Class", icon: FiImage },
+  { key: "select", label: "Select", icon: FiCheckCircle },
+  { key: "inimodel", label: "3D Model", icon: FiBox },
 ];
 
 // WebSocket URL — configurable via env vars, auto-detects wss for HTTPS
@@ -69,6 +76,9 @@ const STAGE_TYPE_TO_KEY = {
   AutoPick: "pick",
   Extract: "extract",
   Class2D: "class2d",
+  QualityFilter: "filter",
+  Select: "select",
+  InitialModel: "inimodel",
   starting: "import",
 };
 
@@ -85,6 +95,271 @@ function relativeTime(dateStr) {
 function formatDateTime(dateStr) {
   if (!dateStr) return "--";
   return new Date(dateStr).toLocaleString();
+}
+
+// ---------- settings modal ----------
+
+const SETTINGS_SECTIONS = [
+  {
+    label: "Processing", fields: [
+      { key: "batchSize", label: "Batch Size", type: "number" },
+    ]
+  },
+  {
+    label: "Quality Thresholds", fields: [
+      { key: "ctfResolutionMax", label: "Max CTF Resolution (\u00C5)", type: "number", step: "0.1", group: "thresholds" },
+      { key: "totalMotionMax", label: "Max Total Motion (\u00C5)", type: "number", step: "0.1", group: "thresholds" },
+    ]
+  },
+  {
+    label: "Motion Correction", fields: [
+      { key: "binFactor", label: "Bin Factor", type: "number", group: "motionConfig" },
+      { key: "dosePerFrame", label: "Dose Per Frame (e/\u00C5\u00B2)", type: "number", step: "0.1", group: "motionConfig" },
+      { key: "patchX", label: "Patch X", type: "number", group: "motionConfig" },
+      { key: "patchY", label: "Patch Y", type: "number", group: "motionConfig" },
+    ]
+  },
+  {
+    label: "CTF Estimation", fields: [
+      { key: "defocusMin", label: "Defocus Min (\u00C5)", type: "number", group: "ctfConfig" },
+      { key: "defocusMax", label: "Defocus Max (\u00C5)", type: "number", group: "ctfConfig" },
+      { key: "defocusStep", label: "Defocus Step (\u00C5)", type: "number", group: "ctfConfig" },
+    ]
+  },
+  {
+    label: "Particle Picking", fields: [
+      { key: "minDiameter", label: "Min Diameter (\u00C5)", type: "number", group: "pickingConfig" },
+      { key: "maxDiameter", label: "Max Diameter (\u00C5)", type: "number", group: "pickingConfig" },
+      { key: "threshold", label: "Threshold", type: "number", step: "0.01", group: "pickingConfig" },
+    ]
+  },
+  {
+    label: "Extraction", fields: [
+      { key: "boxSize", label: "Box Size (px)", type: "number", group: "extractionConfig" },
+      { key: "rescaledSize", label: "Rescaled Size (px)", type: "number", group: "extractionConfig" },
+    ]
+  },
+  {
+    label: "2D Classification", fields: [
+      { key: "enabled", label: "Enabled", type: "toggle", group: "class2dConfig" },
+      { key: "numClasses", label: "Number of Classes", type: "number", group: "class2dConfig" },
+      { key: "particleThreshold", label: "Particle Threshold", type: "number", group: "class2dConfig" },
+      { key: "particleDiameter", label: "Particle Diameter (\u00C5)", type: "number", group: "class2dConfig" },
+    ]
+  },
+  {
+    label: "Auto Select 2D", fields: [
+      { key: "enabled", label: "Enabled", type: "toggle", group: "autoSelectConfig" },
+      { key: "minScore", label: "Min Score", type: "number", step: "0.05", group: "autoSelectConfig" },
+      { key: "minParticles", label: "Min Particles", type: "number", step: "500", group: "autoSelectConfig" },
+    ]
+  },
+  {
+    label: "3D Initial Model", fields: [
+      { key: "enabled", label: "Enabled", type: "toggle", group: "inimodelConfig" },
+      { key: "symmetry", label: "Symmetry", type: "text", group: "inimodelConfig" },
+      { key: "numClasses", label: "Number of Classes", type: "number", group: "inimodelConfig" },
+      { key: "maskDiameter", label: "Mask Diameter (\u00C5)", type: "number", group: "inimodelConfig" },
+    ]
+  },
+  {
+    label: "SLURM / Compute", fields: [
+      { key: "threads", label: "Threads", type: "number", group: "slurmConfig" },
+      { key: "mpiProcs", label: "MPI Processes", type: "number", group: "slurmConfig" },
+      { key: "gpuCount", label: "GPU Count", type: "number", group: "slurmConfig" },
+    ]
+  },
+];
+
+/**
+ * Build the initial settings form state from a session object.
+ * Maps snake_case DB fields back to the camelCase form keys.
+ */
+function buildSettingsForm(session) {
+  if (!session) return {};
+  const form = { batchSize: session.batchSize ?? 25 };
+
+  // Map nested configs back to flat form keys
+  const configMappings = {
+    thresholds: session.thresholds,
+    motionConfig: session.motionConfig,
+    ctfConfig: session.ctfConfig,
+    pickingConfig: session.pickingConfig,
+    extractionConfig: session.extractionConfig,
+    class2dConfig: session.class2dConfig,
+    autoSelectConfig: session.autoSelectConfig,
+    inimodelConfig: session.inimodelConfig,
+    slurmConfig: session.slurmConfig,
+  };
+
+  for (const [group, cfg] of Object.entries(configMappings)) {
+    if (!cfg) continue;
+    for (const [k, v] of Object.entries(cfg)) {
+      // Store as group.key for later reconstruction
+      form[`${group}.${k}`] = v;
+    }
+  }
+  return form;
+}
+
+/**
+ * Convert the flat form state back into the API payload structure.
+ * Only includes fields that differ from the original session.
+ */
+function buildConfigPayload(form, originalForm) {
+  const payload = {};
+
+  // Check batchSize
+  if (form.batchSize !== originalForm.batchSize) {
+    payload.batchSize = form.batchSize;
+  }
+
+  // Check grouped fields
+  const groups = new Set();
+  for (const key of Object.keys(form)) {
+    if (key.includes('.')) groups.add(key.split('.')[0]);
+  }
+
+  for (const group of groups) {
+    const groupPayload = {};
+    let hasChange = false;
+    for (const [key, val] of Object.entries(form)) {
+      if (!key.startsWith(group + '.')) continue;
+      const field = key.split('.')[1];
+      if (val !== originalForm[key]) {
+        hasChange = true;
+      }
+      groupPayload[field] = val;
+    }
+    if (hasChange) {
+      payload[group] = groupPayload;
+    }
+  }
+
+  return payload;
+}
+
+function SettingsModal({ form, setForm, onSave, onClose, saving }) {
+  const handleChange = (key, value, type) => {
+    let parsed = value;
+    if (type === "number") {
+      parsed = value === "" ? "" : Number(value);
+    }
+    setForm(prev => ({ ...prev, [key]: parsed }));
+  };
+
+  const handleToggle = (key) => {
+    setForm(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "rgba(0,0,0,0.5)",
+      display: "flex", justifyContent: "center", alignItems: "flex-start",
+      padding: "40px 20px", overflow: "auto",
+    }} onClick={onClose}>
+      <div style={{
+        background: "var(--color-bg)", borderRadius: 12,
+        border: "1px solid var(--color-border)",
+        width: "100%", maxWidth: 520, maxHeight: "85vh", overflow: "auto",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+      }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "16px 20px", borderBottom: "1px solid var(--color-border)",
+          position: "sticky", top: 0, background: "var(--color-bg)", zIndex: 1,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <FiSettings size={16} style={{ color: "var(--color-primary)" }} />
+            <span style={{ fontWeight: 700, fontSize: 15 }}>Session Settings</span>
+          </div>
+          <button onClick={onClose} style={{
+            background: "none", border: "none", cursor: "pointer",
+            color: "var(--color-text-secondary)", padding: 4,
+          }}><FiX size={18} /></button>
+        </div>
+
+        {/* Sections */}
+        <div style={{ padding: "12px 20px 20px" }}>
+          {SETTINGS_SECTIONS.map(section => (
+            <div key={section.label} style={{ marginBottom: 16 }}>
+              <div style={{
+                fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+                color: "var(--color-text-secondary)", marginBottom: 8,
+                letterSpacing: "0.5px",
+              }}>{section.label}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {section.fields.map(field => {
+                  const formKey = field.group ? `${field.group}.${field.key}` : field.key;
+                  const val = form[formKey];
+                  return (
+                    <div key={formKey} style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "6px 0",
+                    }}>
+                      <label style={{ fontSize: 13, color: "var(--color-text)" }}>{field.label}</label>
+                      {field.type === "toggle" ? (
+                        <button
+                          onClick={() => handleToggle(formKey)}
+                          style={{
+                            width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer",
+                            background: val ? "var(--color-primary)" : "var(--color-border)",
+                            position: "relative", transition: "background 0.2s",
+                          }}
+                        >
+                          <span style={{
+                            position: "absolute", top: 2, left: val ? 20 : 2,
+                            width: 18, height: 18, borderRadius: "50%",
+                            background: "#fff", transition: "left 0.2s",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                          }} />
+                        </button>
+                      ) : (
+                        <input
+                          type={field.type}
+                          step={field.step || undefined}
+                          value={val ?? ""}
+                          onChange={e => handleChange(formKey, e.target.value, field.type)}
+                          style={{
+                            width: 100, padding: "4px 8px", borderRadius: 6,
+                            border: "1px solid var(--color-border)",
+                            background: "var(--color-bg)", color: "var(--color-text)",
+                            fontSize: 13, textAlign: "right",
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          display: "flex", justifyContent: "flex-end", gap: 8,
+          padding: "12px 20px", borderTop: "1px solid var(--color-border)",
+          position: "sticky", bottom: 0, background: "var(--color-bg)",
+        }}>
+          <button onClick={onClose} style={{
+            padding: "6px 16px", borderRadius: 6, border: "1px solid var(--color-border)",
+            background: "var(--color-bg)", color: "var(--color-text)", cursor: "pointer", fontSize: 13,
+          }}>Cancel</button>
+          <button onClick={onSave} disabled={saving} style={{
+            padding: "6px 16px", borderRadius: 6, border: "none",
+            background: "var(--color-primary)", color: "#fff", cursor: "pointer", fontSize: 13,
+            opacity: saving ? 0.6 : 1, display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <FiSave size={13} />
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ---------- component ----------
@@ -109,6 +384,10 @@ const LiveDashboard = () => {
   const [classData, setClassData] = useState(null);
   const [classLoading, setClassLoading] = useState(false);
 
+  // Selected 2D class gallery (from class_ranker)
+  const [selectData, setSelectData] = useState(null);
+  const [selectLoading, setSelectLoading] = useState(false);
+
   // activity filters + expand state
   const [activityFilters, setActivityFilters] = useState({ level: null, stage: null, search: "" });
   const [expandedEntries, setExpandedEntries] = useState(new Set());
@@ -121,6 +400,11 @@ const LiveDashboard = () => {
   // stop confirmation
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+
+  // settings modal
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({});
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   // refs for cleanup
   const wsRef = useRef(null);
@@ -200,6 +484,26 @@ const LiveDashboard = () => {
       setClassLoading(false);
     }
   }, [jobsByType, session?.jobs?.class2dIds]);
+
+  const fetchSelectData = useCallback(async () => {
+    const selectIds = session?.jobs?.selectIds;
+    if (!selectIds?.length) {
+      setSelectData(null);
+      return;
+    }
+
+    setSelectLoading(true);
+    try {
+      const res = await liveApi.getSelectGallery(sessionId);
+      const data = res.data?.data || res.data;
+      setSelectData(data);
+    } catch (err) {
+      console.error("Failed to fetch select gallery:", err);
+      setSelectData(null);
+    } finally {
+      setSelectLoading(false);
+    }
+  }, [session?.jobs?.selectIds, sessionId]);
 
 
   // ---------- websocket ----------
@@ -300,16 +604,18 @@ const LiveDashboard = () => {
   useEffect(() => {
     if (activeTab === "activity") fetchActivity();
     if (activeTab === "classes") fetchClassData();
-  }, [activeTab, fetchActivity, fetchClassData]);
+    if (activeTab === "select") fetchSelectData();
+  }, [activeTab, fetchActivity, fetchClassData, fetchSelectData]);
 
   // Periodic refresh for active tab data while session is running
   useEffect(() => {
     if (session?.status !== "running") return;
-    if (activeTab !== "activity" && activeTab !== "classes") return;
+    if (activeTab !== "activity" && activeTab !== "classes" && activeTab !== "select") return;
 
     const tabPoll = setInterval(() => {
       if (activeTab === "activity") fetchActivity();
       if (activeTab === "classes") fetchClassData();
+      if (activeTab === "select") fetchSelectData();
     }, 10000); // 10s refresh for tab data
 
     return () => clearInterval(tabPoll);
@@ -381,6 +687,8 @@ const LiveDashboard = () => {
 
   // Has class2d data?
   const hasClass2d = (session?.jobs?.class2dIds?.length ?? 0) > 0 || session?.class2dConfig?.enabled;
+  const hasSelect = (session?.jobs?.selectIds?.length ?? 0) > 0 || session?.autoSelectConfig?.enabled;
+  const hasInimodel = (session?.jobs?.inimodelIds?.length ?? 0) > 0 || session?.inimodelConfig?.enabled;
 
   // Tab definitions — stage tabs are direct links to the project dashboard with job pre-selected
   const stageLink = (jobId) =>
@@ -388,13 +696,21 @@ const LiveDashboard = () => {
       ? `/project/${session.projectId}?selectJob=${jobId}`
       : null;
 
+  // Latest job IDs for array-based stages
+  const latestClass2dId = session?.jobs?.class2dIds?.length ? session.jobs.class2dIds[session.jobs.class2dIds.length - 1] : null;
+  const latestSelectId = session?.jobs?.selectIds?.length ? session.jobs.selectIds[session.jobs.selectIds.length - 1] : null;
+  const latestInimodelId = session?.jobs?.inimodelIds?.length ? session.jobs.inimodelIds[session.jobs.inimodelIds.length - 1] : null;
+
   const TABS = [
     { key: "overview", label: "Overview", icon: FiActivity },
     { key: "import", label: "Import", icon: FiFilm, link: stageLink(session?.jobs?.importId), jobId: session?.jobs?.importId },
     { key: "motion", label: "Motion Correction", icon: FiRefreshCw, link: stageLink(session?.jobs?.motionId), jobId: session?.jobs?.motionId },
     { key: "ctf", label: "CTF", icon: FiCrosshair, link: stageLink(session?.jobs?.ctfId), jobId: session?.jobs?.ctfId },
     { key: "autopick", label: "AutoPick", icon: FiGrid, link: stageLink(session?.jobs?.pickId), jobId: session?.jobs?.pickId },
-    ...(hasClass2d ? [{ key: "classes", label: "2D Classes", icon: FiImage }] : []),
+    { key: "extract", label: "Extract", icon: FiBox, link: stageLink(session?.jobs?.extractId), jobId: session?.jobs?.extractId },
+    ...(hasClass2d ? [{ key: "classes", label: "2D Classes", icon: FiImage, link: stageLink(latestClass2dId), jobId: latestClass2dId }] : []),
+    ...(hasSelect ? [{ key: "select", label: "Select", icon: FiCheckCircle, link: stageLink(latestSelectId), jobId: latestSelectId }] : []),
+    ...(hasInimodel ? [{ key: "inimodel", label: "3D Model", icon: FiLayers, link: stageLink(latestInimodelId), jobId: latestInimodelId }] : []),
     { key: "activity", label: "Activity Log", icon: FiClock },
   ];
 
@@ -596,8 +912,38 @@ const LiveDashboard = () => {
       <div style={styles.content} role="tabpanel" aria-label={`${activeTab} tab content`}>
         {activeTab === "overview" && renderOverview()}
         {activeTab === "classes" && renderClasses()}
+        {activeTab === "select" && renderSelect()}
         {activeTab === "activity" && renderActivity()}
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <SettingsModal
+          form={settingsForm}
+          setForm={setSettingsForm}
+          saving={settingsSaving}
+          onClose={() => setShowSettings(false)}
+          onSave={async () => {
+            const original = buildSettingsForm(session);
+            const payload = buildConfigPayload(settingsForm, original);
+            if (Object.keys(payload).length === 0) {
+              setShowSettings(false);
+              return;
+            }
+            setSettingsSaving(true);
+            try {
+              await liveApi.updateSessionConfig(sessionId, payload);
+              await fetchSession();
+              setShowSettings(false);
+            } catch (err) {
+              console.error("Failed to update config:", err);
+              alert(err.response?.data?.message || "Failed to update configuration");
+            } finally {
+              setSettingsSaving(false);
+            }
+          }}
+        />
+      )}
 
       <style>{cssKeyframes}</style>
     </div>
@@ -613,9 +959,12 @@ const LiveDashboard = () => {
       import: st.moviesImported ?? st.moviesFound ?? 0,
       motion: st.moviesMotion ?? 0,
       ctf: st.moviesCtf ?? 0,
+      filter: st.moviesFiltered ?? 0,
       pick: st.moviesPicked ?? 0,
       extract: st.particlesExtracted ?? 0,
       class2d: session?.jobs?.class2dIds?.length ?? 0,
+      select: session?.jobs?.selectIds?.length ?? 0,
+      inimodel: session?.jobs?.inimodelIds?.length ?? 0,
     };
 
     // If pass_history is empty but session has data, synthesize from current state
@@ -627,22 +976,47 @@ const LiveDashboard = () => {
             moviesImported: currentCounts.import,
             moviesMotion: currentCounts.motion,
             moviesCtf: currentCounts.ctf,
+            moviesFiltered: currentCounts.filter,
             moviesPicked: currentCounts.pick,
             particlesExtracted: currentCounts.extract,
             class2dCount: currentCounts.class2d,
+            selectCount: currentCounts.select,
+            inimodelCount: currentCounts.inimodel,
           }]
         : [];
 
+    // Filter pipeline stages to only show enabled ones
+    const visibleStages = PIPELINE_STAGES.filter((stage) => {
+      if (stage.key === "filter") {
+        // Show filter stage if thresholds are set
+        const th = session?.thresholds;
+        return th && (th.ctfResolutionMax || th.totalMotionMax);
+      }
+      if (stage.key === "select") return session?.autoSelectConfig?.enabled;
+      if (stage.key === "inimodel") return session?.inimodelConfig?.enabled;
+      if (stage.key === "class2d") return session?.class2dConfig?.enabled;
+      return true; // import, motion, ctf, pick, extract always shown
+    });
+
     // Pipeline stage status from current_stage
     const currentStageIdx = currentStageKey
-      ? PIPELINE_STAGES.findIndex((s) => s.key === currentStageKey)
+      ? visibleStages.findIndex((s) => s.key === currentStageKey)
       : -1;
+
+    // Latest job status for array-based stages (class2d, select, inimodel)
+    const latestJobStatus = session?.latestJobStatus || {};
 
     function stageStatus(idx) {
       if (isTerminal && status === "completed") return "completed";
       if (idx < currentStageIdx) return "completed";
+      const key = visibleStages[idx].key;
+      // For array-based stages, check if the latest job failed
+      if (latestJobStatus[key] === "failed") return "failed";
+      // Check count before current — a stage with results is completed even
+      // if current_stage still points at it (e.g. Class2D finished but DB
+      // hasn't advanced current_stage yet)
+      if (currentCounts[key] > 0) return "completed";
       if (idx === currentStageIdx) return "current";
-      if (currentCounts[PIPELINE_STAGES[idx].key] > 0) return "completed";
       return "future";
     }
 
@@ -656,26 +1030,41 @@ const LiveDashboard = () => {
           <div style={styles.cardHeader}>
             <FiChevronRight size={14} style={{ color: "var(--color-primary)" }} />
             <span style={styles.cardTitle}>Pipeline Progress</span>
-            {st.passCount > 0 && (
-              <span style={{ fontSize: 11, color: "var(--color-text-secondary)", marginLeft: 8 }}>
-                Pass #{st.passCount}
-                {moviesImported > 0 && <> &middot; {moviesImported} movies</>}
-              </span>
-            )}
+            <span style={{ fontSize: 11, color: "var(--color-text-secondary)", marginLeft: 8 }} />
+            <div style={{ marginLeft: "auto" }}>
+              <button
+                onClick={() => {
+                  setSettingsForm(buildSettingsForm(session));
+                  setShowSettings(true);
+                }}
+                title="Session Settings"
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "var(--color-text-secondary)", padding: 4, borderRadius: 4,
+                  display: "flex", alignItems: "center",
+                }}
+              >
+                <FiSettings size={15} />
+              </button>
+            </div>
           </div>
 
           {/* Stage boxes row */}
           <div style={styles.pipelineRow}>
-            {PIPELINE_STAGES.map((stage, idx) => {
+            {visibleStages.map((stage, idx) => {
               const stageState = stageStatus(idx);
               const StageIcon = stage.icon;
-              const isLast = idx === PIPELINE_STAGES.length - 1;
+              const isLast = idx === visibleStages.length - 1;
 
               let boxBg = "var(--color-bg)";
               let boxBorder = "var(--color-border)";
               let textColor = "var(--color-text-muted)";
 
-              if (stageState === "completed") {
+              if (stageState === "failed") {
+                boxBg = "var(--color-error-bg, #fef2f2)";
+                boxBorder = "var(--color-error-border, #fca5a5)";
+                textColor = "var(--color-error-text, #dc2626)";
+              } else if (stageState === "completed") {
                 boxBg = "var(--color-success-bg)";
                 boxBorder = "#86efac";
                 textColor = "var(--color-success-text)";
@@ -706,6 +1095,12 @@ const LiveDashboard = () => {
                           style={{ color: "var(--color-success-text)", position: "absolute", top: 4, right: 4 }}
                         />
                       )}
+                      {stageState === "failed" && (
+                        <FiAlertCircle
+                          size={10}
+                          style={{ color: "var(--color-error-text, #dc2626)", position: "absolute", top: 4, right: 4 }}
+                        />
+                      )}
                     </div>
                   </div>
                   {!isLast && (
@@ -728,23 +1123,23 @@ const LiveDashboard = () => {
             <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 0 }}>
               <div style={{ height: 1, background: "var(--color-border)", marginBottom: 8 }} />
               {passHistory.map((pass, idx) => {
-                const cumValues = [
-                  pass.moviesImported ?? 0,
-                  pass.moviesMotion ?? 0,
-                  pass.moviesCtf ?? 0,
-                  pass.moviesPicked ?? 0,
-                  pass.particlesExtracted ?? 0,
-                  pass.class2dCount ?? 0,
-                ];
+                // Build values dynamically from visibleStages so counts align with stage cards
+                const PASS_FIELD_MAP = {
+                  import: 'moviesImported',
+                  motion: 'moviesMotion',
+                  ctf: 'moviesCtf',
+                  filter: 'moviesFiltered',
+                  pick: 'moviesPicked',
+                  extract: 'particlesExtracted',
+                  class2d: 'class2dCount',
+                  select: 'selectCount',
+                  inimodel: 'inimodelCount',
+                };
+                const cumValues = visibleStages.map(s => pass[PASS_FIELD_MAP[s.key]] ?? 0);
                 const prev = idx > 0 ? passHistory[idx - 1] : null;
-                const prevValues = prev ? [
-                  prev.moviesImported ?? 0,
-                  prev.moviesMotion ?? 0,
-                  prev.moviesCtf ?? 0,
-                  prev.moviesPicked ?? 0,
-                  prev.particlesExtracted ?? 0,
-                  prev.class2dCount ?? 0,
-                ] : null;
+                const prevValues = prev
+                  ? visibleStages.map(s => prev[PASS_FIELD_MAP[s.key]] ?? 0)
+                  : null;
 
                 return (
                   <div key={idx} style={{ position: "relative", padding: "5px 0" }}>
@@ -758,7 +1153,7 @@ const LiveDashboard = () => {
                       fontWeight: 700,
                       color: "var(--color-text-secondary)",
                     }}>
-                      Pass {pass.passNumber}
+                      Pass
                     </span>
                     {/* Values — same flex layout as pipelineRow to align with stage boxes */}
                     <div style={{
@@ -813,8 +1208,6 @@ const LiveDashboard = () => {
             <span style={styles.cardTitle}>Processing Info</span>
           </div>
           <div style={styles.infoGrid}>
-            <InfoRow label="Pipeline Passes" value={st.passCount ?? "--"} />
-            <InfoRow label="Last Pass" value={formatDateTime(st.lastPipelinePass)} />
             <InfoRow label="Session Started" value={formatDateTime(session?.startTime || session?.createdAt)} />
             <InfoRow label="Input Mode" value={session?.inputMode === "watch" ? "Watch Directory" : "Existing Movies"} />
             <InfoRow label="Watch Directory" value={session?.watchDirectory || "--"} mono fullWidth />
@@ -898,6 +1291,89 @@ const LiveDashboard = () => {
                 <div style={styles.classInfo}>
                   <span style={styles.classDist}>{dist || "?"}%</span>
                   {res && <span style={styles.classRes}>{res} Å</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ===================== SELECT TAB =====================
+  function renderSelect() {
+    if (selectLoading) {
+      return (
+        <div style={{ display: "flex", justifyContent: "center", padding: 60 }}>
+          <FiRefreshCw style={{ ...styles.spinner, fontSize: 24 }} />
+        </div>
+      );
+    }
+
+    const classes = selectData?.classes || [];
+    const hasClasses = classes.length > 0;
+
+    if (!hasClasses) {
+      const selectIds = session?.jobs?.selectIds || [];
+      return (
+        <div style={styles.emptyState}>
+          <FiCheckCircle size={32} style={{ color: "var(--color-border)" }} />
+          <p style={{ fontSize: 13, color: "var(--color-text-muted)", marginTop: 8 }}>
+            {selectIds.length === 0
+              ? "Auto class selection has not been triggered yet."
+              : selectData?.selectJobStatus === "running"
+                ? "Class selection is running..."
+                : "No selected classes found."}
+          </p>
+          {session?.autoSelectConfig?.enabled && selectIds.length === 0 && (
+            <p style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>
+              Runs automatically after 2D classification completes.
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // Sort by distribution descending
+    const sorted = [...classes].sort((a, b) => (b.distribution ?? 0) - (a.distribution ?? 0));
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Header info */}
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <FiCheckCircle size={14} style={{ color: "var(--color-success-text)" }} />
+            <span style={styles.cardTitle}>
+              Selected 2D Classes
+              <span style={{ fontWeight: 400, color: "var(--color-text-muted)", marginLeft: 8 }}>
+                {selectData.numSelected} of {selectData.numTotal} classes selected
+                {selectData.iteration != null && ` \u00b7 Iteration ${selectData.iteration}`}
+              </span>
+            </span>
+          </div>
+          <p style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: -8, marginBottom: 0 }}>
+            Auto-selected by relion_class_ranker (score &ge; {session?.autoSelectConfig?.minScore ?? 0.5}).
+            Sorted by particle distribution.
+          </p>
+        </div>
+
+        {/* Class gallery grid */}
+        <div style={styles.classGrid}>
+          {sorted.map((cls, idx) => {
+            const dist = cls.distribution != null ? (cls.distribution * 100).toFixed(1) : cls.particleFraction?.toFixed(1);
+            const res = cls.estimatedResolution != null && cls.estimatedResolution < 900 ? Number(cls.estimatedResolution).toFixed(1) : null;
+            return (
+              <div key={cls.classNumber ?? idx} style={{ ...styles.classCard, border: "2px solid var(--color-success-border, #86efac)" }} title={`Class ${cls.classNumber ?? idx + 1}\nDistribution: ${dist || "?"}%\nResolution: ${res || "?"} \u00c5`}>
+                <div style={styles.classImageWrap}>
+                  {cls.image ? (
+                    <img src={cls.image} alt={`Class ${cls.classNumber ?? idx + 1}`} style={styles.classImg} />
+                  ) : (
+                    <div style={{ ...styles.classImgPlaceholder }}>?</div>
+                  )}
+                </div>
+                <div style={styles.classInfo}>
+                  <span style={styles.classDist}>{dist || "?"}%</span>
+                  {res && <span style={styles.classRes}>{res} \u00c5</span>}
                 </div>
               </div>
             );

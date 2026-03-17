@@ -154,7 +154,7 @@ class LiveWatcher extends EventEmitter {
 
     // Shorter debounce for 'existing' mode (files are all there already)
     const mode = this._inputModes?.get(sessionId) || 'watch';
-    const debounceMs = mode === 'existing' ? 2000 : 5000;
+    const debounceMs = mode === 'existing' ? 2000 : 2000;
 
     const timer = setTimeout(() => {
       this._flushPending(sessionId);
@@ -217,6 +217,16 @@ class LiveWatcher extends EventEmitter {
   getFileCount(sessionId) {
     const known = this.knownFiles.get(sessionId);
     return known ? known.size : 0;
+  }
+
+  /**
+   * Get all known file paths for a session (sorted for deterministic batch order)
+   * @param {string} sessionId
+   * @returns {string[]}
+   */
+  getKnownFiles(sessionId) {
+    const known = this.knownFiles.get(sessionId);
+    return known ? Array.from(known).sort() : [];
   }
 
   /**

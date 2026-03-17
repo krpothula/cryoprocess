@@ -50,7 +50,7 @@ const Io = ({
         tooltipText="Re-extract particles using refined coordinates from 2D/3D classification or auto-refine. Useful for extracting at different box sizes or with updated particle positions."
       />
       <CustomInput
-        stageStarFiles="Extract,Subset,ManualSelect,Class2D,Class3D,InitialModel,AutoRefine,CtfRefine,Polish,Subtract,JoinStar"
+        stageStarFiles="Extract,Subset,ManualSelect,Class2D,Class3D,InitialModel,AutoRefine,CtfRefine,Polish,Subtract,JoinStar,ImportParticles"
         stageRole="particlesStar"
         onChange={(val = "") => {
           handleInputChange({

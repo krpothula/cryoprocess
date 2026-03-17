@@ -67,7 +67,8 @@ const generateSlurmScript = (options) => {
     mpiProcs = 1,
     threads = 1,
     gpus = 0,
-    additionalArgs = ''
+    additionalArgs = '',
+    envVars = {}
   } = options;
 
   let script = `#!/bin/bash
@@ -104,7 +105,7 @@ export PMIX_MCA_psec=native
 # SINGULARITYENV_ prefix ensures it overrides the container's %environment
 export SINGULARITYENV_TORCH_HOME=\${HOME}/.cache/torch
 export TORCH_HOME=\${HOME}/.cache/torch
-
+${Object.keys(envVars).length > 0 ? '\n' + Object.entries(envVars).map(([k, v]) => `export ${k}=${v}`).join('\n') + '\n' : ''}
 # Change to project directory
 cd ${projectPath}
 
@@ -251,7 +252,8 @@ const submitToSlurm = async (options) => {
       mpiProcs: Math.min(Math.max(parseInt(slurmParams.mpiProcs) || 1, 1), 128),
       threads: Math.min(Math.max(parseInt(slurmParams.threads) || 1, 1), 256),
       gpus: Math.min(Math.max(parseInt(slurmParams.gres) || 0, 0), 16),
-      additionalArgs: sanitizeSlurmParam(slurmParams.arguments, 'arguments', /^[\w\-.,:/\s=]+$/, 512)
+      additionalArgs: sanitizeSlurmParam(slurmParams.arguments, 'arguments', /^[\w\-.,:/\s=]+$/, 512),
+      envVars: slurmParams.envVars || {}
     });
 
     // Write script to file (locally, via global SFTP, or via per-user SFTP)
@@ -506,6 +508,21 @@ const submitLocal = async (options) => {
         });
       } catch (wsErr) {
         logger.debug(`[JobSubmit] WebSocket broadcast failed for ${jobId}: ${wsErr.message}`);
+      }
+
+      // Emit on slurmMonitor so LiveOrchestrator picks up the completion
+      // (orchestrator listens to monitor.on('statusChange') for pipeline cascade)
+      try {
+        const { getMonitor } = require('./slurmMonitor');
+        getMonitor().emit('statusChange', {
+          jobId,
+          projectId,
+          oldStatus: JOB_STATUS.RUNNING,
+          newStatus: status,
+          slurmStatus: null
+        });
+      } catch (monErr) {
+        logger.debug(`[JobSubmit] slurmMonitor emit failed for ${jobId}: ${monErr.message}`);
       }
 
       // Run post-command if provided and job succeeded

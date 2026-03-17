@@ -45,7 +45,7 @@ LOG_FILE="$LOG_DIR/nodejs.log"
 # Default port
 PORT=${PORT:-8001}
 
-# Use local deps if they exist (installed by --user mode)
+# Use local deps if they exist (installed by --user or --conda mode)
 if [ -d "$DEPS_DIR/node/bin" ]; then
     export PATH="$DEPS_DIR/node/bin:$PATH"
 fi
@@ -60,6 +60,12 @@ if [ -f "$CONDA_ENV_FILE" ]; then
     if command -v conda &>/dev/null; then
         eval "$(conda shell.bash hook 2>/dev/null)"
         conda activate "$CRYO_CONDA_ENV" 2>/dev/null || true
+        # Explicitly prepend conda env bin to PATH (conda activate doesn't
+        # always work correctly in non-interactive scripts with set -e)
+        _CONDA_ENV_PATH=$(conda env list 2>/dev/null | awk -v name="$CRYO_CONDA_ENV" '$1 == name {print $NF}')
+        if [ -n "$_CONDA_ENV_PATH" ] && [ -d "$_CONDA_ENV_PATH/bin" ]; then
+            export PATH="$_CONDA_ENV_PATH/bin:$PATH"
+        fi
     fi
 fi
 
@@ -307,6 +313,89 @@ detect_os() {
 }
 
 # ============================================================
+# Download MongoDB Binary (shared by --user and --conda modes)
+# ============================================================
+
+_download_mongodb_binary() {
+    local ARCH
+    ARCH=$(uname -m)
+
+    # Detect distro for download URL
+    local MONGO_VERSION="8.0.4"
+    local MONGO_PLATFORM=""
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        case "$ID" in
+            ubuntu)
+                case "$VERSION_ID" in
+                    24.04) MONGO_PLATFORM="ubuntu2404" ;;
+                    22.04) MONGO_PLATFORM="ubuntu2204" ;;
+                    20.04) MONGO_PLATFORM="ubuntu2004" ;;
+                    *)     MONGO_PLATFORM="ubuntu2204" ;;
+                esac
+                ;;
+            debian)
+                case "$VERSION_ID" in
+                    12) MONGO_PLATFORM="debian12" ;;
+                    11) MONGO_PLATFORM="debian11" ;;
+                    *)  MONGO_PLATFORM="debian12" ;;
+                esac
+                ;;
+            rhel|centos|rocky|almalinux)
+                MONGO_PLATFORM="rhel80"
+                ;;
+            *)
+                MONGO_PLATFORM="ubuntu2204"
+                ;;
+        esac
+    else
+        MONGO_PLATFORM="ubuntu2204"
+    fi
+
+    local MONGO_ARCH
+    case "$ARCH" in
+        x86_64)  MONGO_ARCH="x86_64" ;;
+        aarch64) MONGO_ARCH="aarch64" ;;
+        *)
+            log_error "Unsupported architecture for MongoDB: $ARCH"
+            return 1
+            ;;
+    esac
+
+    local MONGO_DIR="mongodb-linux-${MONGO_ARCH}-${MONGO_PLATFORM}-${MONGO_VERSION}"
+    local MONGO_URL="https://fastdl.mongodb.org/linux/${MONGO_DIR}.tgz"
+
+    log_step "Downloading MongoDB ${MONGO_VERSION} (${MONGO_PLATFORM}, ${MONGO_ARCH})..."
+    curl -fsSL "$MONGO_URL" -o "$DEPS_DIR/mongodb.tgz"
+
+    log_step "Extracting..."
+    tar -xzf "$DEPS_DIR/mongodb.tgz" -C "$DEPS_DIR"
+    rm -rf "$DEPS_DIR/mongodb"
+    mv "$DEPS_DIR/$MONGO_DIR" "$DEPS_DIR/mongodb"
+    rm -f "$DEPS_DIR/mongodb.tgz"
+
+    export PATH="$DEPS_DIR/mongodb/bin:$PATH"
+    log_info "MongoDB installed to deps/mongodb/"
+
+    # Create local data directory and start mongod
+    local MONGO_DATA="$DEPS_DIR/mongodb/data"
+    local MONGO_LOG="$DEPS_DIR/mongodb/mongod.log"
+    mkdir -p "$MONGO_DATA"
+
+    log_step "Starting local MongoDB..."
+    if "$DEPS_DIR/mongodb/bin/mongod" \
+        --dbpath "$MONGO_DATA" \
+        --logpath "$MONGO_LOG" \
+        --port 27017 \
+        --fork; then
+        log_info "MongoDB running (data: deps/mongodb/data/)"
+    else
+        log_warn "Could not start MongoDB. Check: $MONGO_LOG"
+        log_info "You can set MONGODB_URI in .env to use a remote MongoDB instead."
+    fi
+}
+
+# ============================================================
 # Install User-Local Dependencies (no sudo — downloads binaries)
 # ============================================================
 
@@ -353,75 +442,7 @@ _install_user_deps() {
 
     # --- MongoDB ---
     if ! check_command mongod && ! check_command mongosh; then
-        # Detect distro for download URL
-        local MONGO_VERSION="8.0.4"
-        local MONGO_PLATFORM=""
-        if [ -f /etc/os-release ]; then
-            . /etc/os-release
-            case "$ID" in
-                ubuntu)
-                    case "$VERSION_ID" in
-                        24.04) MONGO_PLATFORM="ubuntu2404" ;;
-                        22.04) MONGO_PLATFORM="ubuntu2204" ;;
-                        20.04) MONGO_PLATFORM="ubuntu2004" ;;
-                        *)     MONGO_PLATFORM="ubuntu2204" ;;
-                    esac
-                    ;;
-                debian)
-                    case "$VERSION_ID" in
-                        12) MONGO_PLATFORM="debian12" ;;
-                        11) MONGO_PLATFORM="debian11" ;;
-                        *)  MONGO_PLATFORM="debian12" ;;
-                    esac
-                    ;;
-                rhel|centos|rocky|almalinux)
-                    MONGO_PLATFORM="rhel80"
-                    ;;
-                *)
-                    MONGO_PLATFORM="ubuntu2204"
-                    ;;
-            esac
-        else
-            MONGO_PLATFORM="ubuntu2204"
-        fi
-
-        local MONGO_ARCH
-        case "$ARCH" in
-            x64)   MONGO_ARCH="x86_64" ;;
-            arm64) MONGO_ARCH="aarch64" ;;
-        esac
-
-        local MONGO_DIR="mongodb-linux-${MONGO_ARCH}-${MONGO_PLATFORM}-${MONGO_VERSION}"
-        local MONGO_URL="https://fastdl.mongodb.org/linux/${MONGO_DIR}.tgz"
-
-        log_step "Downloading MongoDB ${MONGO_VERSION} (${MONGO_PLATFORM}, ${MONGO_ARCH})..."
-        curl -fsSL "$MONGO_URL" -o "$DEPS_DIR/mongodb.tgz"
-
-        log_step "Extracting..."
-        tar -xzf "$DEPS_DIR/mongodb.tgz" -C "$DEPS_DIR"
-        rm -rf "$DEPS_DIR/mongodb"
-        mv "$DEPS_DIR/$MONGO_DIR" "$DEPS_DIR/mongodb"
-        rm -f "$DEPS_DIR/mongodb.tgz"
-
-        export PATH="$DEPS_DIR/mongodb/bin:$PATH"
-        log_info "MongoDB installed to deps/mongodb/"
-
-        # Create local data directory and start mongod
-        local MONGO_DATA="$DEPS_DIR/mongodb/data"
-        local MONGO_LOG="$DEPS_DIR/mongodb/mongod.log"
-        mkdir -p "$MONGO_DATA"
-
-        log_step "Starting local MongoDB..."
-        if "$DEPS_DIR/mongodb/bin/mongod" \
-            --dbpath "$MONGO_DATA" \
-            --logpath "$MONGO_LOG" \
-            --port 27017 \
-            --fork; then
-            log_info "MongoDB running (data: deps/mongodb/data/)"
-        else
-            log_warn "Could not start MongoDB. Check: $MONGO_LOG"
-            log_info "You can set MONGODB_URI in .env to use a remote MongoDB instead."
-        fi
+        _download_mongodb_binary
     else
         log_info "MongoDB already available"
     fi
@@ -467,38 +488,35 @@ _install_conda_deps() {
     # Initialize conda for this shell
     eval "$(conda shell.bash hook 2>/dev/null)"
 
-    # Create env if it doesn't exist
+    # Create env with Node.js only (MongoDB 8.0 not available on conda-forge,
+    # latest is 6.0.x — we download the official binary instead)
     if conda env list 2>/dev/null | grep -q "^${ENV_NAME} "; then
         log_info "Conda environment '$ENV_NAME' already exists"
     else
         log_step "Creating conda environment: $ENV_NAME..."
-        $CONDA_CMD create -n "$ENV_NAME" nodejs=20 mongodb=8.0 -c conda-forge -y
+        $CONDA_CMD create -n "$ENV_NAME" nodejs=20 -c conda-forge -y
     fi
 
-    # Activate
-    conda activate "$ENV_NAME"
+    # Activate and explicitly prepend conda env bin to PATH
+    # (conda activate doesn't always work in non-interactive scripts with set -e)
+    conda activate "$ENV_NAME" 2>/dev/null || true
+    local CONDA_ENV_PATH
+    CONDA_ENV_PATH=$(conda env list 2>/dev/null | awk -v name="$ENV_NAME" '$1 == name {print $NF}')
+    if [ -n "$CONDA_ENV_PATH" ] && [ -d "$CONDA_ENV_PATH/bin" ]; then
+        export PATH="$CONDA_ENV_PATH/bin:$PATH"
+    fi
 
     # Store env name so future commands auto-activate
     echo "$ENV_NAME" > "$SCRIPT_DIR/.conda_env"
 
     log_info "Node.js: $(node --version)"
-    log_info "MongoDB: installed via conda"
 
-    # Create local data directory for mongod
-    local MONGO_DATA="$DEPS_DIR/mongodb/data"
-    local MONGO_LOG="$DEPS_DIR/mongodb/mongod.log"
-    mkdir -p "$MONGO_DATA"
-
-    log_step "Starting local MongoDB..."
-    if mongod \
-        --dbpath "$MONGO_DATA" \
-        --logpath "$MONGO_LOG" \
-        --port 27017 \
-        --fork; then
-        log_info "MongoDB running (data: deps/mongodb/data/)"
+    # Download MongoDB binary (not available on conda-forge >= 7.0)
+    mkdir -p "$DEPS_DIR"
+    if ! check_command mongod && ! check_command mongosh; then
+        _download_mongodb_binary
     else
-        log_warn "Could not start MongoDB. Check: $MONGO_LOG"
-        log_info "You can set MONGODB_URI in .env to use a remote MongoDB instead."
+        log_info "MongoDB already available"
     fi
 
     echo ""
@@ -704,7 +722,11 @@ do_install() {
         missing_mongo=true
     fi
 
-    if $missing_node || $missing_mongo; then
+    # Conda mode: always create/activate conda env (even if system deps exist,
+    # we want a dedicated env with the right Node.js version)
+    if [ "$install_mode" = "conda" ]; then
+        _install_conda_deps
+    elif $missing_node || $missing_mongo; then
         echo ""
         log_warn "Missing system dependencies:"
         $missing_node && log_warn "  - Node.js 18+ / npm"
@@ -717,10 +739,6 @@ do_install() {
                 log_info "Downloading dependencies locally (no sudo required)..."
                 echo ""
                 _install_user_deps
-                ;;
-            conda)
-                # Conda mode: install into conda environment
-                _install_conda_deps
                 ;;
             *)
                 # Standard mode: offer to install with sudo
@@ -1560,7 +1578,7 @@ show_help() {
     echo "Commands:"
     echo "  install            Full setup (install packages, build frontend, generate .env)"
     echo "  install --user     Non-root setup (downloads Node.js/MongoDB binaries locally)"
-    echo "  install --conda    Conda setup (installs Node.js/MongoDB into conda env)"
+    echo "  install --conda    Conda setup (Node.js via conda, MongoDB binary download)"
     echo "  reconfigure        Regenerate .env (backs up old, preserves values)"
     echo "  start              Start production server (port $PORT)"
     echo "  stop               Stop server"

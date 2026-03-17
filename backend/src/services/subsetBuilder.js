@@ -22,7 +22,8 @@ class SubsetBuilder extends BaseJobBuilder {
     this.stageName = 'Select';
   }
 
-  // Subset selection is CPU-only
+  // Subset selection is CPU-only (class_ranker uses PyTorch but we force CPU mode
+  // via CUDA_VISIBLE_DEVICES="" for compatibility with all GPU architectures)
   get supportsGpu() {
     return false;
   }

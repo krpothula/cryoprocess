@@ -40,7 +40,8 @@ const IMPORT_NODE_TYPES = {
   mask:    { label: '3D Mask',               outputFile: 'mask.mrc' },
   halfmap: { label: 'Unfiltered Half-map',   outputFile: 'halfmap.mrc' },
   refs2d:  { label: '2D References',         outputFile: 'class_averages.star' },
-  coords:  { label: 'Particle Coordinates',  outputFile: 'coords_suffix_autopick.star' }
+  coords:  { label: 'Particle Coordinates',  outputFile: 'coords_suffix_autopick.star' },
+  particles: { label: 'Particle STAR file', outputFile: 'particles.star' }
 };
 
 // Stage definitions - single source of truth for job types

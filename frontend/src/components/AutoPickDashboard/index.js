@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useBuilder } from "../../context/BuilderContext";
 import {
   getAutoPickResultsApi,
@@ -166,6 +166,15 @@ const AutoPickDashboard = () => {
   useEffect(() => {
     setViewerZoom(1);
   }, [selectedMicrograph]);
+
+  // Derive live micrograph list from liveStats.files (array of *_autopick.star filenames)
+  // This shows micrographs immediately as they are picked, before fetchResults polls again
+  const latestMicrographs = useMemo(() => {
+    if (!liveStats?.files?.length) return [];
+    return liveStats.files.map((f) => ({
+      micrographName: f.replace(/_autopick\.star$/, ""),
+    }));
+  }, [liveStats?.files]);
 
   // Trigger immediate fetch on WebSocket job_update (supplements polling)
   useJobNotification(selectedJob?.id, fetchResults);
@@ -337,6 +346,7 @@ const AutoPickDashboard = () => {
           <div className="flex-1 min-h-0">
             <MicrographList
               micrographs={results?.micrographs || []}
+              latestMicrographs={latestMicrographs}
               selectedMicrograph={selectedMicrograph}
               onSelect={setSelectedMicrograph}
               totalMicrographs={liveStats?.total ?? pStats.micrographCount ?? 0}

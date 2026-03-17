@@ -18,7 +18,7 @@ const INITIAL_FORM_DATA = {
   inputMode: "watch",
   watchDirectory: "",
   filePattern: "*.tiff",
-  movieThreshold: 0,
+  batchSize: 25,
   // Optics
   pixelSize: 1.0,
   voltage: 300,
@@ -56,10 +56,23 @@ const INITIAL_FORM_DATA = {
   class2dIterations: 200,
   class2dUseVdam: true,
   class2dVdamMiniBatches: 200,
+  // Auto 2D Class Selection
+  autoSelectEnabled: true,
+  autoSelectMinScore: 0.5,
+  autoSelectMinParticles: 3000,
+  // 3D Initial Model
+  inimodelEnabled: false,
+  inimodelSymmetry: "C1",
+  inimodelNumClasses: 1,
+  inimodelMaskDiameter: 200,
+  inimodelIterations: 200,
+  inimodelUseGpu: true,
+  inimodelGpuIds: "0",
   // Quality Filters
   ctfResolutionMax: 5.0,
   totalMotionMax: 30.0,
-  // SLURM Settings
+  // Execution Settings
+  executionMethod: "slurm",
   queue: "",
   threads: 4,
   mpiProcs: 1,
@@ -74,6 +87,8 @@ const INITIAL_OPEN_SECTIONS = {
   picking: true,
   extraction: true,
   class2d: false,
+  autoSelect: false,
+  inimodel: false,
   quality: false,
   slurm: true,
 };
@@ -158,7 +173,7 @@ const CreateLiveProject = () => {
         inputMode: formData.inputMode,
         watchDirectory: formData.watchDirectory,
         filePattern: formData.filePattern,
-        movieThreshold: parseInt(formData.movieThreshold) || 0,
+        batchSize: parseInt(formData.batchSize) || 25,
         optics: {
           pixelSize: parseFloat(formData.pixelSize),
           voltage: parseFloat(formData.voltage),
@@ -202,11 +217,26 @@ const CreateLiveProject = () => {
           useVdam: formData.class2dUseVdam,
           vdamMiniBatches: parseInt(formData.class2dVdamMiniBatches),
         },
+        autoSelectConfig: {
+          enabled: formData.autoSelectEnabled,
+          minScore: parseFloat(formData.autoSelectMinScore),
+          minParticles: parseInt(formData.autoSelectMinParticles),
+        },
+        inimodelConfig: {
+          enabled: formData.inimodelEnabled,
+          symmetry: formData.inimodelSymmetry || "C1",
+          numClasses: parseInt(formData.inimodelNumClasses),
+          maskDiameter: parseInt(formData.inimodelMaskDiameter),
+          iterations: parseInt(formData.inimodelIterations),
+          useGpu: formData.inimodelUseGpu,
+          gpuIds: formData.inimodelGpuIds || "0",
+        },
         thresholds: {
           ctfResolutionMax: parseFloat(formData.ctfResolutionMax),
           totalMotionMax: parseFloat(formData.totalMotionMax),
         },
         slurmConfig: {
+          executionMethod: formData.executionMethod,
           queue: formData.queue || null,
           threads: parseInt(formData.threads),
           mpiProcs: parseInt(formData.mpiProcs),
@@ -440,21 +470,21 @@ const CreateLiveProject = () => {
                 </div>
 
                 <div className="lp-form-group">
-                  <label htmlFor="movieThreshold">
-                    Min Movies Before Processing
+                  <label htmlFor="batchSize">
+                    Batch Size (micrographs)
                   </label>
                   <input
                     type="number"
-                    id="movieThreshold"
-                    name="movieThreshold"
-                    value={formData.movieThreshold}
+                    id="batchSize"
+                    name="batchSize"
+                    value={formData.batchSize}
                     onChange={handleChange}
-                    min="0"
+                    min="1"
                     step="1"
                   />
                   <span className="lp-form-hint">
-                    Wait until this many movies are detected before starting the
-                    pipeline. Set to 0 to start immediately.
+                    Trigger the pipeline every time this many new micrographs
+                    accumulate (e.g. 25 means process in batches of 25).
                   </span>
                 </div>
               </div>
@@ -965,7 +995,173 @@ const CreateLiveProject = () => {
             )}
           </div>
 
-          {/* ── Section 8: Quality Filters ── */}
+          {/* ── Section 8: Auto 2D Class Selection ── */}
+          <div className="lp-section">
+            {renderSectionHeader(
+              "autoSelect",
+              "Auto 2D Class Selection",
+              "Automatically select good 2D classes using relion_class_ranker",
+              "autoSelectEnabled"
+            )}
+            {openSections.autoSelect && (
+              <div
+                className={`lp-section-body ${isSectionDisabled("autoSelectEnabled") ? "lp-disabled" : ""}`}
+              >
+                <div className="lp-form-group">
+                  <label htmlFor="autoSelectMinScore">
+                    Minimum Score (0-1)
+                  </label>
+                  <input
+                    type="number"
+                    id="autoSelectMinScore"
+                    name="autoSelectMinScore"
+                    value={formData.autoSelectMinScore}
+                    onChange={handleChange}
+                    step="0.05"
+                    min="0"
+                    max="1"
+                    disabled={!formData.autoSelectEnabled}
+                  />
+                  <span className="lp-form-hint">
+                    CNN-based class ranker score threshold. Classes scoring above
+                    this are selected. Default 0.5 works well for most datasets.
+                  </span>
+                </div>
+                <div className="lp-form-group">
+                  <label htmlFor="autoSelectMinParticles">
+                    Minimum Particles
+                  </label>
+                  <input
+                    type="number"
+                    id="autoSelectMinParticles"
+                    name="autoSelectMinParticles"
+                    value={formData.autoSelectMinParticles}
+                    onChange={handleChange}
+                    step="500"
+                    min="0"
+                    disabled={!formData.autoSelectEnabled}
+                  />
+                  <span className="lp-form-hint">
+                    Minimum number of particles per selected class. Classes with
+                    fewer particles are discarded. Default 3000.
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Section 9: 3D Initial Model ── */}
+          <div className="lp-section">
+            {renderSectionHeader(
+              "inimodel",
+              "3D Initial Model",
+              "Generate ab-initio 3D model from selected particles (SGD)",
+              "inimodelEnabled"
+            )}
+            {openSections.inimodel && (
+              <div
+                className={`lp-section-body ${isSectionDisabled("inimodelEnabled") ? "lp-disabled" : ""}`}
+              >
+                <div className="lp-form-row">
+                  <div className="lp-form-group">
+                    <label htmlFor="inimodelSymmetry">Symmetry</label>
+                    <input
+                      type="text"
+                      id="inimodelSymmetry"
+                      name="inimodelSymmetry"
+                      value={formData.inimodelSymmetry}
+                      onChange={handleChange}
+                      placeholder="C1"
+                      disabled={!formData.inimodelEnabled}
+                    />
+                  </div>
+                  <div className="lp-form-group">
+                    <label htmlFor="inimodelNumClasses">Number of Classes</label>
+                    <input
+                      type="number"
+                      id="inimodelNumClasses"
+                      name="inimodelNumClasses"
+                      value={formData.inimodelNumClasses}
+                      onChange={handleChange}
+                      min="1"
+                      max="10"
+                      step="1"
+                      disabled={!formData.inimodelEnabled}
+                    />
+                  </div>
+                </div>
+                <div className="lp-form-row">
+                  <div className="lp-form-group">
+                    <label htmlFor="inimodelMaskDiameter">
+                      Mask Diameter (A)
+                    </label>
+                    <input
+                      type="number"
+                      id="inimodelMaskDiameter"
+                      name="inimodelMaskDiameter"
+                      value={formData.inimodelMaskDiameter}
+                      onChange={handleChange}
+                      min="10"
+                      step="10"
+                      disabled={!formData.inimodelEnabled}
+                    />
+                  </div>
+                  <div className="lp-form-group">
+                    <label htmlFor="inimodelIterations">SGD Iterations</label>
+                    <input
+                      type="number"
+                      id="inimodelIterations"
+                      name="inimodelIterations"
+                      value={formData.inimodelIterations}
+                      onChange={handleChange}
+                      min="50"
+                      max="999"
+                      step="50"
+                      disabled={!formData.inimodelEnabled}
+                    />
+                  </div>
+                </div>
+                <div className="lp-form-row">
+                  <div className="lp-form-group">
+                    <label>Use GPU</label>
+                    <div
+                      className="lp-toggle-wrapper"
+                      style={{ marginTop: 4 }}
+                    >
+                      <label className="lp-toggle">
+                        <input
+                          type="checkbox"
+                          checked={formData.inimodelUseGpu}
+                          onChange={() => handleToggle("inimodelUseGpu")}
+                          disabled={!formData.inimodelEnabled}
+                        />
+                        <span className="lp-toggle-slider"></span>
+                      </label>
+                      <span className="lp-toggle-label">
+                        {formData.inimodelUseGpu ? "GPU" : "CPU"}
+                      </span>
+                    </div>
+                  </div>
+                  {formData.inimodelUseGpu && (
+                    <div className="lp-form-group">
+                      <label htmlFor="inimodelGpuIds">GPU IDs</label>
+                      <input
+                        type="text"
+                        id="inimodelGpuIds"
+                        name="inimodelGpuIds"
+                        value={formData.inimodelGpuIds}
+                        onChange={handleChange}
+                        placeholder="0"
+                        disabled={!formData.inimodelEnabled}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Section 10: Quality Filters ── */}
           <div className="lp-section">
             {renderSectionHeader(
               "quality",
@@ -1012,60 +1208,92 @@ const CreateLiveProject = () => {
           <div className="lp-section">
             {renderSectionHeader(
               "slurm",
-              "SLURM Settings",
-              "Cluster submission configuration"
+              "Execution Settings",
+              "Choose local or SLURM cluster execution"
             )}
             {openSections.slurm && (
               <div className="lp-section-body">
                 <div className="lp-form-group">
-                  <label htmlFor="queue">Queue / Partition</label>
-                  <input
-                    type="text"
-                    id="queue"
-                    name="queue"
-                    value={formData.queue}
-                    onChange={handleChange}
-                    placeholder="default (optional)"
-                  />
+                  <label>Execution Method</label>
+                  <div className="lp-mode-toggle">
+                    <button
+                      type="button"
+                      className={`lp-mode-btn ${formData.executionMethod === "local" ? "lp-mode-active" : ""}`}
+                      onClick={() =>
+                        setFormData((prev) => ({ ...prev, executionMethod: "local" }))
+                      }
+                    >
+                      Local
+                    </button>
+                    <button
+                      type="button"
+                      className={`lp-mode-btn ${formData.executionMethod === "slurm" ? "lp-mode-active" : ""}`}
+                      onClick={() =>
+                        setFormData((prev) => ({ ...prev, executionMethod: "slurm" }))
+                      }
+                    >
+                      SLURM
+                    </button>
+                  </div>
+                  <span className="lp-form-hint">
+                    {formData.executionMethod === "local"
+                      ? "Run RELION commands directly on this machine"
+                      : "Submit jobs to SLURM cluster via sbatch"}
+                  </span>
                 </div>
-                <div className="lp-form-row lp-form-row-3">
-                  <div className="lp-form-group">
-                    <label htmlFor="threads">Threads</label>
-                    <input
-                      type="number"
-                      id="threads"
-                      name="threads"
-                      value={formData.threads}
-                      onChange={handleChange}
-                      min="1"
-                      step="1"
-                    />
-                  </div>
-                  <div className="lp-form-group">
-                    <label htmlFor="mpiProcs">MPI Processes</label>
-                    <input
-                      type="number"
-                      id="mpiProcs"
-                      name="mpiProcs"
-                      value={formData.mpiProcs}
-                      onChange={handleChange}
-                      min="1"
-                      step="1"
-                    />
-                  </div>
-                  <div className="lp-form-group">
-                    <label htmlFor="gpuCount">GPU Count</label>
-                    <input
-                      type="number"
-                      id="gpuCount"
-                      name="gpuCount"
-                      value={formData.gpuCount}
-                      onChange={handleChange}
-                      min="0"
-                      step="1"
-                    />
-                  </div>
-                </div>
+                {formData.executionMethod === "slurm" && (
+                  <>
+                    <div className="lp-form-group">
+                      <label htmlFor="queue">Queue / Partition</label>
+                      <input
+                        type="text"
+                        id="queue"
+                        name="queue"
+                        value={formData.queue}
+                        onChange={handleChange}
+                        placeholder="default (optional)"
+                      />
+                    </div>
+                    <div className="lp-form-row lp-form-row-3">
+                      <div className="lp-form-group">
+                        <label htmlFor="threads">Threads</label>
+                        <input
+                          type="number"
+                          id="threads"
+                          name="threads"
+                          value={formData.threads}
+                          onChange={handleChange}
+                          min="1"
+                          step="1"
+                        />
+                      </div>
+                      <div className="lp-form-group">
+                        <label htmlFor="mpiProcs">MPI Processes</label>
+                        <input
+                          type="number"
+                          id="mpiProcs"
+                          name="mpiProcs"
+                          value={formData.mpiProcs}
+                          onChange={handleChange}
+                          min="1"
+                          step="1"
+                        />
+                      </div>
+                      <div className="lp-form-group">
+                        <label htmlFor="gpuCount">GPU Count</label>
+                        <input
+                          type="number"
+                          id="gpuCount"
+                          name="gpuCount"
+                          value={formData.gpuCount}
+                          onChange={handleChange}
+                          min="0"
+                          step="1"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

@@ -393,6 +393,11 @@ exports.submitJob = async (req, res) => {
         clustername: data.clusterName || data.clustername,
         arguments: data.arguments || data.slurmArguments
       };
+
+      // Force CPU-only PyTorch for class_ranker — avoids segfault on unsupported GPU architectures
+      if (jobType === 'Subset' && getBoolParam(data, ['select2DClass'], false)) {
+        slurmParams.envVars = { CUDA_VISIBLE_DEVICES: '""', SINGULARITYENV_CUDA_VISIBLE_DEVICES: '""' };
+      }
     }
 
     // Check if submitting user has per-user cluster credentials enabled.
@@ -1157,6 +1162,7 @@ exports.getStageOutputFiles = async (req, res) => {
     // Virtual stage aliases: expand to real job_type + role filter
     const VIRTUAL_STAGES = {
       ImportCoords: { jobType: 'Import', role: 'coordinatesStar' },
+      ImportParticles: { jobType: 'Import', role: 'particlesStar' },
     };
     const virtualRoles = {};
     const realStages = [];

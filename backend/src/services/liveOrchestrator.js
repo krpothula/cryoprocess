@@ -7,7 +7,7 @@
  *  - SLURM monitor events (job completions)
  *  - Triggers next pipeline stage when previous completes
  *
- * Pipeline: Import -> MotionCorr -> CTF -> AutoPick -> Extract -> Class2D
+ * Pipeline: Import -> MotionCorr -> CTF -> [QualityFilter] -> AutoPick -> Extract -> Class2D -> [AutoSelect] -> [InitialModel]
  *
  * RELION processes batches via STAR files. On each "pass":
  *  1. Re-run Import (picks up new movies from watch directory)
@@ -36,6 +36,8 @@ const CTFBuilder = require('./ctfBuilder');
 const AutoPickBuilder = require('./autopickBuilder');
 const ExtractBuilder = require('./extractBuilder');
 const Class2DBuilder = require('./class2dBuilder');
+const SubsetBuilder = require('./subsetBuilder');
+const InitialModelBuilder = require('./initialModelBuilder');
 
 /**
  * Format milliseconds into a human-readable duration string.
@@ -65,7 +67,7 @@ const PIPELINE_STAGES = [
 class LiveOrchestrator extends EventEmitter {
   constructor() {
     super();
-    this.activeSessions = new Map();  // sessionId -> { running: bool, pendingRerun: bool }
+    this.activeSessions = new Map();  // sessionId -> { running, stageRunning: {}, stagePending: {} }
     this._initialized = false;
   }
 
@@ -104,33 +106,24 @@ class LiveOrchestrator extends EventEmitter {
 
     logger.info(`[LiveOrchestrator] Starting session ${session.session_name} (${sessionId})`);
 
-    // Create symlink from project directory to watch directory
-    // RELION requires import paths to be relative to the project directory
+    // Create Movies/ directory for per-file symlinks to the watch directory.
+    // We symlink individual files in batches (controlled by batch_size) so that
+    // RELION Import only sees batch_size files at a time.
     const projectPath = getProjectPath(project);
-    const symlinkName = 'Movies';
-    const symlinkPath = path.join(projectPath, symlinkName);
+    const moviesDir = path.join(projectPath, 'Movies');
 
-    if (fs.existsSync(symlinkPath)) {
-      // If Movies/ exists but is not a symlink (e.g. from a previous regular import),
-      // we cannot create the symlink. Fail early with a clear message.
-      if (!fs.lstatSync(symlinkPath).isSymbolicLink()) {
-        throw new Error(`${symlinkPath} already exists as a directory. Cannot create symlink for live processing. Use a different project or remove the existing Movies/ folder.`);
+    if (fs.existsSync(moviesDir)) {
+      const stat = fs.lstatSync(moviesDir);
+      if (stat.isSymbolicLink()) {
+        // Old-style directory symlink from a previous session — replace with real dir
+        fs.unlinkSync(moviesDir);
+        fs.mkdirSync(moviesDir, { recursive: true });
+        logger.info(`[LiveOrchestrator] Replaced directory symlink with per-file Movies/ dir`);
       }
-      // Existing symlink — verify it points to the correct watch directory
-      const target = fs.readlinkSync(symlinkPath);
-      if (target !== session.watch_directory) {
-        fs.unlinkSync(symlinkPath);
-        fs.symlinkSync(session.watch_directory, symlinkPath, 'dir');
-        logger.info(`[LiveOrchestrator] Re-created symlink: ${symlinkPath} -> ${session.watch_directory} (was -> ${target})`);
-      }
+      // else: already a real directory (from a previous run), keep it
     } else {
-      try {
-        fs.symlinkSync(session.watch_directory, symlinkPath, 'dir');
-        logger.info(`[LiveOrchestrator] Created symlink: ${symlinkPath} -> ${session.watch_directory}`);
-      } catch (err) {
-        logger.error(`[LiveOrchestrator] Failed to create symlink: ${err.message}`);
-        throw new Error(`Cannot create symlink to watch directory: ${err.message}`);
-      }
+      fs.mkdirSync(moviesDir, { recursive: true });
+      logger.info(`[LiveOrchestrator] Created Movies/ directory: ${moviesDir}`);
     }
 
     // Mark as running
@@ -143,7 +136,12 @@ class LiveOrchestrator extends EventEmitter {
       }
     );
 
-    this.activeSessions.set(sessionId, { running: true, pendingRerun: false, busy: false });
+    const stageFlags = () => ({ import: false, motion: false, ctf: false, pick: false, extract: false, class2d: false, select: false, inimodel: false });
+    this.activeSessions.set(sessionId, {
+      running: true,
+      stageRunning: stageFlags(),
+      stagePending: stageFlags()
+    });
 
     // Add activity
     await session.addActivity('session_started', `Live session "${session.session_name}" started`, {
@@ -168,88 +166,97 @@ class LiveOrchestrator extends EventEmitter {
   }
 
   /**
-   * Run a full pipeline pass
-   * Called when new files are detected or when session starts.
+   * Trigger a pipeline stage (streaming model).
+   *
+   * Replaces the old batch-pass model. Each stage runs independently:
+   * - If already running, mark pending for re-trigger after completion
+   * - If no new work available, skip
+   * - Otherwise submit the stage to SLURM
+   *
    * @param {string} sessionId
+   * @param {string} stageKey - e.g., 'import', 'motion', 'ctf'
    */
-  async _runPipelinePass(sessionId) {
+  async _triggerStage(sessionId, stageKey) {
     const sessionState = this.activeSessions.get(sessionId);
     if (!sessionState || !sessionState.running) return;
 
-    // Prevent concurrent pipeline passes
-    if (sessionState.busy) {
-      sessionState.pendingRerun = true;
-      logger.info(`[LiveOrchestrator] Session ${sessionId} busy, queuing re-run`);
+    // If this stage is already running, queue for re-trigger
+    if (sessionState.stageRunning[stageKey]) {
+      sessionState.stagePending[stageKey] = true;
+      logger.debug(`[LiveOrchestrator] Stage ${stageKey} already running, queued re-trigger | session: ${sessionId}`);
       return;
     }
 
-    sessionState.busy = true;
-    sessionState.pendingRerun = false;
+    const session = await LiveSession.findOne({ id: sessionId }).lean();
+    if (!session || session.status !== 'running') return;
 
-    try {
-      const session = await LiveSession.findOne({ id: sessionId });
-      if (!session || session.status !== 'running') {
-        sessionState.busy = false;
-        return;
-      }
-
-      // Guard: skip pass if all detected files have already been imported
-      // New files = watcher found count > imported count. If equal, nothing new to process.
-      const found = session.state?.movies_found || 0;
-      const imported = session.state?.movies_imported || 0;
-      if (imported > 0 && found <= imported) {
-        sessionState.busy = false;
-        logger.info(`[LiveOrchestrator] Skipping pass: no new files (found=${found}, imported=${imported}) | session: ${session.session_name}`);
-        return;
-      }
-
-      const project = await Project.findOne({ id: session.project_id });
-      if (!project) {
-        sessionState.busy = false;
-        return;
-      }
-
-      const passNum = (session.state.pass_count || 0) + 1;
-      const moviesAtStart = session.state?.movies_found || 0;
-      logger.info(`[LiveOrchestrator] Pipeline pass #${passNum} | movies_at_start: ${moviesAtStart} | session: ${session.session_name}`);
-
-      await LiveSession.findOneAndUpdate(
-        { id: sessionId },
-        {
-          'state.pass_count': passNum,
-          'state.last_pipeline_pass': new Date(),
-          'state.movies_at_pass_start': moviesAtStart
-        }
-      );
-
-      await session.addActivity('pipeline_pass', `Pipeline pass #${passNum} started`, {
-        level: 'info',
-        passNumber: passNum,
-        context: {
-          passNumber: passNum,
-          stagesToRun: this._getEnabledStageNames(session),
-          moviesFound: session.state?.movies_found || 0
-        }
-      });
-
-      // Start with Import
-      try {
-        await this._submitStage(sessionId, 'import');
-      } catch (err) {
-        logger.error(`[LiveOrchestrator] Pipeline pass failed at Import: ${err.message}`);
-        await session.addActivity('error', `Import failed: ${err.message}`, {
-          level: 'error',
-          stage: 'Import',
-          passNumber: passNum,
-          context: { errorMessage: err.message }
-        });
-        await this._handleStageError(sessionId, 'import', err);
-      }
-    } catch (unexpectedErr) {
-      // CRITICAL: Always reset busy flag on unexpected errors to prevent deadlock
-      logger.error(`[LiveOrchestrator] Unexpected error in pipeline pass: ${unexpectedErr.message}`);
-      sessionState.busy = false;
+    // Check if stage is enabled
+    if (!this._isStageEnabled(session, stageKey)) {
+      // Skip to downstream stage
+      const nextKey = this._getNextStageKey(stageKey);
+      if (nextKey) await this._triggerStage(sessionId, nextKey);
+      return;
     }
+
+    // Check if there's actually work for this stage (upstream count > this stage's count)
+    if (!this._hasWorkForStage(session, stageKey)) {
+      logger.debug(`[LiveOrchestrator] No new work for stage ${stageKey}, skipping`);
+      return;
+    }
+
+    // Submit the stage
+    sessionState.stageRunning[stageKey] = true;
+    try {
+      await this._submitStage(sessionId, stageKey);
+    } catch (err) {
+      sessionState.stageRunning[stageKey] = false;
+      logger.error(`[LiveOrchestrator] Stage ${stageKey} trigger failed: ${err.message}`);
+      await this._handleStageError(sessionId, stageKey, err);
+    }
+  }
+
+  /**
+   * Check if a stage has new work to process based on upstream/downstream counts.
+   * @param {Object} session - Lean session document
+   * @param {string} stageKey
+   * @returns {boolean}
+   */
+  _hasWorkForStage(session, stageKey) {
+    const s = session.state || {};
+    switch (stageKey) {
+      case 'import':
+        return (s.movies_found || 0) > (s.movies_imported || 0);
+      case 'motion':
+        return (s.movies_imported || 0) > (s.movies_motion || 0);
+      case 'ctf':
+        return (s.movies_motion || 0) > (s.movies_ctf || 0);
+      case 'pick': {
+        // Use filtered count when quality filter is active, otherwise use ctf count.
+        // Without this, movies_ctf > movies_picked stays true forever when the filter
+        // rejects micrographs (pick can never process the rejected ones → infinite loop).
+        const pickUpstream = (s.movies_filtered != null && s.movies_filtered > 0)
+          ? s.movies_filtered
+          : (s.movies_ctf || 0);
+        return pickUpstream > (s.movies_picked || 0);
+      }
+      case 'extract':
+        return (s.movies_picked || 0) > (s.micrographs_extracted || 0);
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Get the next downstream pipeline stage key.
+   * @param {string} currentKey
+   * @returns {string|null}
+   */
+  _getNextStageKey(currentKey) {
+    const idx = PIPELINE_STAGES.findIndex(s => s.key === currentKey);
+    if (idx >= 0 && idx + 1 < PIPELINE_STAGES.length) {
+      return PIPELINE_STAGES[idx + 1].key;
+    }
+    return null;
   }
 
   /**
@@ -265,35 +272,31 @@ class LiveOrchestrator extends EventEmitter {
    * @param {string} stageKey - e.g., 'import', 'motion', 'ctf'
    */
   async _submitStage(sessionId, stageKey) {
+    const sessionState = this.activeSessions.get(sessionId);
+    const resetStage = () => { if (sessionState) sessionState.stageRunning[stageKey] = false; };
+
     const session = await LiveSession.findOne({ id: sessionId });
     if (!session || session.status !== 'running') {
-      this._releaseBusy(sessionId);
+      resetStage();
       return;
     }
 
     const project = await Project.findOne({ id: session.project_id });
     if (!project) {
-      this._releaseBusy(sessionId);
+      resetStage();
       return;
     }
 
     const stage = PIPELINE_STAGES.find(s => s.key === stageKey);
     if (!stage) {
-      this._releaseBusy(sessionId);
-      return;
-    }
-
-    // Check if this stage is enabled
-    if (!this._isStageEnabled(session, stageKey)) {
-      logger.info(`[LiveOrchestrator] Stage ${stageKey} disabled, skipping to next`);
-      await this._advanceToNextStage(sessionId, stageKey);
+      resetStage();
       return;
     }
 
     const projectPath = getProjectPath(project);
 
     // Build job parameters for this stage
-    const jobParams = await this._buildJobParams(session, stageKey);
+    const jobParams = await this._buildJobParams(session, stageKey, projectPath);
 
     // Create builder
     const BuilderClass = stage.builder;
@@ -308,7 +311,7 @@ class LiveOrchestrator extends EventEmitter {
         stage: stage.type,
         context: { validationError: validError }
       });
-      this._releaseBusy(sessionId);
+      resetStage();
       return;
     }
 
@@ -331,7 +334,7 @@ class LiveOrchestrator extends EventEmitter {
       // Guard: don't resubmit if previous run is still active in SLURM
       if ([JOB_STATUS.PENDING, JOB_STATUS.RUNNING].includes(existingJob.status)) {
         logger.warn(`[LiveOrchestrator] Stage ${stageKey} job ${jobName} still ${existingJob.status}, skipping`);
-        this._releaseBusy(sessionId);
+        resetStage();
         return;
       }
 
@@ -399,7 +402,7 @@ class LiveOrchestrator extends EventEmitter {
         input_job_ids: resolvedInputJobIds,
         output_file_path: outputDir,
         command: commandStr,
-        execution_method: 'slurm',
+        execution_method: session.slurm_config?.execution_method || 'slurm',
         system_type: 'local',
         parameters: jobParams,
         pipeline_stats: {
@@ -429,19 +432,23 @@ class LiveOrchestrator extends EventEmitter {
     const passLabel = isRerun ? '(re-run)' : '(new)';
     logger.info(`[LiveOrchestrator] Submitting ${stage.type} ${passLabel} (${jobName}) | session: ${session.session_name}`);
 
-    // Build SLURM params
+    // Determine execution method from session config
+    const executionMethod = session.slurm_config?.execution_method || 'slurm';
+
+    // Build SLURM params (only used for SLURM execution)
     const slurmParams = this._buildSlurmParams(session, stageKey, builder);
 
-    // Submit to SLURM
+    // Submit job
     const result = await submitJobDirect({
       cmd,
       jobId,
       jobName,
       stageName: stage.type,
+      projectId: session.project_id,
       projectPath,
       outputDir,
-      executionMethod: 'slurm',
-      slurmParams,
+      executionMethod,
+      slurmParams: executionMethod === 'slurm' ? slurmParams : {},
       postCommand: builder.postCommand
     });
 
@@ -449,9 +456,10 @@ class LiveOrchestrator extends EventEmitter {
       const commandPreview = commandStr.length > 120
         ? commandStr.substring(0, 120) + '...'
         : commandStr;
+      const methodLabel = executionMethod === 'slurm' ? `SLURM: ${result.slurm_job_id}` : 'local';
 
       await session.addActivity('stage_submitted',
-        `${stage.type} ${jobName} submitted ${passLabel} (SLURM: ${result.slurm_job_id})`, {
+        `${stage.type} ${jobName} submitted ${passLabel} (${methodLabel})`, {
         level: 'info',
         stage: stage.type,
         jobName: jobName,
@@ -504,7 +512,9 @@ class LiveOrchestrator extends EventEmitter {
         { 'jobs.ctf_id': jobId },
         { 'jobs.pick_id': jobId },
         { 'jobs.extract_id': jobId },
-        { 'jobs.class2d_ids': jobId }
+        { 'jobs.class2d_ids': jobId },
+        { 'jobs.select_ids': jobId },
+        { 'jobs.inimodel_ids': jobId }
       ]
     }).lean();
 
@@ -537,6 +547,8 @@ class LiveOrchestrator extends EventEmitter {
     const session = await LiveSession.findOne({ id: sessionId });
     if (!session) return;
 
+    const sessionState = this.activeSessions.get(sessionId);
+
     // Update processing counters
     await this._updateCounters(sessionId, stageKey, job);
 
@@ -550,7 +562,6 @@ class LiveOrchestrator extends EventEmitter {
       level: 'success',
       stage: job.job_type,
       jobName: job.job_name,
-      passNumber: session.state?.pass_count,
       context: {
         slurmJobId: job.slurm_job_id,
         durationMs: durationMs,
@@ -562,193 +573,175 @@ class LiveOrchestrator extends EventEmitter {
       stage: job.job_type, jobName: job.job_name, state: session.state
     }, 'success');
 
-    // Class2D is not in PIPELINE_STAGES - handle its completion separately
+    // Class2D, Select, InitialModel are not in PIPELINE_STAGES - handle separately
     if (stageKey === 'class2d') {
       logger.info(`[LiveOrchestrator] Class2D completed: ${job.job_name} | session: ${session.session_name}`);
-      if (session.input_mode === 'existing') {
-        // Don't mark completed if the main pipeline is still running
-        const sessionState = this.activeSessions.get(sessionId);
-        if (sessionState?.busy) {
-          logger.info(`[LiveOrchestrator] Class2D done but pipeline still busy, deferring completion`);
-          return;
-        }
-        // Check if any other Class2D jobs are still running
-        const otherClass2dIds = (session.jobs?.class2d_ids || []).filter(id => id !== job.id);
-        if (otherClass2dIds.length > 0) {
-          const runningClass2d = await Job.countDocuments({
-            id: { $in: otherClass2dIds },
-            status: { $in: [JOB_STATUS.PENDING, JOB_STATUS.RUNNING] }
-          });
-          if (runningClass2d > 0) {
-            logger.info(`[LiveOrchestrator] Class2D done but ${runningClass2d} other Class2D jobs still running`);
-            return;
-          }
-        }
-        await this._markSessionCompleted(sessionId, session);
+      // Don't cascade if session is paused — record resume point
+      if (session.status === 'paused') {
+        logger.info(`[LiveOrchestrator] Session paused — not cascading after Class2D`);
+        return;
+      }
+      // Cascade: Class2D → Auto Select (class ranker)
+      if (session.auto_select_config?.enabled) {
+        await this._submitAutoSelect(sessionId, job.id);
+      } else if (session.input_mode === 'existing') {
+        await this._checkExistingModeCompletion(sessionId);
       }
       return;
+    }
+    if (stageKey === 'select') {
+      logger.info(`[LiveOrchestrator] AutoSelect completed: ${job.job_name} | session: ${session.session_name}`);
+      if (session.status === 'paused') {
+        logger.info(`[LiveOrchestrator] Session paused — not cascading after AutoSelect`);
+        return;
+      }
+      // Cascade: Select → 3D Initial Model
+      if (session.inimodel_config?.enabled) {
+        await this._submitInitialModel(sessionId, job.id);
+      } else if (session.input_mode === 'existing') {
+        await this._checkExistingModeCompletion(sessionId);
+      }
+      return;
+    }
+    if (stageKey === 'inimodel') {
+      logger.info(`[LiveOrchestrator] InitialModel completed: ${job.job_name} | session: ${session.session_name}`);
+      if (session.input_mode === 'existing') {
+        await this._checkExistingModeCompletion(sessionId);
+      }
+      return;
+    }
+
+    // Mark stage as no longer running
+    if (sessionState) {
+      sessionState.stageRunning[stageKey] = false;
     }
 
     // If session is paused, record where we left off but don't advance
     if (session.status === 'paused') {
-      const stageIdx = PIPELINE_STAGES.findIndex(s => s.key === stageKey);
-      const nextStage = stageIdx + 1 < PIPELINE_STAGES.length ? PIPELINE_STAGES[stageIdx + 1].key : null;
+      const nextKey = this._getNextStageKey(stageKey);
       await LiveSession.findOneAndUpdate(
         { id: sessionId },
-        { 'state.current_stage': `paused_after_${stageKey}`, 'state.resume_from': nextStage }
+        { 'state.current_stage': `paused_after_${stageKey}`, 'state.resume_from': nextKey || stageKey }
       );
-      logger.info(`[LiveOrchestrator] Session paused - stage ${stageKey} done, will resume from ${nextStage || 'complete'}`);
-      const sessionState = this.activeSessions.get(sessionId);
-      if (sessionState) sessionState.busy = false;
+      logger.info(`[LiveOrchestrator] Session paused - stage ${stageKey} done, will resume from ${nextKey || 'complete'}`);
       return;
     }
 
-    // Advance to next stage
-    await this._advanceToNextStage(sessionId, stageKey);
-  }
-
-  /**
-   * Advance to the next pipeline stage
-   * @param {string} sessionId
-   * @param {string} completedStageKey
-   */
-  async _advanceToNextStage(sessionId, completedStageKey) {
-    const stageIdx = PIPELINE_STAGES.findIndex(s => s.key === completedStageKey);
-    const nextIdx = stageIdx + 1;
-
-    if (nextIdx < PIPELINE_STAGES.length) {
-      // Submit next stage
-      const nextStage = PIPELINE_STAGES[nextIdx];
+    // === Quality filter: run inline after CTF before triggering AutoPick ===
+    if (stageKey === 'ctf') {
       try {
-        await this._submitStage(sessionId, nextStage.key);
-      } catch (err) {
-        logger.error(`[LiveOrchestrator] ${nextStage.type} failed: ${err.message}`);
-        const session = await LiveSession.findOne({ id: sessionId });
-        if (session) {
-          await session.addActivity('error', `${nextStage.type} failed: ${err.message}`, {
-            level: 'error',
-            stage: nextStage.type,
-            context: { errorMessage: err.message }
-          });
-        }
-        await this._handleStageError(sessionId, nextStage.key, err);
+        await this._applyQualityFilter(sessionId);
+      } catch (filterErr) {
+        logger.warn(`[LiveOrchestrator] Quality filter failed (continuing): ${filterErr.message}`);
       }
+    }
+
+    // === CASCADE: Trigger downstream stage ===
+    const nextKey = this._getNextStageKey(stageKey);
+    if (nextKey) {
+      await this._triggerStage(sessionId, nextKey);
     } else {
-      // Pipeline pass complete
-      await this._onPipelinePassComplete(sessionId);
+      // Last stage (extract) completed — check Class2D threshold
+      if (session.class2d_config?.enabled) {
+        await this._check2DClassification(sessionId);
+      }
+      // For 'existing' input mode, check if all processing is complete
+      if (session.input_mode === 'existing') {
+        await this._checkExistingModeCompletion(sessionId);
+      }
+    }
+
+    // === RE-TRIGGER SELF if pending or more upstream work exists ===
+    let shouldRetrigger = false;
+    if (sessionState?.stagePending[stageKey]) {
+      sessionState.stagePending[stageKey] = false;
+      shouldRetrigger = true;
+    }
+
+    // Read fresh session to check for work (needed for both pending and poll paths)
+    const freshSession = await LiveSession.findOne({ id: sessionId }).lean();
+
+    if (!shouldRetrigger && freshSession && this._hasWorkForStage(freshSession, stageKey)) {
+      shouldRetrigger = true;
+    }
+
+    // For import re-triggers: release the next batch of files into Movies/ first.
+    // Only re-trigger if new files were actually released (prevents empty re-runs).
+    if (shouldRetrigger && stageKey === 'import' && freshSession
+        && freshSession.input_mode !== 'existing') {
+      const batchSize = freshSession.batch_size || 25;
+      const unprocessed = (freshSession.state?.movies_found || 0)
+                        - (freshSession.state?.movies_imported || 0);
+      if (unprocessed < batchSize) {
+        logger.debug(`[LiveOrchestrator] Import re-trigger deferred (${unprocessed}/${batchSize} new movies)`);
+        shouldRetrigger = false;
+        // Future _onNewFiles calls will trigger when enough movies accumulate
+      } else {
+        // Release next batch of files into Movies/ before re-triggering
+        const released = await this._releaseNextBatch(sessionId);
+        if (released === 0) {
+          logger.debug(`[LiveOrchestrator] Import re-trigger: no new files to release`);
+          shouldRetrigger = false;
+        }
+      }
+    }
+
+    if (shouldRetrigger) {
+      await this._triggerStage(sessionId, stageKey);
     }
   }
 
   /**
-   * Called when a full pipeline pass completes
+   * Check if an 'existing' mode session is fully complete.
+   * Done when all stages are idle and all counts have caught up.
    * @param {string} sessionId
    */
-  async _onPipelinePassComplete(sessionId) {
+  async _checkExistingModeCompletion(sessionId) {
+    const session = await LiveSession.findOne({ id: sessionId }).lean();
+    if (!session || session.input_mode !== 'existing') return;
+
     const sessionState = this.activeSessions.get(sessionId);
     if (!sessionState) return;
 
-    sessionState.busy = false;
+    // Check if any pipeline stage is still running
+    const anyRunning = Object.values(sessionState.stageRunning).some(v => v);
+    if (anyRunning) return;
 
-    const session = await LiveSession.findOne({ id: sessionId });
-    if (!session) return;
+    // Check if all stages have caught up to import count
+    const s = session.state || {};
+    const imported = s.movies_imported || 0;
+    if (imported === 0) return;
 
-    logger.info(`[LiveOrchestrator] Pipeline pass complete | session: ${session.session_name}`);
-    await session.addActivity('pipeline_complete', `Pipeline pass #${session.state?.pass_count || '?'} completed`, {
-      level: 'success',
-      passNumber: session.state?.pass_count,
-      context: {
-        passNumber: session.state?.pass_count,
-        stateSnapshot: {
-          moviesFound: session.state?.movies_found,
-          moviesImported: session.state?.movies_imported,
-          moviesMotion: session.state?.movies_motion,
-          moviesCTF: session.state?.movies_ctf,
-          moviesPicked: session.state?.movies_picked,
-          particlesExtracted: session.state?.particles_extracted
-        }
-      }
-    });
+    const allCaughtUp = (s.movies_motion || 0) >= imported
+      && (s.movies_ctf || 0) >= imported
+      && (s.movies_picked || 0) >= imported
+      && (s.micrographs_extracted || 0) >= imported;
 
-    // Record pass snapshot for per-pass display
-    const passSnapshot = {
-      pass_number: session.state?.pass_count || 1,
-      completed_at: new Date(),
-      movies_imported: session.state?.movies_imported || 0,
-      movies_motion: session.state?.movies_motion || 0,
-      movies_ctf: session.state?.movies_ctf || 0,
-      movies_picked: session.state?.movies_picked || 0,
-      particles_extracted: session.state?.particles_extracted || 0,
-      class2d_count: session.jobs?.class2d_ids?.length || 0,
-    };
-    await LiveSession.findOneAndUpdate(
-      { id: sessionId },
-      { $push: { pass_history: passSnapshot } }
-    );
+    if (!allCaughtUp) return;
 
-    this._broadcast(session.project_id, sessionId, 'pipeline_complete', {
-      state: session.state
-    }, 'success');
-
-    // Check if 2D classification should be triggered
-    let class2dSubmitted = false;
-    if (session.class2d_config.enabled) {
-      class2dSubmitted = await this._check2DClassification(sessionId);
-    }
-
-    // Fetch fresh session state for all subsequent checks
-    const freshSession = await LiveSession.findOne({ id: sessionId }).lean();
-    const found = freshSession?.state?.movies_found || 0;
-    const imported = freshSession?.state?.movies_imported || 0;
-    const motionDone = freshSession?.state?.movies_motion || 0;
-
-    // Check for pending rerun (new files arrived during this pass)
-    // Only re-run if there are actually MORE files than what was imported
-    // (prevents wasted passes when watcher batches the same files into 2 events)
-    if (sessionState.pendingRerun && sessionState.running) {
-      sessionState.pendingRerun = false;
-      if (found > imported) {
-        logger.info(`[LiveOrchestrator] Pending rerun: ${found - imported} new files to process (found=${found}, imported=${imported})`);
-        await this._runPipelinePass(sessionId);
+    // Check for running/pending Class2D, Select, or InitialModel
+    const downstreamIds = [
+      ...(session.jobs?.class2d_ids || []),
+      ...(session.jobs?.select_ids || []),
+      ...(session.jobs?.inimodel_ids || [])
+    ];
+    if (downstreamIds.length > 0) {
+      const runningDownstream = await Job.countDocuments({
+        id: { $in: downstreamIds },
+        status: { $in: [JOB_STATUS.PENDING, JOB_STATUS.RUNNING] }
+      });
+      if (runningDownstream > 0) {
+        logger.info(`[LiveOrchestrator] All stages done but downstream jobs still running, deferring completion`);
         return;
       }
-      logger.info(`[LiveOrchestrator] Pending rerun skipped: no new files (found=${found}, imported=${imported})`);
     }
 
-    // Check for count mismatch: Import processed more movies than downstream stages
-    // This happens when RELION only partially processes the input in one pass
-    // (e.g., Import has 219 movies but MotionCorr only processed 41)
-    if (imported > 0 && motionDone < imported && sessionState.running) {
-      logger.info(`[LiveOrchestrator] Count mismatch: imported=${imported} motion=${motionDone} - triggering re-run`);
-      await session.addActivity('pipeline_rerun', `Re-running pipeline: ${imported - motionDone} movies still need processing`, {
-        level: 'info',
-        context: { moviesImported: imported, moviesMotion: motionDone, gap: imported - motionDone }
-      });
-      await this._runPipelinePass(sessionId);
-      return;
-    }
-
-    // For 'existing' input mode, mark as completed when all stages have caught up
-    // But wait for Class2D to finish if one was just submitted or is still running
-    if (session.input_mode === 'existing' && !class2dSubmitted) {
-      const class2dIds = freshSession?.jobs?.class2d_ids || [];
-      let hasRunningClass2d = false;
-      if (class2dIds.length > 0) {
-        const runningCount = await Job.countDocuments({
-          id: { $in: class2dIds },
-          status: { $in: [JOB_STATUS.PENDING, JOB_STATUS.RUNNING] }
-        });
-        hasRunningClass2d = runningCount > 0;
-      }
-      if (!hasRunningClass2d) {
-        await this._markSessionCompleted(sessionId, session);
-      } else {
-        logger.info(`[LiveOrchestrator] Pipeline done but Class2D still running, deferring completion`);
-      }
-    }
+    await this._markSessionCompleted(sessionId, null);
   }
 
   /**
-   * Handle new files detected by watcher
+   * Handle new files detected by watcher.
+   * In streaming mode, only triggers Import (not a full pipeline pass).
    * @param {Object} data - { sessionId, files, count }
    */
   async _onNewFiles(data) {
@@ -780,15 +773,42 @@ class LiveOrchestrator extends EventEmitter {
 
     this._broadcast(session.project_id, sessionId, 'new_files_detected', { count, total: totalFound });
 
-    // Check movie threshold — wait until enough movies before first pass
-    const movieThreshold = session.movie_threshold || 0;
-    if (movieThreshold > 0 && totalFound < movieThreshold) {
-      logger.info(`[LiveOrchestrator] Waiting for movie threshold (${totalFound}/${movieThreshold}) | session: ${session.session_name}`);
-      return;
+    // Release the next batch of files into Movies/ via per-file symlinks.
+    // For 'existing' mode: release ALL files at once (watcher fires once, no batching).
+    // For 'watch' mode: release batch_size files; wait for more if not enough yet.
+    if (session.input_mode === 'existing') {
+      // Release everything — existing mode processes all files in one pass
+      const released = await this._releaseNextBatch(sessionId, totalFound);
+      if (released === 0 && totalFound > 0) {
+        logger.debug(`[LiveOrchestrator] Existing mode: all files already released | session: ${session.session_name}`);
+      }
+    } else {
+      // Watch mode: don't release files or trigger Import while it's already running.
+      // The re-trigger mechanism after Import completes will release the next batch.
+      // (Releasing mid-Import causes stranded files: Import already expanded its glob
+      // and won't see the new symlinks, but _releaseNextBatch later returns 0.)
+      if (sessionState.stageRunning?.import) {
+        logger.debug(`[LiveOrchestrator] Import already running, deferring file release | session: ${session.session_name}`);
+        return;
+      }
+
+      const batchSize = session.batch_size || 25;
+      const imported = session.state?.movies_imported || 0;
+      const unprocessed = totalFound - imported;
+      if (batchSize > 0 && unprocessed < batchSize) {
+        logger.debug(`[LiveOrchestrator] Waiting for batch (${unprocessed}/${batchSize} new movies) | session: ${session.session_name}`);
+        return;
+      }
+      // Release exactly batch_size files into Movies/
+      const released = await this._releaseNextBatch(sessionId);
+      if (released === 0) {
+        logger.debug(`[LiveOrchestrator] No new files to release | session: ${session.session_name}`);
+        return;
+      }
     }
 
-    // Trigger pipeline pass
-    await this._runPipelinePass(sessionId);
+    // Trigger Import stage (streaming: cascades to downstream stages on completion)
+    await this._triggerStage(sessionId, 'import');
   }
 
   /**
@@ -839,7 +859,8 @@ class LiveOrchestrator extends EventEmitter {
   async _handleStageError(sessionId, stageKey, error) {
     const sessionState = this.activeSessions.get(sessionId);
     if (sessionState) {
-      sessionState.busy = false;
+      sessionState.stageRunning[stageKey] = false;
+      sessionState.stagePending[stageKey] = false;
     }
 
     const session = await LiveSession.findOne({ id: sessionId });
@@ -983,13 +1004,15 @@ class LiveOrchestrator extends EventEmitter {
       { status: 'running' }
     );
 
+    const stageFlags = () => ({ import: false, motion: false, ctf: false, pick: false, extract: false, class2d: false, select: false, inimodel: false });
     let sessionState = this.activeSessions.get(sessionId);
     if (!sessionState) {
-      sessionState = { running: true, pendingRerun: false, busy: false };
+      sessionState = { running: true, stageRunning: stageFlags(), stagePending: stageFlags() };
       this.activeSessions.set(sessionId, sessionState);
     } else {
       sessionState.running = true;
-      sessionState.busy = false;
+      sessionState.stageRunning = stageFlags();
+      sessionState.stagePending = stageFlags();
     }
 
     // Restart watcher if not already running (only for watch mode)
@@ -1026,25 +1049,27 @@ class LiveOrchestrator extends EventEmitter {
     });
     this._broadcast(session.project_id, sessionId, 'session_resumed', {}, 'info');
 
-    // Check if there's a specific stage to resume from (set when paused mid-pipeline)
+    // Clear resume_from marker
     if (resumeFrom) {
-      logger.info(`[LiveOrchestrator] Resuming from stage: ${resumeFrom} | session: ${session.session_name}`);
-      try {
-        await this._submitStage(sessionId, resumeFrom);
-        // Clear resume_from AFTER successful submission to avoid losing the
-        // resume point if the server crashes between clear and submit
-        await LiveSession.findOneAndUpdate(
-          { id: sessionId },
-          { 'state.resume_from': null }
-        );
-      } catch (err) {
-        logger.error(`[LiveOrchestrator] Resume stage ${resumeFrom} failed: ${err.message}`);
-        await this._handleStageError(sessionId, resumeFrom, err);
-      }
-    } else {
-      // No specific resume point - run a fresh pipeline pass
-      await this._runPipelinePass(sessionId);
+      await LiveSession.findOneAndUpdate(
+        { id: sessionId },
+        { 'state.resume_from': null }
+      );
     }
+
+    // Trigger all stages that have pending work (streaming: each stage runs independently)
+    const freshSession = await LiveSession.findOne({ id: sessionId }).lean();
+    if (freshSession) {
+      for (const stage of PIPELINE_STAGES) {
+        if (this._isStageEnabled(freshSession, stage.key) && this._hasWorkForStage(freshSession, stage.key)) {
+          logger.info(`[LiveOrchestrator] Resume: triggering ${stage.key} (has pending work) | session: ${session.session_name}`);
+          await this._triggerStage(sessionId, stage.key);
+        }
+      }
+    }
+
+    // Check for missed downstream cascades (e.g., Class2D completed but Select never triggered)
+    await this._recoverDownstreamCascades(sessionId);
 
     logger.info(`[LiveOrchestrator] Session ${sessionId} resumed`);
   }
@@ -1068,7 +1093,9 @@ class LiveOrchestrator extends EventEmitter {
       const jobIds = [
         session.jobs.import_id, session.jobs.motion_id, session.jobs.ctf_id,
         session.jobs.pick_id, session.jobs.extract_id,
-        ...(session.jobs.class2d_ids || [])
+        ...(session.jobs.class2d_ids || []),
+        ...(session.jobs.select_ids || []),
+        ...(session.jobs.inimodel_ids || [])
       ].filter(Boolean);
 
       if (jobIds.length > 0) {
@@ -1129,7 +1156,9 @@ class LiveOrchestrator extends EventEmitter {
       const jobIds = [
         session.jobs?.import_id, session.jobs?.motion_id, session.jobs?.ctf_id,
         session.jobs?.pick_id, session.jobs?.extract_id,
-        ...(session.jobs?.class2d_ids || [])
+        ...(session.jobs?.class2d_ids || []),
+        ...(session.jobs?.select_ids || []),
+        ...(session.jobs?.inimodel_ids || [])
       ].filter(Boolean);
       if (jobIds.length > 0) {
         const cancelledDocs = await Job.find({
@@ -1213,6 +1242,9 @@ class LiveOrchestrator extends EventEmitter {
 
         logger.info(`[LiveOrchestrator] Resuming session ${session.session_name} after restart`);
         await this.startSession(session.id);
+
+        // Check for missed downstream cascades (e.g., Class2D completed but Select never triggered)
+        await this._recoverDownstreamCascades(session.id);
       } catch (err) {
         logger.error(`[LiveOrchestrator] Failed to resume session ${session.session_name}: ${err.message}`);
         // Mark as paused so user can manually fix and resume
@@ -1238,6 +1270,9 @@ class LiveOrchestrator extends EventEmitter {
       case 'ctf': return session.ctf_config?.enabled !== false;
       case 'pick': return session.picking_config?.enabled !== false;
       case 'extract': return session.extraction_config?.enabled !== false;
+      case 'class2d': return !!session.class2d_config?.enabled;
+      case 'select': return !!session.auto_select_config?.enabled;
+      case 'inimodel': return !!session.inimodel_config?.enabled;
       default: return true;
     }
   }
@@ -1247,7 +1282,7 @@ class LiveOrchestrator extends EventEmitter {
    * Parameter names must exactly match what each builder expects.
    * @returns {Promise<Object>} Job parameters
    */
-  async _buildJobParams(session, stageKey) {
+  async _buildJobParams(session, stageKey, projectPath) {
     const optics = session.optics;
     const threads = session.slurm_config?.threads || 4;
     const mpiProcs = this._getMpiProcs(session, stageKey);
@@ -1320,10 +1355,18 @@ class LiveOrchestrator extends EventEmitter {
       case 'pick': {
         const pick = session.picking_config;
         const ctfJobName = await this._getJobName(session, 'ctf_id');
+        // Use quality-filtered STAR file if it exists, otherwise fall back to unfiltered
+        let ctfStarFile = 'micrographs_ctf.star';
+        if (ctfJobName) {
+          const filteredPath = path.join(projectPath, `CtfFind/${ctfJobName}/micrographs_ctf_filtered.star`);
+          if (fs.existsSync(filteredPath)) {
+            ctfStarFile = 'micrographs_ctf_filtered.star';
+          }
+        }
         const isLoG = (pick.method || 'LoG') === 'LoG';
         return {
           ...common,
-          inputMicrographs: ctfJobName ? `CtfFind/${ctfJobName}/micrographs_ctf.star` : null,
+          inputMicrographs: ctfJobName ? `CtfFind/${ctfJobName}/${ctfStarFile}` : null,
           laplacianGaussian: isLoG ? 'Yes' : 'No',
           templateMatching: isLoG ? 'No' : 'Yes',
           useTopaz: 'No',
@@ -1467,6 +1510,8 @@ class LiveOrchestrator extends EventEmitter {
     if (session.jobs.pick_id === jobId) return 'pick';
     if (session.jobs.extract_id === jobId) return 'extract';
     if (session.jobs.class2d_ids?.includes(jobId)) return 'class2d';
+    if (session.jobs.select_ids?.includes(jobId)) return 'select';
+    if (session.jobs.inimodel_ids?.includes(jobId)) return 'inimodel';
     return null;
   }
 
@@ -1506,7 +1551,19 @@ class LiveOrchestrator extends EventEmitter {
 
     if (count > 0) {
       // Update session counter
-      await LiveSession.findOneAndUpdate({ id: sessionId }, { [mapping.field]: count });
+      const updateFields = { [mapping.field]: count };
+
+      // For Extract: also track micrographs_extracted (= movies_picked) for re-trigger logic
+      // particles_extracted is a particle count, but we need micrograph count to compare
+      if (stageKey === 'extract') {
+        const freshSession = await LiveSession.findOne({ id: sessionId }).lean();
+        const pickedCount = freshSession?.state?.movies_picked || 0;
+        if (pickedCount > 0) {
+          updateFields['state.micrographs_extracted'] = pickedCount;
+        }
+      }
+
+      await LiveSession.findOneAndUpdate({ id: sessionId }, updateFields);
 
       // Also update the Job's pipeline_stats so the dashboard stays in sync
       await Job.findOneAndUpdate(
@@ -1574,7 +1631,7 @@ class LiveOrchestrator extends EventEmitter {
    */
   async _check2DClassification(sessionId) {
     const session = await LiveSession.findOne({ id: sessionId }).lean();
-    if (!session || !session.class2d_config.enabled) return false;
+    if (!session || !session.class2d_config?.enabled) return false;
 
     const threshold = session.class2d_config.particle_threshold || 5000;
     const particles = session.state.particles_extracted || 0;
@@ -1626,7 +1683,7 @@ class LiveOrchestrator extends EventEmitter {
       submitToQueue: 'Yes',
       inputStarFile: `Extract/${extractJob.job_name}/particles.star`,
       numberOfClasses: cfg.num_classes || 50,
-      maskDiameter: cfg.particle_diameter || session.picking_config.max_diameter || 200,
+      maskDiameter: cfg.particle_diameter || session.picking_config?.max_diameter || 200,
       numberEMIterations: cfg.iterations || defaultIter,
       useVDAM: useVDAM ? 'Yes' : 'No',
       vdamMiniBatches: cfg.vdam_mini_batches || 200,
@@ -1658,7 +1715,7 @@ class LiveOrchestrator extends EventEmitter {
       input_job_ids: [session.jobs.extract_id],
       output_file_path: outputDir,
       command: Array.isArray(cmd) ? cmd.join(' ') : cmd,
-      execution_method: 'slurm',
+      execution_method: session.slurm_config?.execution_method || 'slurm',
       system_type: 'local',
       parameters: jobParams,
       pipeline_stats: {
@@ -1690,13 +1747,15 @@ class LiveOrchestrator extends EventEmitter {
       gres: session.slurm_config?.gpu_count || 1  // Always request GPU for Class2D
     };
 
+    const class2dExecMethod = session.slurm_config?.execution_method || 'slurm';
     await submitJobDirect({
       cmd, jobId, jobName,
       stageName: 'Class2D',
+      projectId: session.project_id,
       projectPath,
       outputDir,
-      executionMethod: 'slurm',
-      slurmParams
+      executionMethod: class2dExecMethod,
+      slurmParams: class2dExecMethod === 'slurm' ? slurmParams : {}
     });
 
     await session.addActivity('class2d_triggered', `2D Classification ${jobName} submitted (${session.state.particles_extracted} particles)`, {
@@ -1715,6 +1774,502 @@ class LiveOrchestrator extends EventEmitter {
     }, 'info');
 
     return true;
+  }
+
+  /**
+   * Release the next batch of movie files into the Movies/ directory.
+   * Creates per-file symlinks from the watch directory into Movies/ so that
+   * RELION Import only sees batch_size files at a time.
+   * @param {string} sessionId
+   * @returns {Promise<number>} Number of NEW files released (0 = nothing to release)
+   */
+  async _releaseNextBatch(sessionId, maxFiles) {
+    const session = await LiveSession.findOne({ id: sessionId }).lean();
+    if (!session) return 0;
+
+    const project = await Project.findOne({ id: session.project_id });
+    if (!project) return 0;
+
+    const projectPath = getProjectPath(project);
+    const moviesDir = path.join(projectPath, 'Movies');
+    // If maxFiles is provided (existing mode), release up to that many; otherwise use batch_size
+    const limit = maxFiles || session.batch_size || 25;
+
+    // Get all files the watcher has found (sorted for deterministic order)
+    const watcher = getLiveWatcher();
+    const allFiles = watcher.getKnownFiles(sessionId);
+    if (allFiles.length === 0) return 0;
+
+    // Count files already symlinked into Movies/
+    let existingCount = 0;
+    const existingNames = new Set();
+    try {
+      const entries = fs.readdirSync(moviesDir);
+      for (const entry of entries) {
+        existingNames.add(entry);
+        existingCount++;
+      }
+    } catch (e) { /* dir might not exist */ }
+
+    // Calculate how many to release
+    const toRelease = Math.min(limit, allFiles.length - existingCount);
+    if (toRelease <= 0) return 0;
+
+    // Symlink next batch of files
+    let released = 0;
+    for (const filePath of allFiles) {
+      const basename = path.basename(filePath);
+      if (existingNames.has(basename)) continue;
+
+      const symlinkDest = path.join(moviesDir, basename);
+      try {
+        fs.symlinkSync(filePath, symlinkDest);
+        released++;
+        if (released >= toRelease) break;
+      } catch (e) {
+        if (e.code !== 'EEXIST') {
+          logger.warn(`[LiveOrchestrator] Failed to symlink ${basename}: ${e.message}`);
+        }
+      }
+    }
+
+    if (released > 0) {
+      logger.info(`[LiveOrchestrator] Released ${released} files into Movies/ (total: ${existingCount + released}/${allFiles.length}) | session: ${session.session_name}`);
+    }
+    return released;
+  }
+
+  /**
+   * Apply quality filtering after CTF estimation.
+   * Reads micrographs_ctf.star, filters out micrographs with bad CTF resolution
+   * or excessive motion, writes micrographs_ctf_filtered.star.
+   * This is inline Node.js processing, NOT a RELION job.
+   */
+  async _applyQualityFilter(sessionId) {
+    const session = await LiveSession.findOne({ id: sessionId });
+    if (!session) return;
+
+    const thresholds = session.thresholds || {};
+    const maxRes = thresholds.ctf_resolution_max;
+    const maxMotion = thresholds.total_motion_max;
+
+    // Skip if no thresholds configured
+    if (!maxRes && !maxMotion) {
+      logger.debug('[LiveOrchestrator] No quality thresholds set, skipping filter');
+      return;
+    }
+
+    const ctfJobName = await this._getJobName(session, 'ctf_id');
+    if (!ctfJobName) return;
+
+    const project = await Project.findOne({ id: session.project_id });
+    if (!project) return;
+
+    const projectPath = getProjectPath(project);
+    const ctfStarPath = path.join(projectPath, `CtfFind/${ctfJobName}/micrographs_ctf.star`);
+    const filteredPath = path.join(projectPath, `CtfFind/${ctfJobName}/micrographs_ctf_filtered.star`);
+
+    if (!fs.existsSync(ctfStarPath)) {
+      logger.warn(`[LiveOrchestrator] CTF STAR file not found: ${ctfStarPath}`);
+      return;
+    }
+
+    // Read and filter the STAR file preserving RELION 5 multi-block format.
+    // RELION 5 STAR files contain multiple data blocks (e.g., data_optics + data_micrographs).
+    // We copy all blocks verbatim and only filter data rows in the micrographs block.
+    const content = await fs.promises.readFile(ctfStarPath, 'utf-8');
+    const lines = content.split('\n');
+
+    const outputLines = [];
+    let currentBlock = '';
+    let inLoop = false;
+    let pastColumnDefs = false;
+    let resIdx = -1;
+    let motIdx = -1;
+    let nameIdx = -1;
+    let totalMicrographs = 0;
+    let filteredCount = 0;
+    const rejectedNames = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Detect new data block — reset per-block state
+      if (trimmed.startsWith('data_')) {
+        currentBlock = trimmed;
+        inLoop = false;
+        pastColumnDefs = false;
+        resIdx = -1;
+        motIdx = -1;
+        outputLines.push(line);
+        continue;
+      }
+
+      // Detect loop_
+      if (trimmed === 'loop_') {
+        inLoop = true;
+        pastColumnDefs = false;
+        outputLines.push(line);
+        continue;
+      }
+
+      // Column definitions (e.g., _rlnCtfMaxResolution #5)
+      if (inLoop && !pastColumnDefs && trimmed.startsWith('_')) {
+        const parts = trimmed.split(/\s+/);
+        const colIdxMatch = parts[1]?.match(/#(\d+)/);
+        if (colIdxMatch) {
+          const idx = parseInt(colIdxMatch[1], 10) - 1;
+          if (parts[0] === '_rlnCtfMaxResolution') resIdx = idx;
+          if (parts[0] === '_rlnAccumMotionTotal') motIdx = idx;
+          if (parts[0] === '_rlnMicrographName') nameIdx = idx;
+        }
+        outputLines.push(line);
+        continue;
+      }
+
+      // Data rows — only filter in the micrographs block
+      if (inLoop && trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('_') && !trimmed.startsWith('data_')) {
+        pastColumnDefs = true;
+
+        const isMicrographsBlock = currentBlock === 'data_micrographs';
+        if (isMicrographsBlock) {
+          totalMicrographs++;
+          const values = trimmed.split(/\s+/);
+          let pass = true;
+          const reasons = [];
+          if (maxRes && resIdx >= 0 && resIdx < values.length) {
+            const resVal = parseFloat(values[resIdx]);
+            if (!isNaN(resVal) && resVal > maxRes) {
+              pass = false;
+              reasons.push(`CTF ${resVal.toFixed(1)}Å > ${maxRes}Å`);
+            }
+          }
+          if (maxMotion && motIdx >= 0 && motIdx < values.length) {
+            const motVal = parseFloat(values[motIdx]);
+            if (!isNaN(motVal) && motVal > maxMotion) {
+              pass = false;
+              reasons.push(`motion ${motVal.toFixed(1)}Å > ${maxMotion}Å`);
+            }
+          }
+          if (pass) {
+            filteredCount++;
+            outputLines.push(line);
+          } else {
+            const name = (nameIdx >= 0 && nameIdx < values.length)
+              ? path.basename(values[nameIdx])
+              : `row${totalMicrographs}`;
+            rejectedNames.push(`${name} (${reasons.join(', ')})`);
+          }
+        } else {
+          // Non-micrographs block (e.g., optics) — pass through unchanged
+          outputLines.push(line);
+        }
+        continue;
+      }
+
+      // Everything else (comments, # version, blank lines) — pass through
+      outputLines.push(line);
+    }
+
+    await fs.promises.writeFile(filteredPath, outputLines.join('\n'));
+
+    const rejected = totalMicrographs - filteredCount;
+    const filtered = filteredCount;
+
+    await LiveSession.findOneAndUpdate({ id: sessionId }, {
+      'state.movies_filtered': filtered,
+      'state.movies_rejected': rejected,
+    });
+
+    // Log rejected micrographs (cap at 20 to avoid huge activity entries)
+    const rejectedSample = rejectedNames.slice(0, 20);
+    const rejectedContext = {
+      total: totalMicrographs,
+      passed: filtered,
+      rejected,
+      thresholds: { ctf_resolution_max: maxRes, total_motion_max: maxMotion },
+      rejectedMicrographs: rejectedSample,
+    };
+
+    if (filtered === 0 && totalMicrographs > 0) {
+      await session.addActivity('quality_filter', `Quality filter rejected ALL ${totalMicrographs} micrographs — downstream stages will have no input. Consider relaxing thresholds.`, {
+        level: 'error',
+        stage: 'QualityFilter',
+        context: rejectedContext
+      });
+      logger.warn(`[LiveOrchestrator] Quality filter rejected ALL ${totalMicrographs} micrographs | session: ${session.session_name}`);
+    } else if (rejected > 0) {
+      await session.addActivity('quality_filter', `Quality filter: ${filtered}/${totalMicrographs} micrographs passed (${rejected} rejected)`, {
+        level: rejected > totalMicrographs * 0.5 ? 'warning' : 'info',
+        stage: 'QualityFilter',
+        context: rejectedContext
+      });
+    }
+
+    logger.info(`[LiveOrchestrator] Quality filter: ${filtered}/${totalMicrographs} passed | session: ${session.session_name}`);
+  }
+
+  /**
+   * Submit auto 2D class selection (relion_class_ranker) after Class2D completes.
+   * @param {string} sessionId
+   * @param {string} class2dJobId - The Class2D job that just completed
+   */
+  async _submitAutoSelect(sessionId, class2dJobId) {
+    const session = await LiveSession.findOne({ id: sessionId });
+    if (!session) return;
+
+    const cfg = session.auto_select_config || {};
+    if (!cfg.enabled) return;
+
+    const class2dJob = await Job.findOne({ id: class2dJobId }).lean();
+    if (!class2dJob) {
+      logger.warn('[LiveOrchestrator] Class2D job not found for auto-select');
+      return;
+    }
+
+    const project = await Project.findOne({ id: session.project_id });
+    if (!project) return;
+
+    const projectPath = getProjectPath(project);
+
+    // Find latest _optimiser.star in Class2D output (relion_class_ranker needs this).
+    // output_file_path is absolute; use directly for fs access, relative for RELION command.
+    const class2dOutputDir = class2dJob.output_file_path;
+    const class2dRelDir = path.relative(projectPath, class2dOutputDir);
+    let optimiserFile = null;
+    try {
+      const files = fs.readdirSync(class2dOutputDir)
+        .filter(f => f.endsWith('_optimiser.star'))
+        .sort();
+      if (files.length > 0) {
+        optimiserFile = `${class2dRelDir}/${files[files.length - 1]}`;
+      }
+    } catch (e) {
+      logger.warn(`[LiveOrchestrator] Failed to scan for optimiser files: ${e.message}`);
+    }
+
+    if (!optimiserFile) {
+      logger.warn('[LiveOrchestrator] No optimiser.star found in Class2D output, skipping auto-select');
+      return;
+    }
+
+    const jobParams = {
+      projectId: session.project_id,
+      classFromJob: optimiserFile,
+      select2DClass: true,
+      minThresholdAutoSelect: cfg.min_score || 0.5,
+      manyParticles: cfg.min_particles ?? 3000,
+      manyClasses: cfg.min_classes || -1
+    };
+
+    const builder = new SubsetBuilder(jobParams, project, { id: session.user_id });
+    const { valid, error: validError } = builder.validate();
+    if (!valid) {
+      logger.warn(`[LiveOrchestrator] Auto-select validation failed: ${validError}`);
+      return;
+    }
+
+    const jobName = await Job.getNextJobName(session.project_id);
+    const outputDir = builder.getOutputDir(jobName);
+    const cmd = builder.buildCommand(outputDir, jobName);
+    const jobId = Job.generateId();
+    const executionMethod = session.slurm_config?.execution_method || 'slurm';
+
+    await Job.create({
+      id: jobId,
+      project_id: session.project_id,
+      user_id: session.user_id,
+      job_name: jobName,
+      job_type: 'Subset',
+      status: JOB_STATUS.PENDING,
+      input_job_ids: [class2dJobId],
+      output_file_path: outputDir,
+      command: Array.isArray(cmd) ? cmd.join(' ') : cmd,
+      execution_method: executionMethod,
+      system_type: 'local',
+      parameters: jobParams,
+      pipeline_stats: {
+        pixel_size: this._computePixelSize(session, 'class2d'),
+        micrograph_count: 0,
+        particle_count: 0,
+        box_size: null,
+        resolution: null,
+        class_count: 0,
+        iteration_count: 0
+      }
+    });
+
+    await LiveSession.findOneAndUpdate(
+      { id: sessionId },
+      {
+        $push: { 'jobs.select_ids': jobId },
+        'state.current_stage': 'Select'
+      }
+    );
+
+    const slurmParams = this._buildSlurmParams(session, 'select', builder);
+    // Force CPU-only PyTorch for class_ranker — avoids segfault on unsupported GPU architectures
+    slurmParams.envVars = { CUDA_VISIBLE_DEVICES: '""', SINGULARITYENV_CUDA_VISIBLE_DEVICES: '""' };
+    await submitJobDirect({
+      cmd, jobId, jobName,
+      stageName: 'Select',
+      projectId: session.project_id,
+      projectPath,
+      outputDir,
+      executionMethod,
+      slurmParams: executionMethod === 'slurm' ? slurmParams : {}
+    });
+
+    await session.addActivity('auto_select_triggered',
+      `Auto 2D class selection ${jobName} submitted (class ranker min_score: ${cfg.min_score || 0.5})`, {
+      level: 'info',
+      stage: 'Select',
+      jobName: jobName,
+      context: {
+        class2dJob: class2dJob.job_name,
+        minScore: cfg.min_score || 0.5,
+        optimiserFile
+      }
+    });
+    this._broadcast(session.project_id, sessionId, 'auto_select_triggered', {
+      jobName, class2dJob: class2dJob.job_name
+    }, 'info');
+
+    logger.info(`[LiveOrchestrator] Auto-select ${jobName} submitted | session: ${session.session_name}`);
+  }
+
+  /**
+   * Submit 3D initial model (relion_refine --grad --denovo_3dref) after auto-select.
+   * @param {string} sessionId
+   * @param {string} selectJobId - The Select job that just completed
+   */
+  async _submitInitialModel(sessionId, selectJobId) {
+    const session = await LiveSession.findOne({ id: sessionId });
+    if (!session) return;
+
+    const cfg = session.inimodel_config || {};
+    if (!cfg.enabled) return;
+
+    const selectJob = await Job.findOne({ id: selectJobId }).lean();
+    if (!selectJob) {
+      logger.warn('[LiveOrchestrator] Select job not found for initial model');
+      return;
+    }
+
+    const project = await Project.findOne({ id: session.project_id });
+    if (!project) return;
+
+    const projectPath = getProjectPath(project);
+
+    // Check that selected particles exist.
+    // output_file_path is absolute; use directly for fs access, relative for RELION command.
+    const selectOutputDir = selectJob.output_file_path;
+    const selectRelDir = path.relative(projectPath, selectOutputDir);
+    const particlesPath = path.join(selectOutputDir, 'particles.star');
+    if (!fs.existsSync(particlesPath)) {
+      logger.warn(`[LiveOrchestrator] No particles.star from auto-select, skipping initial model`);
+      return;
+    }
+
+    // Count selected particles
+    const particleCount = await this._countStarDataRows(particlesPath);
+    if (particleCount === 0) {
+      logger.warn('[LiveOrchestrator] Auto-select produced 0 particles, skipping initial model');
+      await session.addActivity('inimodel_skipped', 'Initial model skipped: no particles from auto-select', {
+        level: 'warning',
+        stage: 'InitialModel'
+      });
+      return;
+    }
+
+    const maskDiameter = cfg.mask_diameter || session.picking_config?.max_diameter || 200;
+    const jobParams = {
+      projectId: session.project_id,
+      inputStarFile: `${selectRelDir}/particles.star`,
+      numberOfClasses: cfg.num_classes || 1,
+      symmetry: cfg.symmetry || 'C1',
+      maskDiameter,
+      numberOfVdam: cfg.iterations || 200,
+      gpuAcceleration: cfg.use_gpu ? 'Yes' : 'No',
+      gpuToUse: cfg.gpu_ids || '0',
+      threads: session.slurm_config?.threads || 4,
+    };
+
+    const builder = new InitialModelBuilder(jobParams, project, { id: session.user_id });
+    const { valid, error: validError } = builder.validate();
+    if (!valid) {
+      logger.warn(`[LiveOrchestrator] InitialModel validation failed: ${validError}`);
+      return;
+    }
+
+    const jobName = await Job.getNextJobName(session.project_id);
+    const outputDir = builder.getOutputDir(jobName);
+    const cmd = builder.buildCommand(outputDir, jobName);
+    const jobId = Job.generateId();
+    const executionMethod = session.slurm_config?.execution_method || 'slurm';
+
+    await Job.create({
+      id: jobId,
+      project_id: session.project_id,
+      user_id: session.user_id,
+      job_name: jobName,
+      job_type: 'InitialModel',
+      status: JOB_STATUS.PENDING,
+      input_job_ids: [selectJobId],
+      output_file_path: outputDir,
+      command: Array.isArray(cmd) ? cmd.join(' ') : cmd,
+      execution_method: executionMethod,
+      system_type: 'local',
+      parameters: jobParams,
+      pipeline_stats: {
+        pixel_size: this._computePixelSize(session, 'class2d'),
+        micrograph_count: 0,
+        particle_count: particleCount,
+        box_size: null,
+        resolution: null,
+        class_count: cfg.num_classes || 1,
+        iteration_count: 0
+      }
+    });
+
+    await LiveSession.findOneAndUpdate(
+      { id: sessionId },
+      {
+        $push: { 'jobs.inimodel_ids': jobId },
+        'state.current_stage': 'InitialModel',
+        'state.particles_selected': particleCount
+      }
+    );
+
+    const slurmParams = this._buildSlurmParams(session, 'inimodel', builder);
+    await submitJobDirect({
+      cmd, jobId, jobName,
+      stageName: 'InitialModel',
+      projectId: session.project_id,
+      projectPath,
+      outputDir,
+      executionMethod,
+      slurmParams: executionMethod === 'slurm' ? slurmParams : {}
+    });
+
+    await session.addActivity('inimodel_triggered',
+      `3D Initial Model ${jobName} submitted (${particleCount} particles, sym: ${cfg.symmetry || 'C1'})`, {
+      level: 'info',
+      stage: 'InitialModel',
+      jobName: jobName,
+      context: {
+        particleCount,
+        numClasses: cfg.num_classes || 1,
+        symmetry: cfg.symmetry || 'C1',
+        maskDiameter,
+        selectJob: selectJob.job_name
+      }
+    });
+    this._broadcast(session.project_id, sessionId, 'inimodel_triggered', {
+      jobName, particles: particleCount
+    }, 'info');
+
+    logger.info(`[LiveOrchestrator] InitialModel ${jobName} submitted | session: ${session.session_name}`);
   }
 
   /**
@@ -1752,22 +2307,6 @@ class LiveOrchestrator extends EventEmitter {
     await watcher.stop(sessionId);
 
     logger.info(`[LiveOrchestrator] Session completed | session: ${freshSession?.session_name || sessionId}`);
-  }
-
-  /**
-   * Release the busy lock for a session
-   */
-  _releaseBusy(sessionId) {
-    const state = this.activeSessions.get(sessionId);
-    if (state) {
-      state.busy = false;
-      // Check for pending rerun
-      if (state.pendingRerun && state.running) {
-        this._runPipelinePass(sessionId).catch(err => {
-          logger.error(`[LiveOrchestrator] Pending rerun failed after busy release: ${err.message}`);
-        });
-      }
-    }
   }
 
   /**
@@ -1830,6 +2369,96 @@ class LiveOrchestrator extends EventEmitter {
     await watcher.stopAll();
     this.activeSessions.clear();
     logger.info('[LiveOrchestrator] Shut down');
+  }
+
+  /**
+   * Handle config updates mid-run.
+   * Called by the controller after updating the DB. Checks if any newly-enabled
+   * stages (Class2D, AutoSelect, InitialModel) should trigger immediately because
+   * their upstream data already exists.
+   * @param {string} sessionId
+   * @param {string[]} changedKeys - camelCase keys that were updated
+   */
+  /**
+   * Recover missed downstream cascades after server restart.
+   * Checks if Class2D completed but Select was never triggered,
+   * or Select completed but InitialModel was never triggered.
+   */
+  async _recoverDownstreamCascades(sessionId) {
+    const session = await LiveSession.findOne({ id: sessionId }).lean();
+    if (!session || session.status !== 'running') return;
+
+    // Class2D completed but Select never triggered?
+    if (session.auto_select_config?.enabled) {
+      const class2dIds = session.jobs?.class2d_ids || [];
+      const selectIds = session.jobs?.select_ids || [];
+      if (class2dIds.length > 0 && selectIds.length === 0) {
+        const latestId = class2dIds[class2dIds.length - 1];
+        const latestJob = await Job.findOne({ id: latestId }).lean();
+        if (latestJob?.status === JOB_STATUS.SUCCESS) {
+          logger.info(`[LiveOrchestrator] Recovery: Class2D ${latestJob.job_name} completed but Select never triggered — submitting now | session: ${session.session_name}`);
+          await this._submitAutoSelect(sessionId, latestId);
+        }
+      }
+    }
+
+    // Select completed but InitialModel never triggered?
+    if (session.inimodel_config?.enabled) {
+      const selectIds = session.jobs?.select_ids || [];
+      const inimodelIds = session.jobs?.inimodel_ids || [];
+      if (selectIds.length > 0 && inimodelIds.length === 0) {
+        const latestId = selectIds[selectIds.length - 1];
+        const latestJob = await Job.findOne({ id: latestId }).lean();
+        if (latestJob?.status === JOB_STATUS.SUCCESS) {
+          logger.info(`[LiveOrchestrator] Recovery: Select ${latestJob.job_name} completed but InitialModel never triggered — submitting now | session: ${session.session_name}`);
+          await this._submitInitialModel(sessionId, latestId);
+        }
+      }
+    }
+  }
+
+  async onConfigUpdated(sessionId, changedKeys) {
+    const session = await LiveSession.findOne({ id: sessionId }).lean();
+    if (!session || session.status !== 'running') return;
+
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState || !sessionState.running) return;
+
+    logger.info(`[LiveOrchestrator] Config updated mid-run: ${changedKeys.join(', ')} | session: ${session.session_name}`);
+
+    // Class2D just enabled → check if particles already exceed threshold
+    if (changedKeys.includes('class2dConfig') && session.class2d_config?.enabled) {
+      const triggered = await this._check2DClassification(sessionId);
+      if (triggered) {
+        logger.info(`[LiveOrchestrator] Class2D triggered after mid-run enable | session: ${session.session_name}`);
+      }
+    }
+
+    // AutoSelect just enabled → check if any Class2D jobs already completed
+    if (changedKeys.includes('autoSelectConfig') && session.auto_select_config?.enabled) {
+      const class2dIds = session.jobs?.class2d_ids || [];
+      if (class2dIds.length > 0) {
+        const latestId = class2dIds[class2dIds.length - 1];
+        const latestJob = await Job.findOne({ id: latestId }).lean();
+        if (latestJob?.status === JOB_STATUS.SUCCESS) {
+          await this._submitAutoSelect(sessionId, latestId);
+          logger.info(`[LiveOrchestrator] AutoSelect triggered after mid-run enable | session: ${session.session_name}`);
+        }
+      }
+    }
+
+    // InitialModel just enabled → check if any Select jobs already completed
+    if (changedKeys.includes('inimodelConfig') && session.inimodel_config?.enabled) {
+      const selectIds = session.jobs?.select_ids || [];
+      if (selectIds.length > 0) {
+        const latestId = selectIds[selectIds.length - 1];
+        const latestJob = await Job.findOne({ id: latestId }).lean();
+        if (latestJob?.status === JOB_STATUS.SUCCESS) {
+          await this._submitInitialModel(sessionId, latestId);
+          logger.info(`[LiveOrchestrator] InitialModel triggered after mid-run enable | session: ${session.session_name}`);
+        }
+      }
+    }
   }
 }
 

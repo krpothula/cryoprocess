@@ -83,8 +83,25 @@ export const getSessionActivity = (sessionId, filters = {}) => {
 };
 
 /**
+ * Update session config mid-run
+ * @param {string} sessionId
+ * @param {Object} config - Updated config fields (camelCase)
+ */
+export const updateSessionConfig = (sessionId, config) => {
+  return axiosInstance.patch(`${BASE}/${sessionId}/config`, config);
+};
+
+/**
  * List all live sessions for a project
  */
 export const getProjectSessions = (projectId) => {
   return axiosInstance.get(`${BASE}/project/${projectId}`);
+};
+
+/**
+ * Get selected 2D class gallery for a live session
+ * Returns images of classes selected by relion_class_ranker
+ */
+export const getSelectGallery = (sessionId) => {
+  return axiosInstance.get(`${BASE}/${sessionId}/select-gallery`);
 };

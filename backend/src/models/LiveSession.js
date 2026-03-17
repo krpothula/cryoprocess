@@ -2,7 +2,7 @@
  * LiveSession Model
  *
  * Represents an automated live processing session that chains RELION jobs
- * (Import -> MotionCorr -> CTF -> AutoPick -> Extract -> Class2D)
+ * (Import -> MotionCorr -> CTF -> [QualityFilter] -> AutoPick -> Extract -> Class2D -> [AutoSelect] -> [InitialModel])
  * and re-runs the pipeline as new movies arrive.
  */
 
@@ -156,10 +156,10 @@ const liveSessionSchema = new mongoose.Schema({
     vdam_mini_batches: { type: Number, default: 200 }
   },
 
-  // Minimum movies before triggering first pipeline pass
-  movie_threshold: {
+  // Process in batches of this many micrographs (e.g. trigger pipeline every 25 new movies)
+  batch_size: {
     type: Number,
-    default: 0   // 0 = no threshold, start immediately
+    default: 25
   },
 
   // Quality filtering thresholds
@@ -168,8 +168,28 @@ const liveSessionSchema = new mongoose.Schema({
     total_motion_max: { type: Number, default: 30.0 }
   },
 
+  // Auto 2D class selection parameters (relion_class_ranker)
+  auto_select_config: {
+    enabled: { type: Boolean, default: true },
+    min_score: { type: Number, default: 0.5 },
+    min_particles: { type: Number, default: 3000 },
+    min_classes: { type: Number, default: -1 }
+  },
+
+  // 3D initial model parameters (relion_refine --grad --denovo_3dref)
+  inimodel_config: {
+    enabled: { type: Boolean, default: false },
+    symmetry: { type: String, default: 'C1' },
+    num_classes: { type: Number, default: 1 },
+    mask_diameter: { type: Number, default: 200 },
+    iterations: { type: Number, default: 200 },
+    use_gpu: { type: Boolean, default: true },
+    gpu_ids: { type: String, default: '0' }
+  },
+
   // SLURM / execution settings
   slurm_config: {
+    execution_method: { type: String, enum: ['slurm', 'local'], default: 'slurm' },
     queue: { type: String, default: null },
     threads: { type: Number, default: 4 },
     mpi_procs: { type: Number, default: 1 },
@@ -184,7 +204,11 @@ const liveSessionSchema = new mongoose.Schema({
     movies_ctf: { type: Number, default: 0 },
     movies_picked: { type: Number, default: 0 },
     particles_extracted: { type: Number, default: 0 },
+    micrographs_extracted: { type: Number, default: 0 },
+    movies_filtered: { type: Number, default: 0 },
     movies_rejected: { type: Number, default: 0 },
+    classes_selected: { type: Number, default: 0 },
+    particles_selected: { type: Number, default: 0 },
     current_stage: { type: String, default: null },
     last_pipeline_pass: { type: Date, default: null },
     pass_count: { type: Number, default: 0 },
@@ -204,7 +228,9 @@ const liveSessionSchema = new mongoose.Schema({
     ctf_id: { type: String, default: null },
     pick_id: { type: String, default: null },
     extract_id: { type: String, default: null },
-    class2d_ids: { type: [String], default: [] }
+    class2d_ids: { type: [String], default: [] },
+    select_ids: { type: [String], default: [] },
+    inimodel_ids: { type: [String], default: [] }
   },
 
   // Activity log (capped at last 1000 entries)

@@ -16,6 +16,7 @@ router.get('/project/:projectId', controller.listProjectSessions);
 
 // Session by ID
 router.get('/:id', controller.getSession);
+router.patch('/:id/config', controller.updateSessionConfig);
 router.delete('/:id', controller.deleteSession);
 
 // Session lifecycle
@@ -28,5 +29,6 @@ router.post('/:id/stop', controller.stopSession);
 router.get('/:id/stats', controller.getSessionStats);
 router.get('/:id/exposures', controller.getSessionExposures);
 router.get('/:id/activity', controller.getSessionActivity);
+router.get('/:id/select-gallery', controller.getSelectGallery);
 
 module.exports = router;

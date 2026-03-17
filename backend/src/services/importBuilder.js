@@ -23,6 +23,7 @@ const { getKnownFlags } = require('../config/relionFlags');
 // Each entry: { flag: RELION --do_* flag, ofile: output filename }
 const NODE_TYPE_CONFIG = {
   'Particle coordinates': { flag: '--do_coordinates', ofile: 'coords_suffix_autopick.star' },
+  'Particle STAR file':   { flag: '--do_particles',   ofile: 'particles.star' },
   'Unfiltered half-map':  { flag: '--do_halfmaps',    ofile: 'halfmap.mrc' },
   '2D references':        { flag: '--do_other',        ofile: 'class_averages.star' },
   '3D reference':         { flag: '--do_other',        ofile: 'ref3d.mrc' },

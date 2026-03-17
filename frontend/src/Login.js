@@ -115,11 +115,6 @@ const Login = () => {
             {isLoading ? "Please wait ..." : "Log In"}
           </button>
 
-          <div className="text-sm text-center">
-            <Link to="/forgot-password" className="font-semibold text-[var(--color-primary)]">
-              Forgot password?
-            </Link>
-          </div>
 
           <div className="text-sm text-center text-[var(--color-text-secondary)]">
             Don't have an account?{" "}

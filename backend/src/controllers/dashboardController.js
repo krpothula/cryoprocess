@@ -2062,6 +2062,46 @@ exports.getAutopickResults = async (req, res) => {
       }
     }
 
+    // Fallback for running jobs: autopick.star not written until job completion.
+    // RELION writes individual *_autopick.star coord files per micrograph during the run.
+    // Scan them recursively so the list is populated in real time (same as how progressHelper counts).
+    if (micrographs.length === 0) {
+      try {
+        const { glob } = require('glob');
+        const coordFiles = await glob('**/*_autopick.star', { cwd: outputDir, nodir: true });
+        coordFiles.sort();
+        for (const relPath of coordFiles.slice(0, 100)) {
+          const fullPath = path.join(outputDir, relPath);
+          const baseName = path.basename(relPath).replace('_autopick.star', '');
+          let particleCount = 0;
+          let avgFom = 0;
+          try {
+            const coordData = await parseStarFile(fullPath);
+            const blk = coordData[''] || coordData.data_;
+            const coords = blk?.rows || blk || [];
+            particleCount = Array.isArray(coords) ? coords.length : 0;
+            if (particleCount > 0) {
+              const fomSum = coords.reduce((sum, c) => sum + (parseFloat(c.rlnAutopickFigureOfMerit) || 0), 0);
+              avgFom = fomSum / particleCount;
+            }
+          } catch (e) { /* skip unreadable files */ }
+          micrographs.push({
+            micrographName: baseName,
+            micrographPath: relPath,
+            coordFile: '',
+            particleCount,
+            fomAvg: Math.round(avgFom * 1000) / 1000
+          });
+          totalParticles += particleCount;
+        }
+        if (micrographs.length > 0) {
+          logger.info(`[AutoPick] Fallback: found ${micrographs.length} coord files in subdirs`);
+        }
+      } catch (e) {
+        logger.warn(`[AutoPick] Fallback scan failed: ${e.message}`);
+      }
+    }
+
     // Sort by particle count descending
     micrographs.sort((a, b) => b.particleCount - a.particleCount);
 
@@ -2077,7 +2117,7 @@ exports.getAutopickResults = async (req, res) => {
         totalParticles: totalParticles,
         avgParticlesPerMicrograph: micrographs.length > 0 ? Math.round(totalParticles / micrographs.length) : 0
       },
-      micrographs: micrographs.slice(0, 50) // Limit to 50 for display
+      micrographs: micrographs.slice(0, 100) // Limit to 100 for display
     };
 
     return response.successData(res, responseData);
@@ -2181,9 +2221,35 @@ exports.getAutopickImage = async (req, res) => {
         }
       }
 
+      // Fallback for running jobs: autopick.star not written until completion.
+      // Search for the per-micrograph coordinate file directly by name.
+      if (!coordFilePath) {
+        try {
+          const { glob } = require('glob');
+          const matches = await glob(`**/${baseName}_autopick.star`, { cwd: outputDir, nodir: true });
+          if (matches.length > 0) {
+            coordFilePath = path.join(outputDir, matches[0]);
+            // Derive micrograph path: strip the AutoPick job prefix and _autopick.star suffix
+            // e.g. MotionCorr/Job002/Movies/FoilHole_001_autopick.star → MotionCorr/Job002/Movies/FoilHole_001.mrc
+            const relCoord = matches[0]; // relative to outputDir
+            const derivedMic = relCoord.replace(/_autopick\.star$/, '.mrc');
+            const candidateMrc = path.join(projectRoot, derivedMic);
+            if (fs.existsSync(candidateMrc)) {
+              micrographPath = derivedMic;
+            }
+            logger.info(`[AutoPick] Image: found coord file via fallback scan: ${matches[0]}`);
+          }
+        } catch (e) {
+          logger.warn(`[AutoPick] Image: fallback coord scan failed: ${e.message}`);
+        }
+      }
+
       // Parse the coordinate file
       if (coordFilePath) {
-        const fullCoordPath = path.join(projectRoot, coordFilePath);
+        // coordFilePath may be relative (from autopick.star) or absolute (from fallback scan)
+        const fullCoordPath = path.isAbsolute(coordFilePath)
+          ? coordFilePath
+          : path.join(projectRoot, coordFilePath);
         if (fs.existsSync(fullCoordPath)) {
           try {
             const coordData = await parseStarFile(fullCoordPath);

@@ -86,7 +86,8 @@ function getMpiProcs(data) {
  */
 function getThreads(data) {
   return Math.max(1, getIntParam(data, [
-    'numberOfThreads'
+    'numberOfThreads',
+    'threads'
   ], DEFAULTS.THREADS));
 }
 

@@ -186,6 +186,10 @@ const Import = () => {
       label: "Unfiltered half-map (.mrc)",
       value: "Unfiltered half-map",
     },
+    {
+      label: "Particle STAR file (.star)",
+      value: "Particle STAR file",
+    },
   ];
   return (
     <div className="container">
@@ -306,6 +310,7 @@ const Import = () => {
           }}
           extensions={
             formData.otherNodeType === "Particle coordinates" ? ".star" :
+            formData.otherNodeType === "Particle STAR file" ? ".star" :
             formData.otherNodeType === "2D references" ? ".mrcs,.mrc" :
             ".mrc"
           }
